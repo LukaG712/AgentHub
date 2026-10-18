@@ -1,13 +1,14 @@
 """FastAPI application for the agent hub."""
 
 import asyncio
+import contextlib
 import json
 import os
 import queue
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
@@ -71,14 +72,14 @@ def _verify_token(
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
-app = FastAPI(title="Agent Hub")
-
-
-@app.on_event("startup")
-async def startup():
-    """Recover stale runs and validate configuration on startup."""
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Startup and shutdown event handler."""
     recover_stale_runs()
     providers.ensure_default_providers()
+    yield
+
+app = FastAPI(title="Agent Hub", lifespan=lifespan)
 
 
 def _validate_startup() -> Dict[str, Any]:
