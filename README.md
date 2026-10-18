@@ -1,50 +1,67 @@
 # Agent Hub
 
-A self-hosted dashboard for managing CLI coding agents (JetBrains Junie CLI), a shared skill library, and a web UI — all free, local, and offline-capable.
+A self-hosted dashboard that lets you manage AI coding agents (JetBrains Junie CLI), share skills between them, and control everything from a web browser.  Runs entirely on your machine — no cloud, no paid APIs, no internet connection needed once it's set up.
 
-## Install
+## What it does
 
-```bash
-pip install -r requirements.txt
-```
+- **Manage agents** — define one or more AI agents, each with its own project folder and guidelines.
+- **Shared skills** — create reusable skills (prompts and instructions) and enable them for any agent.
+- **Web dashboard** — see agent status, send tasks, view output, and manage everything from a browser.
+- **Run in the background** — install as a systemd service that starts automatically on boot.
+
+## Works together with JunieOrchestrator
+
+Agent Hub pairs well with [JunieOrchestrator](https://github.com/LukaG712/JunieOrchestrator).  In plain terms:
+
+- **JunieOrchestrator** is the chat front door.  It sits behind Open WebUI, improves your prompts, and decides which agent to call.  It typically runs on port **8000**.
+- **Agent Hub** is the workhorse.  It receives tasks from the orchestrator (or from the web dashboard) and runs the actual agents.  It runs on port **8080**.
+
+Together they give you a full pipeline: chat → prompt improvement → agent execution → results.  You can use Agent Hub on its own too — the web dashboard lets you send tasks directly.
+
+## Before you start
+
+Make sure these are in place **before** running the setup:
+
+1. **Linux machine** — Agent Hub runs on Linux (tested on Debian/Ubuntu).  A Raspberry Pi 4 or any small VPS works fine.
+2. **Junie installed** — install the [Junie CLI](https://junie.jetbrains.com) and make sure `junie` is on your PATH.
+3. **Junie logged in** — log in to Junie (`junie --auth=...`) as the **same Linux user** that will run the hub.  The agents reuse this login.
+4. **Project directories ready** — if your agent works on an Obsidian vault, mount it at the path you'll put in `hub.yaml`.  For other agents, create the project folders first.
+5. **Use a scratch copy first** — when testing, point agents at a copy of your data, not the real thing.
 
 ## Quick Start
 
-1. Copy the example config:
-   ```bash
-   cp hub.example.yaml hub.yaml
-   ```
-2. Edit `hub.yaml` to set your agents' `project_dir` and other settings.
-3. Set an API key and start the server:
-   ```bash
-   export HUB_API_KEY="your-secret-key"
-   uvicorn hub.api:app --host 0.0.0.0 --port 8080
-   ```
-4. Open `http://localhost:8080` in your browser and enter the API key.
+```bash
+git clone https://github.com/LukaG712/AgentHub.git
+cd AgentHub
+./setup.sh
+./start.sh
+```
 
-## systemd Service (Linux)
+Then open **http://localhost:8080** in your browser and enter the API key that `setup.sh` printed.
 
-```ini
-[Unit]
-Description=Agent Hub
-After=network.target
+That's it.  The dashboard lets you edit agents, create skills, and send tasks.
 
-[Service]
-Type=simple
-User=%i
-Environment=HOME=%h
-Environment=HUB_API_KEY=your-secret-key
-WorkingDirectory=/path/to/agent-hub
-ExecStart=/path/to/venv/bin/uvicorn hub.api:app --host 0.0.0.0 --port 8080
-Restart=on-failure
+## Running in the background
 
-[Install]
-WantedBy=default.target
+To keep Agent Hub running after you log out, install it as a systemd service:
+
+```bash
+sudo ./install_service.sh
+```
+
+This creates a service that starts on boot, runs as your user (not root), and reads the API key from `.env`.
+
+```bash
+systemctl status agent-hub       # check status
+journalctl -u agent-hub -f       # live logs
+sudo systemctl stop agent-hub    # stop
 ```
 
 ## Configuration
 
 ### hub.yaml
+
+The main config file.  `setup.sh` creates it from `hub.example.yaml`.  Edit it to change agents:
 
 ```yaml
 runners:
@@ -71,44 +88,21 @@ agents:
     guidelines: "Never delete files. New notes go in _ai/."
 ```
 
-- `{task}` and `{project}` are replaced at runtime.
-- If `JUNIE_BIN` env var is set, it replaces `junie` in the command.
-- `HUB_TIMEOUT` (default 1800s) controls the max running time per agent task.
+- `{task}` and `{project}` are replaced automatically when a run starts.
+- The web UI lets you edit agent properties (title, description, project_dir, skills, guidelines) without touching the file.  Runner commands can only be changed in `hub.yaml` directly — the UI and API never expose them.
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |---|---|---|
 | `HUB_CONFIG` | `./hub.yaml` | Path to config file |
-| `HUB_API_KEY` | *(required)* | Bearer token for API auth |
+| `HUB_API_KEY` | *(required)* | Bearer token for API auth (stored in `.env`) |
 | `HUB_TIMEOUT` | `1800` | Max seconds per agent run |
 | `JUNIE_BIN` | — | Override the `junie` binary path |
 
-## Safety Model
+### Skills
 
-- **LAN only**: The server binds to `0.0.0.0` — expose only on your local network.
-- **Runner commands are immutable via API/UI**: Commands live only in `hub.yaml` on disk. The API and web UI can edit agent properties (title, description, project_dir, skills, guidelines, runner choice) but never the command template.
-- **Bearer token auth**: All `/api/*` endpoints require `HUB_API_KEY`. The static UI at `/` is served without auth.
-- **Name validation**: Agent and skill names must match `^[a-z0-9][a-z0-9-]{0,40}$`.
-- **Path safety**: Skill paths are resolved and verified to stay within the skills directory.
-
-## CLI Commands
-
-```bash
-python -m hub.cli agents          # List agents
-python -m hub.cli run vault "..." # Run a task
-python -m hub.cli run vault "..." --no-wait  # Fail immediately if busy
-python -m hub.cli runs [agent]    # List runs
-python -m hub.cli stop <run-id>   # Stop a running agent
-python -m hub.cli skills          # List skills
-python -m hub.cli skill-enable vault skill-name
-python -m hub.cli skill-disable vault skill-name
-python -m hub.cli sync [agent]    # Sync skills and guidelines
-```
-
-## Skills
-
-Skills live in the `skills/` directory. Each skill is a folder with a `SKILL.md` file containing YAML frontmatter:
+Skills live in the `skills/` directory.  Each skill is a folder with a `SKILL.md` file:
 
 ```markdown
 ---
@@ -119,16 +113,54 @@ description: Does something useful
 Skill content here...
 ```
 
-When a skill is enabled for an agent, the hub creates a symlink (or copy on Windows) in `<project_dir>/<skills_dir>` pointing to the hub's skill. Disabling removes only hub-managed symlinks — foreign files are never touched.
+Enable a skill for an agent from the web dashboard or CLI.  The hub creates a symlink inside the agent's project folder so the agent sees the skill.  Disabling removes only hub-managed symlinks — your other files are never touched.
 
-Agent guidelines are written inside `<!-- hub:begin -->` / `<!-- hub:end -->` markers in `<project_dir>/<guidelines_file>`, preserving surrounding content.
+## Troubleshooting
 
-## Manual Setup Steps
+### Junie not logged in or wrong user
 
-1. **Mount your vault** (or other project directory) at the path specified in `hub.yaml`.
-2. **Log in to Junie** from the same user account that runs the hub, so the agent has access to credentials.
-3. **Use a scratch copy** of your vault first to test the setup.
-4. **Create skills** in the `skills/` directory or via the web UI.
+Agents fail with an authentication error.  Make sure you ran `junie --auth=...` as the **same user** that runs the hub (check with `systemctl status agent-hub` → `User=` line).
+
+### project_dir missing
+
+The agent can't find its working folder.  Create the directory and make sure the hub user can read/write it:
+
+```bash
+mkdir -p /path/to/project
+chown $USER:$USER /path/to/project
+```
+
+### Agent stuck "busy"
+
+If an agent shows as Working but isn't doing anything, stop its current run from the dashboard or via:
+
+```bash
+python -m hub.cli stop <run-id>
+```
+
+If the hub was killed while an agent was running, restart the service — it will clean up stale runs automatically.
+
+## Safety Model
+
+- **LAN only** — the server listens on `0.0.0.0`.  Don't expose it to the internet without a reverse proxy and proper auth.
+- **Runner commands are locked** — only `hub.yaml` on disk controls how agents run.  The API and web UI cannot change command templates.
+- **Bearer token** — all API calls require `HUB_API_KEY`.  The dashboard at `/` works without auth, but any action needs the key.
+- **Name validation** — agent and skill names must match `^[a-z0-9][a-z0-9-]{0,40}$`.
+- **Path safety** — skill paths are verified to stay within the skills directory.
+
+## CLI Commands
+
+```bash
+python -m hub.cli agents                    # List agents
+python -m hub.cli run vault "..."           # Run a task (waits for result)
+python -m hub.cli run vault "..." --no-wait # Fail immediately if busy
+python -m hub.cli runs [agent]              # List runs
+python -m hub.cli stop <run-id>             # Stop a running agent
+python -m hub.cli skills                    # List skills
+python -m hub.cli skill-enable vault skill  # Enable a skill
+python -m hub.cli skill-disable vault skill # Disable a skill
+python -m hub.cli sync [agent]              # Sync skills and guidelines
+```
 
 ## How to Add Another Runner
 
@@ -148,7 +180,7 @@ Agent guidelines are written inside `<!-- hub:begin -->` / `<!-- hub:end -->` ma
 python -m pytest tests/ -v
 ```
 
-Tests use a fake agent script (`tests/fake_agent.py`) — no real `junie` binary needed. POSIX-only tests (file locking, process groups) are skipped on Windows.
+Tests use a fake agent script — no real `junie` binary needed.  POSIX-only tests (file locking, process groups) are skipped on Windows.
 
 ## Web UI Manual Checks
 
@@ -159,3 +191,17 @@ Tests use a fake agent script (`tests/fake_agent.py`) — no real `junie` binary
 - [ ] Dark/light mode follows system preference
 - [ ] First visit prompts for API key
 - [ ] No external URLs loaded (works offline)
+
+## Manual Setup (Advanced)
+
+If you prefer not to use `setup.sh`, do these steps manually:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp hub.example.yaml hub.yaml
+# Edit hub.yaml
+export HUB_API_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+uvicorn hub.api:app --host 0.0.0.0 --port 8080
+```

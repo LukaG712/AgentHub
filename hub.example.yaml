@@ -20,3 +20,21 @@ agents:
     skills:
       - "vault-conventions"
     guidelines: "Never delete files. New notes go in _ai/."
+
+# --- Example agents (uncomment and edit to use) ---
+
+# website-builder:
+#   title: "Website builder"
+#   description: "Builds and edits static websites."
+#   runner: junie
+#   project_dir: "~/workspace/website"
+#   skills: []
+#   guidelines: "Use plain HTML, CSS, and vanilla JavaScript. No build tools."
+
+# software-builder:
+#   title: "Software builder"
+#   description: "Develops Python applications and libraries."
+#   runner: junie
+#   project_dir: "~/workspace/software"
+#   skills: []
+#   guidelines: "Write clean, well-tested Python. Follow PEP 8."

@@ -9,6 +9,9 @@ build/
 # Runtime data
 data/
 
+# Environment (contains API key)
+.env
+
 # Skills (symlinks may not survive git)
 skills/
 
