@@ -1,0 +1,278 @@
+"""Agent provider abstraction layer.
+
+Defines an interface for agent execution backends so that Junie CLI is one
+provider among many, not the only way to run agents.
+"""
+
+import os
+import shutil
+import subprocess
+import sys
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+
+@dataclass
+class ProviderRunResult:
+    """Result of a provider run."""
+    exit_code: int
+    raw_output: str
+    answer: str = ""
+    error: Optional[str] = None
+
+
+@dataclass
+class AgentPermissions:
+    """Tool permissions for an agent."""
+    file_read: bool = True
+    file_write: bool = True
+    command_exec: bool = True
+    git_ops: bool = True
+    network: bool = True
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "AgentPermissions":
+        """Create permissions from a dict (config file)."""
+        if not data:
+            return cls()
+        return cls(
+            file_read=data.get("file_read", True),
+            file_write=data.get("file_write", True),
+            command_exec=data.get("command_exec", True),
+            git_ops=data.get("git_ops", True),
+            network=data.get("network", True),
+        )
+
+    def to_dict(self) -> Dict[str, bool]:
+        """Serialize permissions to a dict."""
+        return {
+            "file_read": self.file_read,
+            "file_write": self.file_write,
+            "command_exec": self.command_exec,
+            "git_ops": self.git_ops,
+            "network": self.network,
+        }
+
+    def permission_flags(self) -> List[str]:
+        """Return command-line flags for permissions.
+
+        Returns a list of --no-<permission> flags for disabled permissions.
+        """
+        flags = []
+        if not self.file_read:
+            flags.append("--no-file-read")
+        if not self.file_write:
+            flags.append("--no-file-write")
+        if not self.command_exec:
+            flags.append("--no-command-exec")
+        if not self.git_ops:
+            flags.append("--no-git-ops")
+        if not self.network:
+            flags.append("--no-network")
+        return flags
+
+
+class AgentProvider(ABC):
+    """Abstract base class for agent execution providers."""
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Provider identifier (e.g., 'junie', 'claude-code')."""
+        ...
+
+    @abstractmethod
+    def check_available(self) -> bool:
+        """Check if the provider binary/CLI is available on the system."""
+        ...
+
+    @abstractmethod
+    def build_command(
+        self,
+        task: str,
+        project_dir: str,
+        permissions: AgentPermissions,
+        extra_args: Optional[List[str]] = None,
+    ) -> List[str]:
+        """Build the command to run the agent.
+
+        Args:
+            task: The task prompt for the agent.
+            project_dir: The project directory path.
+            permissions: Tool permissions for this run.
+            extra_args: Additional command-line arguments.
+
+        Returns:
+            List of command arguments.
+        """
+        ...
+
+    @abstractmethod
+    def run(
+        self,
+        task: str,
+        project_dir: str,
+        permissions: AgentPermissions,
+        timeout: int = 1800,
+        extra_args: Optional[List[str]] = None,
+    ) -> ProviderRunResult:
+        """Execute an agent task.
+
+        Args:
+            task: The task prompt for the agent.
+            project_dir: The project directory path.
+            permissions: Tool permissions for this run.
+            timeout: Maximum execution time in seconds.
+            extra_args: Additional command-line arguments.
+
+        Returns:
+            ProviderRunResult with exit code, output, and parsed answer.
+        """
+        ...
+
+    def parse_answer(self, raw_output: str) -> str:
+        """Parse the agent's answer from raw output.
+
+        Override this if the provider has a specific output format.
+        Default implementation returns the raw output as-is.
+        """
+        return raw_output
+
+
+class JunieProvider(AgentProvider):
+    """Provider for Junie CLI agent execution."""
+
+    @property
+    def name(self) -> str:
+        return "junie"
+
+    def check_available(self) -> bool:
+        """Check if Junie CLI is available."""
+        junie_bin = os.environ.get("JUNIE_BIN")
+        if junie_bin:
+            if sys.platform == "win32" and junie_bin.endswith(".py"):
+                return os.path.isfile(junie_bin)
+            return shutil.which(junie_bin) is not None or os.path.isfile(junie_bin)
+        return shutil.which("junie") is not None
+
+    def build_command(
+        self,
+        task: str,
+        project_dir: str,
+        permissions: AgentPermissions,
+        extra_args: Optional[List[str]] = None,
+    ) -> List[str]:
+        """Build the Junie CLI command."""
+        cmd_parts: List[str] = []
+
+        # Determine the binary
+        junie_bin = os.environ.get("JUNIE_BIN")
+        if junie_bin:
+            if sys.platform == "win32" and junie_bin.endswith(".py"):
+                cmd_parts.append(sys.executable)
+                cmd_parts.append(junie_bin)
+            else:
+                cmd_parts.append(junie_bin)
+        else:
+            cmd_parts.append("junie")
+
+        # Core arguments
+        cmd_parts.extend(["--task", task, "--project", project_dir, "--output-format", "json"])
+
+        # Permission flags
+        cmd_parts.extend(permissions.permission_flags())
+
+        # Extra arguments
+        if extra_args:
+            cmd_parts.extend(extra_args)
+
+        return cmd_parts
+
+    def run(
+        self,
+        task: str,
+        project_dir: str,
+        permissions: AgentPermissions,
+        timeout: int = 1800,
+        extra_args: Optional[List[str]] = None,
+    ) -> ProviderRunResult:
+        """Run Junie CLI with the given task."""
+        cmd = self.build_command(task, project_dir, permissions, extra_args)
+
+        popen_kwargs: Dict[str, Any] = {
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+            "text": True,
+        }
+        if sys.platform != "win32":
+            popen_kwargs["start_new_session"] = True
+
+        try:
+            process = subprocess.Popen(cmd, **popen_kwargs)
+            stdout, stderr = process.communicate(timeout=timeout)
+            raw = stdout + stderr
+
+            answer = self.parse_answer(raw)
+            return ProviderRunResult(
+                exit_code=process.returncode or 0,
+                raw_output=raw,
+                answer=answer,
+            )
+        except subprocess.TimeoutExpired:
+            process.kill()
+            return ProviderRunResult(
+                exit_code=-1,
+                raw_output="",
+                error="timeout",
+            )
+        except FileNotFoundError:
+            return ProviderRunResult(
+                exit_code=-1,
+                raw_output="",
+                error=f"Binary not found: {cmd[0]}",
+            )
+        except Exception as e:
+            return ProviderRunResult(
+                exit_code=-1,
+                raw_output="",
+                error=str(e),
+            )
+
+
+# --- Provider registry ---
+
+_providers: Dict[str, AgentProvider] = {}
+
+
+def register_provider(provider: AgentProvider) -> None:
+    """Register a provider by name."""
+    _providers[provider.name] = provider
+
+
+def get_provider(name: str) -> Optional[AgentProvider]:
+    """Get a provider by name."""
+    return _providers.get(name)
+
+
+def list_providers() -> List[str]:
+    """List registered provider names."""
+    return list(_providers.keys())
+
+
+def default_junie_provider() -> JunieProvider:
+    """Return the default Junie provider instance."""
+    if "junie" not in _providers:
+        register_provider(JunieProvider())
+    return _providers["junie"]
+
+
+def ensure_default_providers() -> None:
+    """Register default providers if not already registered."""
+    if "junie" not in _providers:
+        register_provider(JunieProvider())
+
+
+# Auto-register defaults on import
+ensure_default_providers()

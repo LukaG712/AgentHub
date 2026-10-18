@@ -19,7 +19,11 @@ from hub.config import (
     get_config_path,
     get_hub_timeout,
     load_config,
-    resolve_command,
+)
+from hub.providers import (
+    AgentPermissions,
+    get_provider,
+    ensure_default_providers,
 )
 
 # Import skills lazily to avoid circular imports
@@ -351,9 +355,10 @@ def run_agent(
     session_id: Optional[str] = None,
 ) -> Run:
     """Run an agent task with file locking, queue, retry, and timeout.
-    
+
     If session_id is provided, the task and result are persisted as messages
-    in the session via the memory layer.
+    in the session via the memory layer. Context from previous messages,
+    memories, and project files is assembled and prepended to the task.
     """
     _ensure_dirs()
     if timeout is None:
@@ -391,31 +396,57 @@ def run_agent(
         _save_run(run)
         return run
 
-    command_template = runner_cfg.get("command", [])
     project_dir = agent_cfg.get("project_dir", "")
+    guidelines = agent_cfg.get("guidelines", "")
 
-    # Check binary exists
-    cmd_to_check = command_template[0] if command_template else ""
-    junie_bin = os.environ.get("JUNIE_BIN")
-    if junie_bin and cmd_to_check == "junie":
-        cmd_to_check = junie_bin
-    # On Windows, .py files aren't found by shutil.which
-    if sys.platform == "win32" and cmd_to_check.endswith(".py"):
-        binary_exists = os.path.isfile(cmd_to_check)
-    else:
-        binary_exists = shutil.which(cmd_to_check) is not None
-    if not binary_exists:
+    # Assemble context from session history, memories, and project files
+    if session_id:
+        try:
+            from hub import memory
+            context = memory.assemble_context(
+                session_id=session_id,
+                agent_id=agent_name,
+                project_path=project_dir or None,
+                guidelines=guidelines or None,
+            )
+            if context:
+                task = context + "\n\n---\n\n## Current Task\n\n" + task
+        except Exception:
+            # Don't fail the run if context assembly fails
+            pass
+
+    # Resolve provider from runner config
+    ensure_default_providers()
+    provider = get_provider(runner_name)
+    if provider is None:
         run = Run(
             id=str(uuid.uuid4()),
             agent=agent_name,
             task=task,
             state="failed",
-            fail_reason=f"Binary not found: {cmd_to_check}",
+            fail_reason=f"Provider '{runner_name}' not found",
             owner_pid=os.getpid(),
             finished=datetime.now(timezone.utc).isoformat(),
         )
         _save_run(run)
         return run
+
+    # Check provider availability
+    if not provider.check_available():
+        run = Run(
+            id=str(uuid.uuid4()),
+            agent=agent_name,
+            task=task,
+            state="failed",
+            fail_reason=f"Provider '{runner_name}' binary not found",
+            owner_pid=os.getpid(),
+            finished=datetime.now(timezone.utc).isoformat(),
+        )
+        _save_run(run)
+        return run
+
+    # Load permissions from agent config
+    permissions = AgentPermissions.from_dict(agent_cfg.get("permissions", {}))
 
     # Create run
     run_id = str(uuid.uuid4())
@@ -451,8 +482,8 @@ def run_agent(
         run.started = datetime.now(timezone.utc).isoformat()
         _save_run(run)
 
-        # Resolve command
-        cmd = resolve_command(command_template, task, project_dir)
+        # Build command using the provider
+        cmd = provider.build_command(task, project_dir, permissions)
 
         # Retry logic
         retry_delays = [30, 60, 90]

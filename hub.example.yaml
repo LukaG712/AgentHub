@@ -20,6 +20,12 @@ agents:
     skills:
       - "vault-conventions"
     guidelines: "Never delete files. New notes go in _ai/."
+    permissions:
+      file_read: true
+      file_write: true
+      command_exec: true
+      git_ops: true
+      network: true
 
 # --- Example agents (uncomment and edit to use) ---
 

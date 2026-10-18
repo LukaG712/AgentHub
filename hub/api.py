@@ -13,7 +13,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from hub import agents, memory, skills
+from hub import agents, memory, providers, skills
 from hub.config import load_config, save_config, validate_name
 from hub.runner import (
     run_agent,
@@ -76,8 +76,59 @@ app = FastAPI(title="Agent Hub")
 
 @app.on_event("startup")
 async def startup():
-    """Recover stale runs on startup."""
+    """Recover stale runs and validate configuration on startup."""
     recover_stale_runs()
+    providers.ensure_default_providers()
+
+
+def _validate_startup() -> Dict[str, Any]:
+    """Validate configuration and return a status report."""
+    issues: List[Dict[str, Any]] = []
+    config = load_config()
+
+    # Check each agent's provider availability
+    for agent_name, agent_cfg in config.get("agents", {}).items():
+        runner_name = agent_cfg.get("runner", "junie")
+        provider = providers.get_provider(runner_name)
+        if provider is None:
+            issues.append({
+                "agent": agent_name,
+                "severity": "error",
+                "message": f"Provider '{runner_name}' not registered",
+            })
+        elif not provider.check_available():
+            issues.append({
+                "agent": agent_name,
+                "severity": "warning",
+                "message": f"Provider '{runner_name}' binary not found on PATH",
+            })
+
+        # Check project directory exists
+        project_dir = agent_cfg.get("project_dir", "")
+        if project_dir:
+            p = Path(project_dir).expanduser().resolve()
+            if not p.exists():
+                issues.append({
+                    "agent": agent_name,
+                    "severity": "warning",
+                    "message": f"Project directory does not exist: {project_dir}",
+                })
+
+    # Check registered providers
+    available_providers = []
+    for pname in providers.list_providers():
+        p = providers.get_provider(pname)
+        if p:
+            available_providers.append({
+                "name": pname,
+                "available": p.check_available(),
+            })
+
+    return {
+        "issues": issues,
+        "providers": available_providers,
+        "healthy": len([i for i in issues if i["severity"] == "error"]) == 0,
+    }
 
 
 @app.get("/api/status")
@@ -87,7 +138,14 @@ async def api_status(_auth: None = Depends(_verify_token)):
     for name in config.get("agents", {}):
         status = agent_status(name)
         agent_list.append(status)
-    return {"agents": agent_list}
+
+    validation = _validate_startup()
+    return {
+        "agents": agent_list,
+        "providers": validation["providers"],
+        "issues": validation["issues"],
+        "healthy": validation["healthy"],
+    }
 
 
 # --- Agents ---
@@ -99,7 +157,7 @@ async def api_list_agents(_auth: None = Depends(_verify_token)):
     result = []
     for name, data in config.get("agents", {}).items():
         entry = {"name": name}
-        for key in ("title", "description", "runner", "project_dir", "skills", "guidelines"):
+        for key in ("title", "description", "runner", "project_dir", "skills", "guidelines", "permissions"):
             if key in data:
                 entry[key] = data[key]
         result.append(entry)
@@ -132,6 +190,7 @@ async def api_create_agent(name: str, body: Dict[str, Any], _auth: None = Depend
             description=body.get("description", ""),
             skills=body.get("skills", []),
             guidelines=body.get("guidelines", ""),
+            permissions=body.get("permissions"),
         )
         return {"name": name, **result}
     except ValueError as e:
@@ -140,7 +199,7 @@ async def api_create_agent(name: str, body: Dict[str, Any], _auth: None = Depend
 
 @app.put("/api/agents/{name}")
 async def api_update_agent(name: str, body: Dict[str, Any], _auth: None = Depends(_verify_token)):
-    allowed = {"title", "description", "runner", "project_dir", "skills", "guidelines"}
+    allowed = {"title", "description", "runner", "project_dir", "skills", "guidelines", "permissions"}
     updates = {k: v for k, v in body.items() if k in allowed}
     try:
         result = agents.update_agent_data(name, updates)
@@ -356,15 +415,25 @@ async def api_dispatch_message(
     if not content:
         raise HTTPException(status_code=400, detail="content is required")
 
-    agent_id = session.get("agent_id")
+    # Allow overriding agent_id from request body
+    agent_id = body.get("agent_id") or session.get("agent_id")
     if not agent_id:
         raise HTTPException(status_code=400, detail="Session has no agent_id set")
 
     # Validate agent exists
     try:
-        agents.get_agent(agent_id)
+        agent_cfg = agents.get_agent(agent_id)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
+
+    # Update session's agent_id if it changed
+    if session.get("agent_id") != agent_id:
+        conn = memory._get_connection()
+        conn.execute(
+            "UPDATE sessions SET agent_id = ? WHERE id = ?",
+            (agent_id, session_id),
+        )
+        conn.commit()
 
     # Persist user message
     memory.add_message(
@@ -520,6 +589,30 @@ async def api_create_memory(
     return mem
 
 
+@app.put("/api/memories/{memory_id}")
+async def api_update_memory(
+    memory_id: str,
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    existing = memory.get_memory(memory_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail=f"Memory '{memory_id}' not found")
+    content = body.get("content")
+    # Update content if provided, otherwise just update timestamp
+    updated = memory.update_memory(memory_id, content=content)
+    # Also allow updating session_id via direct SQL
+    if "session_id" in body:
+        conn = memory._get_connection()
+        conn.execute(
+            "UPDATE memories SET session_id = ?, updated_at = ? WHERE id = ?",
+            (body["session_id"], updated["updated_at"], memory_id),
+        )
+        conn.commit()
+        updated["session_id"] = body["session_id"]
+    return updated
+
+
 @app.delete("/api/memories/{memory_id}")
 async def api_delete_memory(
     memory_id: str,
@@ -529,6 +622,23 @@ async def api_delete_memory(
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Memory '{memory_id}' not found")
     return {"deleted": memory_id}
+
+
+# --- Providers ---
+
+
+@app.get("/api/providers")
+async def api_list_providers(_auth: None = Depends(_verify_token)):
+    """List all registered providers and their availability."""
+    provider_list = []
+    for pname in providers.list_providers():
+        p = providers.get_provider(pname)
+        if p:
+            provider_list.append({
+                "name": p.name,
+                "available": p.check_available(),
+            })
+    return {"providers": provider_list}
 
 
 # --- Projects ---

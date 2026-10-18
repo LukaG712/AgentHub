@@ -6,8 +6,13 @@ A self-hosted dashboard that lets you manage AI coding agents (JetBrains Junie C
 
 - **Manage agents** — define one or more AI agents, each with its own project folder and guidelines.
 - **Shared skills** — create reusable skills (prompts and instructions) and enable them for any agent.
+- **Chat interface** — start conversations with agents, see live progress, and resume sessions later.
+- **Persistent memory** — store and search project knowledge, decisions, and notes across sessions.
+- **Provider abstraction** — Junie CLI is one provider; add others via the `AgentProvider` interface.
+- **Tool permissions** — control file read/write, command execution, Git ops, and network access per agent.
+- **Startup validation** — `/api/status` reports provider availability, missing projects, and configuration issues.
 - **Web dashboard** — see agent status, send tasks, view output, and manage everything from a browser.
-- **Run in the background** — install as a systemd service that starts automatically on boot.
+- **Run in the background** — install as a systemd service (Linux) or run via PowerShell (Windows).
 
 ## Works together with JunieOrchestrator
 
@@ -22,13 +27,15 @@ Together they give you a full pipeline: chat → prompt improvement → agent ex
 
 Make sure these are in place **before** running the setup:
 
-1. **Linux machine** — Agent Hub runs on Linux (tested on Debian/Ubuntu).  A Raspberry Pi 4 or any small VPS works fine.
+1. **Python 3.10+** — Agent Hub runs on Linux and Windows.
 2. **Junie installed** — install the [Junie CLI](https://junie.jetbrains.com) and make sure `junie` is on your PATH.
-3. **Junie logged in** — log in to Junie (`junie --auth=...`) as the **same Linux user** that will run the hub.  The agents reuse this login.
+3. **Junie logged in** — log in to Junie (`junie --auth=...`) as the **same user** that will run the hub.  The agents reuse this login.
 4. **Project directories ready** — if your agent works on an Obsidian vault, mount it at the path you'll put in `hub.yaml`.  For other agents, create the project folders first.
 5. **Use a scratch copy first** — when testing, point agents at a copy of your data, not the real thing.
 
 ## Quick Start
+
+### Linux
 
 ```bash
 git clone https://github.com/LukaG712/AgentHub.git
@@ -39,7 +46,35 @@ cd AgentHub
 
 Then open **http://localhost:8080** in your browser and enter the API key that `setup.sh` printed.
 
-That's it.  The dashboard lets you edit agents, create skills, and send tasks.
+### Windows
+
+```powershell
+git clone https://github.com/LukaG712/AgentHub.git
+cd AgentHub
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Create a `.env` file with your API key:
+
+```
+HUB_API_KEY=your-generated-key-here
+```
+
+Generate a key with: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
+
+Copy the example config: `copy hub.example.yaml hub.yaml`, then edit `hub.yaml` to configure your agents.
+
+Start the server:
+
+```powershell
+.\start.ps1
+```
+
+Then open **http://localhost:8080** in your browser and enter the API key.
+
+That's it.  The dashboard lets you edit agents, create skills, send tasks, chat with agents, and manage memories.
 
 ## Running in the background
 
@@ -86,9 +121,16 @@ agents:
     skills:
       - vault-conventions
     guidelines: "Never delete files. New notes go in _ai/."
+    permissions:
+      file_read: true
+      file_write: true
+      command_exec: true
+      git_ops: true
+      network: true
 ```
 
 - `{task}` and `{project}` are replaced automatically when a run starts.
+- `permissions` is optional — all default to `true` when omitted. Set individual permissions to `false` to restrict what the agent can do.
 - The web UI lets you edit agent properties (title, description, project_dir, skills, guidelines) without touching the file.  Runner commands can only be changed in `hub.yaml` directly — the UI and API never expose them.
 
 ### Environment Variables
@@ -162,17 +204,36 @@ python -m hub.cli skill-disable vault skill # Disable a skill
 python -m hub.cli sync [agent]              # Sync skills and guidelines
 ```
 
-## How to Add Another Runner
+## How to Add Another Provider
 
-1. Add a new entry under `runners:` in `hub.yaml`:
-   ```yaml
-   runners:
-     myagent:
-       command: ["myagent", "--do", "{task}", "--in", "{project}"]
-       skills_dir: ".myagent/skills"
-       guidelines_file: ".myagent/GUIDE.md"
+The provider abstraction layer (`hub/providers.py`) lets you add new agent backends beyond Junie CLI.
+
+1. Create a new provider class in `hub/providers.py`:
+   ```python
+   from hub.providers import AgentProvider, AgentPermissions, ProviderRunResult
+
+   class MyAgentProvider(AgentProvider):
+       @property
+       def name(self):
+           return "myagent"
+
+       def check_available(self):
+           import shutil
+           return shutil.which("myagent") is not None
+
+       def build_command(self, task, project_dir, permissions, extra_args=None):
+           return ["myagent", "--task", task, "--project", project_dir]
+
+       def run(self, task, project_dir, permissions, timeout=1800, extra_args=None):
+           # Execute the agent and return a ProviderRunResult
+           ...
    ```
-2. Create agents that reference `runner: myagent`.
+2. Register it:
+   ```python
+   from hub.providers import register_provider
+   register_provider(MyAgentProvider())
+   ```
+3. Create agents that reference `runner: myagent` in `hub.yaml` or via the API.
 
 ## Running Tests
 

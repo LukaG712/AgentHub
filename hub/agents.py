@@ -31,6 +31,7 @@ def create_agent(
     description: str = "",
     skills: Optional[List[str]] = None,
     guidelines: str = "",
+    permissions: Optional[Dict[str, bool]] = None,
 ) -> Dict[str, Any]:
     if not validate_name(name):
         raise ValueError(f"Invalid agent name: {name}")
@@ -43,6 +44,8 @@ def create_agent(
         "skills": skills or [],
         "guidelines": guidelines,
     }
+    if permissions is not None:
+        agent_data["permissions"] = permissions
     config = add_agent(config, name, agent_data)
     save_config(config)
     return agent_data

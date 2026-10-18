@@ -478,12 +478,132 @@ class TestMemories:
         resp = client.delete("/api/memories/nonexistent-id", headers=HEADERS)
         assert resp.status_code == 404
 
+    def test_update_memory_content(self, client):
+        create = client.post(
+            "/api/memories",
+            headers=HEADERS,
+            json={"content": "Original content"},
+        )
+        memory_id = create.json()["id"]
+        resp = client.put(
+            f"/api/memories/{memory_id}",
+            headers=HEADERS,
+            json={"content": "Updated content"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["content"] == "Updated content"
+
+    def test_update_missing_memory(self, client):
+        resp = client.put(
+            "/api/memories/nonexistent-id",
+            headers=HEADERS,
+            json={"content": "Updated"},
+        )
+        assert resp.status_code == 404
+
 
 class TestProjects:
     def test_list_projects(self, client):
         resp = client.get("/api/projects", headers=HEADERS)
         assert resp.status_code == 200
         assert "projects" in resp.json()
+
+
+class TestProviders:
+    def test_list_providers(self, client):
+        resp = client.get("/api/providers", headers=HEADERS)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "providers" in data
+        # Junie should be registered by default
+        names = [p["name"] for p in data["providers"]]
+        assert "junie" in names
+
+    def test_provider_has_available_field(self, client):
+        resp = client.get("/api/providers", headers=HEADERS)
+        data = resp.json()
+        for provider in data["providers"]:
+            assert "name" in provider
+            assert "available" in provider
+
+
+class TestStatusValidation:
+    def test_status_includes_providers(self, client):
+        resp = client.get("/api/status", headers=HEADERS)
+        data = resp.json()
+        assert "providers" in data
+        assert "issues" in data
+        assert "healthy" in data
+
+    def test_status_healthy_with_available_provider(self, client):
+        resp = client.get("/api/status", headers=HEADERS)
+        data = resp.json()
+        # Should be healthy since no error-level issues
+        assert data["healthy"] is True
+
+
+class TestPermissions:
+    def test_agent_list_includes_permissions(self, client):
+        """Agents with permissions in config should show them."""
+        resp = client.get("/api/agents", headers=HEADERS)
+        data = resp.json()
+        # The vault agent in the fixture doesn't have permissions set,
+        # so it won't appear in the response
+        for agent in data["agents"]:
+            if "permissions" in agent:
+                assert isinstance(agent["permissions"], dict)
+
+    def test_create_agent_with_permissions(self, client):
+        """Create an agent with permissions."""
+        resp = client.post(
+            "/api/agents/test-perms",
+            headers=HEADERS,
+            json={
+                "runner": "junie",
+                "project_dir": "/tmp/test",
+                "permissions": {
+                    "file_read": True,
+                    "file_write": False,
+                    "command_exec": True,
+                    "git_ops": True,
+                    "network": False,
+                },
+            },
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["permissions"]["file_write"] is False
+        assert data["permissions"]["network"] is False
+
+    def test_update_agent_permissions(self, client):
+        """Update agent permissions."""
+        # Create agent first
+        client.post(
+            "/api/agents/test-perms-update",
+            headers=HEADERS,
+            json={
+                "runner": "junie",
+                "project_dir": "/tmp/test",
+            },
+        )
+        # Update permissions
+        resp = client.put(
+            "/api/agents/test-perms-update",
+            headers=HEADERS,
+            json={
+                "permissions": {
+                    "file_read": True,
+                    "file_write": False,
+                    "command_exec": True,
+                    "git_ops": False,
+                    "network": True,
+                },
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["permissions"]["file_write"] is False
+        assert data["permissions"]["git_ops"] is False
 
 
 class TestSSE:

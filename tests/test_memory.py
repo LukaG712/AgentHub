@@ -333,3 +333,156 @@ class TestProjectDiscovery:
             workspace_roots=[str(tmp_path), str(tmp_path)]
         )
         assert len(results) == 1
+
+
+class TestContextAssembly:
+    def test_empty_context(self, temp_db):
+        """No context for empty session."""
+        session = memory.create_session(title="Test")
+        context = memory.assemble_context(session_id=session["id"])
+        assert context == ""
+
+    def test_conversation_history(self, temp_db):
+        """Context includes recent messages."""
+        session = memory.create_session(title="Test", agent_id="vault")
+        memory.add_message(session["id"], "user", "Fix the bug")
+        memory.add_message(session["id"], "assistant", "I fixed it.")
+        memory.add_message(session["id"], "user", "Great, now add tests")
+
+        context = memory.assemble_context(session_id=session["id"])
+        assert "Conversation History" in context
+        assert "Fix the bug" in context
+        assert "I fixed it." in context
+
+    def test_memories_in_context(self, temp_db):
+        """Context includes relevant memories."""
+        session = memory.create_session(title="Test", agent_id="vault")
+        memory.create_memory(content="Use pytest for testing", agent_id="vault")
+        memory.create_memory(content="Project uses FastAPI", agent_id="vault")
+
+        context = memory.assemble_context(session_id=session["id"], agent_id="vault")
+        assert "Relevant Memories" in context
+        assert "Use pytest for testing" in context
+        assert "Project uses FastAPI" in context
+
+    def test_guidelines_in_context(self, temp_db):
+        """Context includes agent guidelines."""
+        session = memory.create_session(title="Test", agent_id="vault")
+        memory.add_message(session["id"], "user", "Hello")
+
+        context = memory.assemble_context(
+            session_id=session["id"],
+            guidelines="Always write tests first.",
+        )
+        assert "Agent Guidelines" in context
+        assert "Always write tests first." in context
+
+    def test_agents_md_in_context(self, temp_db, tmp_path):
+        """Context includes AGENTS.md from project directory."""
+        project = tmp_path / "my-project"
+        project.mkdir()
+        junie_dir = project / ".junie"
+        junie_dir.mkdir()
+        agents_md = junie_dir / "AGENTS.md"
+        agents_md.write_text("Follow PEP 8 style.")
+
+        session = memory.create_session(title="Test", agent_id="vault")
+        memory.add_message(session["id"], "user", "Hello")
+
+        context = memory.assemble_context(
+            session_id=session["id"],
+            project_path=str(project),
+        )
+        assert "Project Instructions" in context
+        assert "Follow PEP 8 style." in context
+
+    def test_readme_in_context(self, temp_db, tmp_path):
+        """Context includes README.md from project directory."""
+        project = tmp_path / "my-project"
+        project.mkdir()
+        readme = project / "README.md"
+        readme.write_text("# My Project\n\nA sample project.")
+
+        session = memory.create_session(title="Test", agent_id="vault")
+        memory.add_message(session["id"], "user", "Hello")
+
+        context = memory.assemble_context(
+            session_id=session["id"],
+            project_path=str(project),
+        )
+        assert "README.md" in context
+        assert "My Project" in context
+
+    def test_context_truncation(self, temp_db):
+        """Context is truncated when too long."""
+        session = memory.create_session(title="Test", agent_id="vault")
+        # Add a very long message
+        long_content = "x" * 50000
+        memory.add_message(session["id"], "user", long_content)
+
+        context = memory.assemble_context(
+            session_id=session["id"],
+            max_context_chars=1000,
+        )
+        assert len(context) <= 1100  # Allow some margin for truncation message
+        assert "truncated" in context
+
+    def test_max_messages_limit(self, temp_db):
+        """Only last N messages are included."""
+        session = memory.create_session(title="Test", agent_id="vault")
+        for i in range(30):
+            memory.add_message(session["id"], "user", f"Message {i}")
+            memory.add_message(session["id"], "assistant", f"Reply {i}")
+
+        context = memory.assemble_context(
+            session_id=session["id"],
+            max_messages=10,
+        )
+        # Should include messages 25-29 (last 10 messages = 5 user + 5 assistant pairs)
+        assert "Message 29" in context
+        # Earlier messages should not be in context
+        assert "Message 0" not in context
+
+    def test_max_memories_limit(self, temp_db):
+        """Only last N memories are included."""
+        session = memory.create_session(title="Test", agent_id="vault")
+        for i in range(20):
+            memory.create_memory(content=f"Memory {i}", agent_id="vault")
+
+        context = memory.assemble_context(
+            session_id=session["id"],
+            agent_id="vault",
+            max_memories=5,
+        )
+        # Should include only 5 memories
+        assert "Relevant Memories" in context
+        mem_count = context.count("- Memory")
+        assert mem_count <= 5
+
+    def test_full_context_assembly(self, temp_db, tmp_path):
+        """Context combines all sources."""
+        project = tmp_path / "my-project"
+        project.mkdir()
+        junie_dir = project / ".junie"
+        junie_dir.mkdir()
+        (junie_dir / "AGENTS.md").write_text("Project guidelines here.")
+
+        session = memory.create_session(title="Test", agent_id="vault")
+        memory.add_message(session["id"], "user", "Previous question")
+        memory.add_message(session["id"], "assistant", "Previous answer")
+        memory.create_memory(content="Important decision", agent_id="vault")
+
+        context = memory.assemble_context(
+            session_id=session["id"],
+            agent_id="vault",
+            project_path=str(project),
+            guidelines="Agent guidelines",
+        )
+        assert "Conversation History" in context
+        assert "Relevant Memories" in context
+        assert "Agent Guidelines" in context
+        assert "Project Instructions" in context
+        assert "Previous question" in context
+        assert "Important decision" in context
+        assert "Agent guidelines" in context
+        assert "Project guidelines here." in context

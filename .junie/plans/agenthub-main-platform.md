@@ -53,7 +53,6 @@ graph LR
 - Add `start.ps1` — Windows startup script.
 - Add provider interface in `hub/runner.py` — abstract the Junie-specific command resolution.
 
-
 # Phase 1 — Core Workflow & Chat Interface
 
 ### Goal
@@ -97,7 +96,6 @@ Make AgentHub usable as a local coding-agent platform: select a project/agent, c
 **5. Windows startup** (`start.ps1`)
 - PowerShell equivalent of `start.sh`: load `.env`, activate venv, start uvicorn
 
-
 # Phase 2 — Persistence & Context
 
 ### Goal
@@ -130,7 +128,6 @@ Make conversations and project context meaningful across sessions.
 - Returns list of project paths with repo name and last commit date
 - Agent creation can select a discovered project
 
-
 # Phase 3 — Provider Abstraction & Safety
 
 ### Goal
@@ -160,7 +157,6 @@ Make Junie one of several possible agent providers; improve safety and reliabili
 - Tests for provider interface
 - Tests for context assembly
 
-
 # Delivery Steps
 
 ### ✓ Step 1: Phase 1A: SQLite memory layer and extended API
@@ -171,7 +167,7 @@ Add persistent storage for conversations, sessions, and memories, plus the new A
 - Add tests for memory layer in `tests/test_memory.py` and for new API endpoints in `tests/test_api.py`.
 - Add `aiosqlite` or use SQLite synchronously in background threads (no async needed since runs execute in threads already).
 
-###   Step 2: Phase 1B: Chat frontend and Windows startup
+### ✓ Step 2: Phase 1B: Chat frontend and Windows startup
 Build the chat interface and make the app runnable on Windows.
 - Extend `hub/static/index.html` with a Chat page: left sidebar for session list (create/select/delete), main message area with user/assistant bubbles, input bar with agent selector, live output via SSE when agent is working.
 - Replace the `alert()`-based run detail with a proper panel showing output, answer, state, and log file path.
@@ -180,7 +176,7 @@ Build the chat interface and make the app runnable on Windows.
 - Update `README.md` with Windows instructions.
 - Verify the full workflow: create session → send task → see live progress → review result → resume session.
 
-###   Step 3: Phase 2: Context assembly, session resumption, and project discovery
+### ✓ Step 3: Phase 2: Context assembly, session resumption, and project discovery
 Make conversations meaningful across sessions with proper context and project browsing.
 - Implement context assembly in `hub/runner.py`: when dispatching a task, gather recent session messages, relevant memories, project guidelines, and AGENTS.md content; append as context to the agent's task prompt.
 - Add session resumption to the frontend: sessions show last message preview, clicking loads the full conversation, "New session" creates a fresh one.
@@ -189,7 +185,7 @@ Make conversations meaningful across sessions with proper context and project br
 - Allow agent creation via the UI to select a discovered project directory.
 - Add tests for context assembly logic and project discovery.
 
-###   Step 4: Phase 3: Provider abstraction, permissions, and safety
+### ✓ Step 4: Phase 3: Provider abstraction, permissions, and safety
 Abstract Junie as one provider among many, add tool permissions, and improve error handling.
 - Create `hub/providers.py` with `AgentProvider` abstract base class and `JunieProvider` implementation; refactor `hub/runner.py` to use the provider interface.
 - Add `permissions` field to agent config in `hub.yaml` (file_read, file_write, command_exec, git_ops, network) with safe defaults.

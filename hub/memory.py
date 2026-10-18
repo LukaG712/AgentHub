@@ -434,3 +434,110 @@ def _default_workspace_roots() -> List[str]:
     if cwd.exists():
         roots.append(str(cwd))
     return roots
+
+
+# --- Context assembly ---
+
+def assemble_context(
+    session_id: str,
+    agent_id: Optional[str] = None,
+    project_path: Optional[str] = None,
+    guidelines: Optional[str] = None,
+    max_messages: int = 20,
+    max_memories: int = 10,
+    max_context_chars: int = 32000,
+) -> str:
+    """Assemble context for an agent run from session history, memories, and project files.
+
+    Returns a formatted context string to prepend to the task prompt.
+    """
+    parts: List[str] = []
+
+    # 1. Recent session messages (last N user/assistant pairs)
+    messages = get_session_messages(session_id)
+    if messages:
+        # Take the last max_messages messages, excluding the most recent user message
+        # (which is the current task being dispatched)
+        recent = messages[-max_messages:]
+        conv_lines = []
+        for msg in recent:
+            role = msg["role"]
+            content = msg["content"]
+            if role == "user":
+                conv_lines.append(f"User: {content}")
+            elif role == "assistant":
+                conv_lines.append(f"Assistant: {content}")
+            elif role == "system":
+                conv_lines.append(f"(System: {content})")
+        if conv_lines:
+            parts.append("## Conversation History\n\n" + "\n\n".join(conv_lines))
+
+    # 2. Relevant memories for the agent/project
+    # Search by agent_id first, then by project_path, combining results
+    if agent_id or project_path:
+        found_memories: List[Dict[str, Any]] = []
+        seen_ids: set = set()
+        if agent_id:
+            for mem in list_memories(agent_id=agent_id, limit=max_memories):
+                if mem["id"] not in seen_ids:
+                    found_memories.append(mem)
+                    seen_ids.add(mem["id"])
+                    if len(found_memories) >= max_memories:
+                        break
+        if project_path and len(found_memories) < max_memories:
+            for mem in list_memories(project_path=project_path, limit=max_memories):
+                if mem["id"] not in seen_ids:
+                    found_memories.append(mem)
+                    seen_ids.add(mem["id"])
+                    if len(found_memories) >= max_memories:
+                        break
+        memories = found_memories
+        if memories:
+            mem_lines = []
+            for mem in memories:
+                content = mem["content"]
+                tags = mem.get("tags", "")
+                tag_str = f" [{tags}]" if tags else ""
+                mem_lines.append(f"- {content}{tag_str}")
+            parts.append("## Relevant Memories\n\n" + "\n".join(mem_lines))
+
+    # 3. Project guidelines from agent config
+    if guidelines:
+        parts.append("## Agent Guidelines\n\n" + guidelines)
+
+    # 4. AGENTS.md files found in the project directory
+    if project_path:
+        agents_md_path = Path(project_path) / ".junie" / "AGENTS.md"
+        if agents_md_path.exists():
+            try:
+                content = agents_md_path.read_text(encoding="utf-8")
+                parts.append("## Project Instructions (AGENTS.md)\n\n" + content)
+            except (OSError, PermissionError):
+                pass
+        # Also check for project-level instructions
+        for filename in ("AGENTS.md", ".junie/AGENTS.md", "README.md"):
+            filepath = Path(project_path) / filename
+            if filepath.exists() and filepath != agents_md_path:
+                try:
+                    content = filepath.read_text(encoding="utf-8")
+                    # Truncate README to avoid huge context
+                    if filename == "README.md" and len(content) > 4000:
+                        content = content[:4000] + "\n... (truncated)"
+                    parts.append(f"## Project File ({filename})\n\n" + content)
+                except (OSError, PermissionError):
+                    pass
+
+    if not parts:
+        return ""
+
+    # Build final context string, respecting character limit
+    header = "## Context from Previous Sessions\n\n"
+    full = header + "\n\n---\n\n".join(parts)
+
+    # Truncate if too long, keeping the header
+    if len(full) > max_context_chars:
+        truncated = full[:max_context_chars - 100]
+        truncated += "\n\n... (context truncated due to length)"
+        full = truncated
+
+    return full
