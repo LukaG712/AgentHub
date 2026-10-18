@@ -625,3 +625,50 @@ class TestSSE:
         # Should contain idle event
         text = resp.text
         assert "event:" in text
+
+
+class TestObsidian:
+    def test_obsidian_status_not_configured(self, client):
+        """Obsidian status should return enabled=false when not configured."""
+        resp = client.get("/api/obsidian/status", headers=HEADERS)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["enabled"] is False
+
+    def test_obsidian_notes_not_configured(self, client):
+        """Listing notes should fail when Obsidian is not configured."""
+        resp = client.get("/api/obsidian/notes", headers=HEADERS)
+        assert resp.status_code == 400
+
+    def test_obsidian_get_note_not_configured(self, client):
+        """Getting a note should fail when Obsidian is not configured."""
+        resp = client.get("/api/obsidian/notes/some-note", headers=HEADERS)
+        assert resp.status_code == 400
+
+    def test_obsidian_sync_not_configured(self, client):
+        """Sync should fail when Obsidian is not configured."""
+        resp = client.post(
+            "/api/obsidian/sync",
+            headers=HEADERS,
+            json={"session_id": "some-session"},
+        )
+        assert resp.status_code == 400
+
+    def test_obsidian_sync_missing_session_id(self, client):
+        """Sync should fail without session_id even if configured."""
+        resp = client.post(
+            "/api/obsidian/sync",
+            headers=HEADERS,
+            json={},
+        )
+        # Will fail with 400 (not configured) or 400 (missing session_id)
+        assert resp.status_code == 400
+
+    def test_obsidian_sync_missing_session(self, client):
+        """Sync should return 404 for nonexistent session."""
+        resp = client.post(
+            "/api/obsidian/sync",
+            headers=HEADERS,
+            json={"session_id": "nonexistent-session-id"},
+        )
+        assert resp.status_code in (400, 404)

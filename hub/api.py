@@ -14,7 +14,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from hub import agents, memory, providers, skills
+from hub import agents, memory, obsidian, providers, skills
 from hub.config import load_config, save_config, validate_name
 from hub.runner import (
     run_agent,
@@ -651,6 +651,101 @@ async def api_list_projects(
 ):
     projects = memory.discover_projects()
     return {"projects": projects}
+
+
+# --- Obsidian ---
+
+
+def _get_obsidian_vault() -> Optional[obsidian.ObsidianVault]:
+    """Get the Obsidian vault from config."""
+    config = load_config()
+    obs_cfg = config.get("obsidian", {})
+    if not obs_cfg.get("enabled", False):
+        return None
+    vault_path = obs_cfg.get("vault_path", "")
+    if not vault_path:
+        return None
+    vault = obsidian.ObsidianVault(Path(vault_path))
+    return vault if vault.enabled else None
+
+
+@app.get("/api/obsidian/status")
+async def api_obsidian_status(_auth: None = Depends(_verify_token)):
+    """Check if Obsidian integration is configured and available."""
+    vault = _get_obsidian_vault()
+    if vault is None:
+        return {"enabled": False, "available": False}
+    return {
+        "enabled": True,
+        "available": vault.is_valid(),
+        "vault_path": str(vault.vault_path),
+    }
+
+
+@app.get("/api/obsidian/notes")
+async def api_obsidian_list_notes(
+    q: Optional[str] = None,
+    tag: Optional[str] = None,
+    folder: Optional[str] = None,
+    limit: int = 50,
+    _auth: None = Depends(_verify_token),
+):
+    """List notes from the Obsidian vault."""
+    vault = _get_obsidian_vault()
+    if vault is None:
+        raise HTTPException(status_code=400, detail="Obsidian integration is not configured")
+    notes = vault.list_notes(query=q, tag=tag, folder=folder, limit=limit)
+    return {"notes": [note.to_dict() for note in notes]}
+
+
+@app.get("/api/obsidian/notes/{note_id}")
+async def api_obsidian_get_note(
+    note_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    """Get a note's content from the Obsidian vault."""
+    vault = _get_obsidian_vault()
+    if vault is None:
+        raise HTTPException(status_code=400, detail="Obsidian integration is not configured")
+    content = vault.read_note_content(note_id)
+    if content is None:
+        raise HTTPException(status_code=404, detail=f"Note '{note_id}' not found")
+    note = vault.get_note(note_id)
+    return {
+        "id": note.note_id if note else note_id,
+        "title": note.title if note else note_id,
+        "path": note.relative_path if note else note_id,
+        "content": content,
+    }
+
+
+@app.post("/api/obsidian/sync", status_code=201)
+async def api_obsidian_sync_session(
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    """Write a session summary to the Obsidian vault."""
+    vault = _get_obsidian_vault()
+    if vault is None:
+        raise HTTPException(status_code=400, detail="Obsidian integration is not configured")
+
+    session_id = body.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+
+    # Get session details
+    session = memory.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+
+    messages = memory.get_session_messages(session_id)
+    title = session.get("title", "Untitled Session")
+
+    note = vault.write_session_summary(session_id, title, messages)
+    if note is None:
+        raise HTTPException(status_code=500, detail="Failed to write session summary to Obsidian")
+
+    return {"note": note.to_dict()}
 
 
 # --- Static files ---
