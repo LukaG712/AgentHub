@@ -1,15 +1,19 @@
 """FastAPI application for the agent hub."""
 
+import asyncio
+import json
 import os
+import queue
 import threading
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from hub import agents, skills
+from hub import agents, memory, skills
 from hub.config import load_config, save_config, validate_name
 from hub.runner import (
     run_agent,
@@ -24,6 +28,30 @@ security = HTTPBearer(auto_error=False)
 
 # Static files directory
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+# SSE event buffers: maps run_id -> queue.Queue of event strings
+_sse_buffers: Dict[str, queue.Queue] = {}
+_sse_buffers_lock = threading.Lock()
+
+
+def _sse_buffer_for_run(run_id: str) -> queue.Queue:
+    """Get or create an SSE event buffer for a run."""
+    with _sse_buffers_lock:
+        if run_id not in _sse_buffers:
+            _sse_buffers[run_id] = queue.Queue()
+        return _sse_buffers[run_id]
+
+
+def _sse_remove_buffer(run_id: str) -> None:
+    """Remove an SSE event buffer after completion."""
+    with _sse_buffers_lock:
+        _sse_buffers.pop(run_id, None)
+
+
+def _sse_send_event(run_id: str, event: str, data: str) -> None:
+    """Send an SSE event to the buffer for a run."""
+    buf = _sse_buffer_for_run(run_id)
+    buf.put(f"event: {event}\ndata: {data}\n\n")
 
 
 def _get_api_key() -> str:
@@ -258,6 +286,260 @@ async def api_stop_run(run_id: str, _auth: None = Depends(_verify_token)):
     if run is None:
         raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
     return run.to_dict()
+
+
+# --- Sessions ---
+
+
+@app.get("/api/sessions")
+async def api_list_sessions(
+    agent: Optional[str] = None,
+    _auth: None = Depends(_verify_token),
+):
+    sessions = memory.list_sessions(agent_id=agent)
+    return {"sessions": sessions}
+
+
+@app.post("/api/sessions", status_code=201)
+async def api_create_session(
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    title = body.get("title", "")
+    project_path = body.get("project_path")
+    agent_id = body.get("agent_id")
+    session = memory.create_session(
+        title=title,
+        project_path=project_path,
+        agent_id=agent_id,
+    )
+    return session
+
+
+@app.get("/api/sessions/{session_id}")
+async def api_get_session(
+    session_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    session = memory.get_session_with_messages(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+    return session
+
+
+@app.delete("/api/sessions/{session_id}")
+async def api_delete_session(
+    session_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    deleted = memory.delete_session(session_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+    return {"deleted": session_id}
+
+
+# --- Message dispatch ---
+
+
+@app.post("/api/sessions/{session_id}/messages", status_code=201)
+async def api_dispatch_message(
+    session_id: str,
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    # Validate session exists
+    session = memory.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+
+    content = body.get("content", "")
+    if not content:
+        raise HTTPException(status_code=400, detail="content is required")
+
+    agent_id = session.get("agent_id")
+    if not agent_id:
+        raise HTTPException(status_code=400, detail="Session has no agent_id set")
+
+    # Validate agent exists
+    try:
+        agents.get_agent(agent_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
+
+    # Persist user message
+    memory.add_message(
+        session_id=session_id,
+        role="user",
+        content=content,
+    )
+
+    # Create SSE buffer before starting the run
+    run_id_placeholder = []
+
+    def _run():
+        result = run_agent(agent_id, content, session_id=session_id)
+        run_id_placeholder.append(result.id)
+        # Send SSE events
+        _sse_send_event(result.id, "start", json.dumps({"run_id": result.id, "state": "working"}))
+        if result.state == "done":
+            _sse_send_event(result.id, "complete", json.dumps({
+                "run_id": result.id,
+                "state": "done",
+                "answer": result.answer,
+            }))
+        elif result.state == "failed":
+            _sse_send_event(result.id, "error", json.dumps({
+                "run_id": result.id,
+                "state": "failed",
+                "reason": result.fail_reason,
+            }))
+        else:
+            _sse_send_event(result.id, "complete", json.dumps({
+                "run_id": result.id,
+                "state": result.state,
+            }))
+        # Signal completion
+        _sse_send_event(result.id, "end", "")
+        # Clean up buffer after a delay
+        time.sleep(5)
+        _sse_remove_buffer(result.id)
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+
+    # Return immediately; client should connect to SSE stream
+    # We need to wait a moment for the run to get its ID
+    time.sleep(0.2)
+    actual_run_id = run_id_placeholder[0] if run_id_placeholder else None
+
+    return {
+        "status": "queued",
+        "session_id": session_id,
+        "agent": agent_id,
+        "run_id": actual_run_id,
+    }
+
+
+# --- SSE streaming ---
+
+
+@app.get("/api/sessions/{session_id}/stream")
+async def api_stream_session(
+    session_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    """SSE endpoint for live run output.
+    
+    Finds the latest run for this session and streams its events.
+    """
+    session = memory.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+
+    # Find the latest run for this session
+    all_runs = list_runs()
+    session_runs = [r for r in all_runs if r.session_id == session_id]
+    session_runs.sort(key=lambda r: r.started or "", reverse=True)
+    latest_run = session_runs[0] if session_runs else None
+
+    async def event_generator():
+        if latest_run and latest_run.state == "working":
+            run_id = latest_run.id
+            buf = _sse_buffer_for_run(run_id)
+            # Send any buffered events first
+            while not buf.empty():
+                try:
+                    event = buf.get_nowait()
+                    yield event
+                except queue.Empty:
+                    break
+            # Wait for new events
+            while True:
+                try:
+                    event = await asyncio.wait_for(
+                        asyncio.get_event_loop().run_in_executor(None, buf.get),
+                        timeout=300,  # 5 minute timeout
+                    )
+                    yield event
+                    if "event: end" in event:
+                        break
+                except asyncio.TimeoutError:
+                    yield "event: timeout\ndata: stream timeout\n\n"
+                    break
+        else:
+            # No active run; send idle event
+            if latest_run:
+                yield f"event: idle\ndata: {json.dumps({'run_id': latest_run.id, 'state': latest_run.state})}\n\n"
+            else:
+                yield "event: idle\ndata: no active run\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# --- Memories ---
+
+
+@app.get("/api/memories")
+async def api_list_memories(
+    agent: Optional[str] = None,
+    project: Optional[str] = None,
+    q: Optional[str] = None,
+    _auth: None = Depends(_verify_token),
+):
+    memories_list = memory.list_memories(
+        agent_id=agent,
+        project_path=project,
+        search=q,
+    )
+    return {"memories": memories_list}
+
+
+@app.post("/api/memories", status_code=201)
+async def api_create_memory(
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    content = body.get("content", "")
+    if not content:
+        raise HTTPException(status_code=400, detail="content is required")
+    mem = memory.create_memory(
+        content=content,
+        project_path=body.get("project_path"),
+        session_id=body.get("session_id"),
+        agent_id=body.get("agent_id"),
+        tags=body.get("tags"),
+    )
+    return mem
+
+
+@app.delete("/api/memories/{memory_id}")
+async def api_delete_memory(
+    memory_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    deleted = memory.delete_memory(memory_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Memory '{memory_id}' not found")
+    return {"deleted": memory_id}
+
+
+# --- Projects ---
+
+
+@app.get("/api/projects")
+async def api_list_projects(
+    _auth: None = Depends(_verify_token),
+):
+    projects = memory.discover_projects()
+    return {"projects": projects}
 
 
 # --- Static files ---

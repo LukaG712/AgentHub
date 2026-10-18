@@ -43,13 +43,22 @@ def client(tmp_path):
     runs_dir.mkdir(parents=True)
     locks_dir.mkdir(parents=True)
 
+    # Set up temporary database for memory layer
+    db_path = tmp_path / "hub.db"
+
     old_config = os.environ.get("HUB_CONFIG")
     old_api_key = os.environ.get("HUB_API_KEY")
     old_junie = os.environ.get("JUNIE_BIN")
+    old_db = os.environ.get("HUB_DB_PATH")
 
     os.environ["HUB_CONFIG"] = str(config_path)
     os.environ["HUB_API_KEY"] = "test-secret-key"
     os.environ["JUNIE_BIN"] = str(Path(__file__).parent / "fake_agent.py")
+    os.environ["HUB_DB_PATH"] = str(db_path)
+
+    # Reset memory connection to pick up new DB path
+    from hub import memory as memory_module
+    memory_module.close_connection()
 
     with patch("hub.runner._RUNS_DIR", runs_dir), \
          patch("hub.runner._LOCKS_DIR", locks_dir), \
@@ -58,6 +67,7 @@ def client(tmp_path):
         from hub import api as api_module
         yield TestClient(api_module.app)
 
+    memory_module.close_connection()
     if old_config is not None:
         os.environ["HUB_CONFIG"] = old_config
     else:
@@ -70,6 +80,10 @@ def client(tmp_path):
         os.environ["JUNIE_BIN"] = old_junie
     else:
         os.environ.pop("JUNIE_BIN", None)
+    if old_db is not None:
+        os.environ["HUB_DB_PATH"] = old_db
+    else:
+        os.environ.pop("HUB_DB_PATH", None)
 
 
 HEADERS = {"Authorization": "Bearer test-secret-key"}
@@ -269,3 +283,225 @@ class TestStaticFiles:
         resp = client.get("/")
         # Should return something (either the HTML or a JSON message)
         assert resp.status_code in (200, 404)
+
+
+class TestSessions:
+    def test_list_sessions_empty(self, client):
+        resp = client.get("/api/sessions", headers=HEADERS)
+        assert resp.status_code == 200
+        assert resp.json()["sessions"] == []
+
+    def test_create_session(self, client):
+        resp = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Test Session", "agent_id": "vault"},
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["title"] == "Test Session"
+        assert data["agent_id"] == "vault"
+        assert "id" in data
+
+    def test_get_session(self, client):
+        # Create session first
+        create = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Get Test", "agent_id": "vault"},
+        )
+        session_id = create.json()["id"]
+        resp = client.get(f"/api/sessions/{session_id}", headers=HEADERS)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["title"] == "Get Test"
+        assert "messages" in data
+
+    def test_get_missing_session(self, client):
+        resp = client.get("/api/sessions/nonexistent-id", headers=HEADERS)
+        assert resp.status_code == 404
+
+    def test_delete_session(self, client):
+        create = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Delete Test", "agent_id": "vault"},
+        )
+        session_id = create.json()["id"]
+        resp = client.delete(f"/api/sessions/{session_id}", headers=HEADERS)
+        assert resp.status_code == 200
+        assert resp.json()["deleted"] == session_id
+        # Verify it's gone
+        resp2 = client.get(f"/api/sessions/{session_id}", headers=HEADERS)
+        assert resp2.status_code == 404
+
+    def test_delete_missing_session(self, client):
+        resp = client.delete("/api/sessions/nonexistent-id", headers=HEADERS)
+        assert resp.status_code == 404
+
+    def test_list_sessions_with_data(self, client):
+        client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "First", "agent_id": "vault"},
+        )
+        client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Second", "agent_id": "vault"},
+        )
+        resp = client.get("/api/sessions", headers=HEADERS)
+        assert resp.status_code == 200
+        assert len(resp.json()["sessions"]) == 2
+
+    def test_list_sessions_filtered_by_agent(self, client):
+        client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "A", "agent_id": "vault"},
+        )
+        client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "B", "agent_id": "other"},
+        )
+        resp = client.get("/api/sessions?agent=vault", headers=HEADERS)
+        assert resp.status_code == 200
+        assert len(resp.json()["sessions"]) == 1
+
+
+class TestMessageDispatch:
+    def test_dispatch_missing_content(self, client):
+        create = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Dispatch Test", "agent_id": "vault"},
+        )
+        session_id = create.json()["id"]
+        resp = client.post(
+            f"/api/sessions/{session_id}/messages",
+            headers=HEADERS,
+            json={},
+        )
+        assert resp.status_code == 400
+
+    def test_dispatch_missing_session(self, client):
+        resp = client.post(
+            "/api/sessions/nonexistent-id/messages",
+            headers=HEADERS,
+            json={"content": "test"},
+        )
+        assert resp.status_code == 404
+
+    def test_dispatch_no_agent_id(self, client):
+        # Create session without agent_id
+        create = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "No Agent"},
+        )
+        session_id = create.json()["id"]
+        resp = client.post(
+            f"/api/sessions/{session_id}/messages",
+            headers=HEADERS,
+            json={"content": "test"},
+        )
+        assert resp.status_code == 400
+
+    def test_dispatch_missing_agent(self, client):
+        create = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Bad Agent", "agent_id": "nonexistent-agent"},
+        )
+        session_id = create.json()["id"]
+        resp = client.post(
+            f"/api/sessions/{session_id}/messages",
+            headers=HEADERS,
+            json={"content": "test"},
+        )
+        assert resp.status_code == 404
+
+
+class TestMemories:
+    def test_list_memories_empty(self, client):
+        resp = client.get("/api/memories", headers=HEADERS)
+        assert resp.status_code == 200
+        assert resp.json()["memories"] == []
+
+    def test_create_memory(self, client):
+        resp = client.post(
+            "/api/memories",
+            headers=HEADERS,
+            json={"content": "Important fact"},
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["content"] == "Important fact"
+        assert "id" in data
+
+    def test_create_memory_missing_content(self, client):
+        resp = client.post(
+            "/api/memories",
+            headers=HEADERS,
+            json={},
+        )
+        assert resp.status_code == 400
+
+    def test_search_memories(self, client):
+        client.post(
+            "/api/memories",
+            headers=HEADERS,
+            json={"content": "Database connection"},
+        )
+        client.post(
+            "/api/memories",
+            headers=HEADERS,
+            json={"content": "API design"},
+        )
+        resp = client.get("/api/memories?q=Database", headers=HEADERS)
+        assert resp.status_code == 200
+        assert len(resp.json()["memories"]) == 1
+
+    def test_delete_memory(self, client):
+        create = client.post(
+            "/api/memories",
+            headers=HEADERS,
+            json={"content": "Delete me"},
+        )
+        memory_id = create.json()["id"]
+        resp = client.delete(f"/api/memories/{memory_id}", headers=HEADERS)
+        assert resp.status_code == 200
+        assert resp.json()["deleted"] == memory_id
+
+    def test_delete_missing_memory(self, client):
+        resp = client.delete("/api/memories/nonexistent-id", headers=HEADERS)
+        assert resp.status_code == 404
+
+
+class TestProjects:
+    def test_list_projects(self, client):
+        resp = client.get("/api/projects", headers=HEADERS)
+        assert resp.status_code == 200
+        assert "projects" in resp.json()
+
+
+class TestSSE:
+    def test_stream_missing_session(self, client):
+        resp = client.get("/api/sessions/nonexistent-id/stream", headers=HEADERS)
+        assert resp.status_code == 404
+
+    def test_stream_idle_session(self, client):
+        # Create session without any runs
+        create = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Idle Test", "agent_id": "vault"},
+        )
+        session_id = create.json()["id"]
+        resp = client.get(f"/api/sessions/{session_id}/stream", headers=HEADERS)
+        assert resp.status_code == 200
+        assert "text/event-stream" in resp.headers.get("content-type", "")
+        # Should contain idle event
+        text = resp.text
+        assert "event:" in text

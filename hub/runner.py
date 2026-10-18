@@ -64,6 +64,7 @@ class Run:
     pid: Optional[int] = None
     pgid: Optional[int] = None
     fail_reason: Optional[str] = None
+    session_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -347,8 +348,13 @@ def run_agent(
     task: str,
     no_wait: bool = False,
     timeout: Optional[int] = None,
+    session_id: Optional[str] = None,
 ) -> Run:
-    """Run an agent task with file locking, queue, retry, and timeout."""
+    """Run an agent task with file locking, queue, retry, and timeout.
+    
+    If session_id is provided, the task and result are persisted as messages
+    in the session via the memory layer.
+    """
     _ensure_dirs()
     if timeout is None:
         timeout = get_hub_timeout()
@@ -419,6 +425,7 @@ def run_agent(
         task=task,
         state="queued",
         owner_pid=os.getpid(),
+        session_id=session_id,
     )
     _save_run(run)
 
@@ -551,10 +558,44 @@ def run_agent(
             _save_run(run)
             break
 
+        # Persist session messages if session_id is set
+        if session_id:
+            _persist_run_to_session(run)
+
         return run
 
     finally:
         file_lock.release()
+
+
+def _persist_run_to_session(run: Run) -> None:
+    """Persist the result of a run as an assistant message in the session.
+    
+    If the run failed, persist a failure message instead.
+    """
+    try:
+        from hub import memory
+        if run.state == "done" and run.answer:
+            memory.add_message(
+                session_id=run.session_id,
+                role="assistant",
+                content=run.answer,
+                run_id=run.id,
+            )
+        elif run.state in ("failed", "stopped"):
+            reason = run.fail_reason or "unknown error"
+            content = f"Run failed: {reason}"
+            if run.answer:
+                content += f"\n\nPartial output: {run.answer}"
+            memory.add_message(
+                session_id=run.session_id,
+                role="assistant",
+                content=content,
+                run_id=run.id,
+            )
+    except Exception:
+        # Don't let persistence failures break the run
+        pass
 
 
 def stop_run(run_id: str) -> Optional[Run]:
