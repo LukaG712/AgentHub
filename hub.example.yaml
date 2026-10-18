@@ -1,0 +1,22 @@
+runners:
+  junie:
+    command:
+      - "junie"
+      - "--task"
+      - "{task}"
+      - "--project"
+      - "{project}"
+      - "--output-format"
+      - "json"
+    skills_dir: ".junie/skills"
+    guidelines_file: ".junie/AGENTS.md"
+
+agents:
+  vault:
+    title: "Vault librarian"
+    description: "Reads and updates the Obsidian vault notes."
+    runner: junie
+    project_dir: "/mnt/vault-test"
+    skills:
+      - "vault-conventions"
+    guidelines: "Never delete files. New notes go in _ai/."

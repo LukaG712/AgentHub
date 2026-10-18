@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Hub</title>
+<style>
+:root {
+  --bg: #f5f5f5; --fg: #1a1a1a; --card-bg: #fff; --border: #ddd;
+  --accent: #2563eb; --accent-hover: #1d4ed8; --danger: #dc2626;
+  --success: #16a34a; --warning: #d97706; --muted: #6b7280;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111827; --fg: #e5e7eb; --card-bg: #1f2937; --border: #374151;
+    --accent: #3b82f6; --accent-hover: #60a5fa; --danger: #ef4444;
+    --success: #22c55e; --warning: #f59e0b; --muted: #9ca3af;
+  }
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--fg); }
+.hidden { display: none !important; }
+
+/* Auth prompt */
+#auth-prompt { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+#auth-prompt form { background: var(--card-bg); padding: 2rem; border-radius: 8px; border: 1px solid var(--border); }
+#auth-prompt input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); width: 250px; }
+#auth-prompt button { padding: 0.5rem 1rem; background: var(--accent); color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 0.5rem; }
+
+/* Header */
+header { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); background: var(--card-bg); }
+header h1 { font-size: 1.2rem; }
+nav button { background: none; border: none; color: var(--fg); cursor: pointer; padding: 0.5rem 0.75rem; font-size: 0.9rem; }
+nav button.active { border-bottom: 2px solid var(--accent); }
+
+/* Main */
+main { padding: 1rem; max-width: 1200px; margin: 0 auto; }
+
+/* Agent cards */
+.state-group { margin-bottom: 1.5rem; }
+.state-group h2 { font-size: 1rem; margin-bottom: 0.5rem; color: var(--muted); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem; }
+.card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; cursor: pointer; transition: border-color 0.2s; }
+.card:hover { border-color: var(--accent); }
+.card h3 { font-size: 1rem; margin-bottom: 0.25rem; }
+.card .meta { font-size: 0.85rem; color: var(--muted); }
+.card .task { font-size: 0.85rem; margin-top: 0.5rem; color: var(--accent); }
+.card.working { border-left: 3px solid var(--success); }
+.card.failed { border-left: 3px solid var(--danger); }
+
+/* Bottom bar */
+#bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card-bg); border-top: 1px solid var(--border); padding: 0.75rem 1rem; display: flex; gap: 0.5rem; align-items: center; }
+#bottom-bar select, #bottom-bar input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); }
+#bottom-bar input { flex: 1; }
+#bottom-bar button { padding: 0.5rem 1rem; background: var(--accent); color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+
+/* Agent panel */
+#agent-panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
+#agent-panel h2 { margin-bottom: 1rem; }
+.panel-section { margin-bottom: 1rem; }
+.panel-section h3 { font-size: 0.9rem; color: var(--muted); margin-bottom: 0.5rem; }
+.panel-section textarea, .panel-section input { width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font-family: inherit; }
+.panel-section textarea { min-height: 80px; resize: vertical; }
+.output-box { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.75rem; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; }
+.btn { padding: 0.4rem 0.8rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-save { background: var(--accent); color: #fff; }
+.btn-small { padding: 0.2rem 0.5rem; font-size: 0.8rem; }
+.skill-toggles { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.skill-toggle { display: flex; align-items: center; gap: 0.3rem; }
+
+/* Skills page */
+.skills-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.75rem; }
+.skill-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+.skill-card h3 { margin-bottom: 0.25rem; }
+.skill-card .desc { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.5rem; }
+.skill-card .agents { font-size: 0.8rem; color: var(--muted); }
+.skill-card .actions { margin-top: 0.5rem; display: flex; gap: 0.3rem; }
+#skill-form { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+#skill-form textarea { width: 100%; min-height: 120px; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font-family: monospace; }
+
+/* Run history */
+.run-item { padding: 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; cursor: pointer; }
+.run-item:hover { background: var(--bg); }
+.run-item .state { font-weight: bold; }
+.run-item .state.done { color: var(--success); }
+.run-item .state.failed { color: var(--danger); }
+.run-item .state.working { color: var(--warning); }
+
+/* Matrix */
+.matrix-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.matrix-table th, .matrix-table td { padding: 0.4rem; border: 1px solid var(--border); text-align: center; }
+.matrix-table th { background: var(--bg); }
+
+@media (max-width: 600px) {
+  .cards { grid-template-columns: 1fr; }
+  #bottom-bar { flex-wrap: wrap; }
+  #bottom-bar input { min-width: 100%; order: 3; }
+}
+</style>
+</head>
+<body>
+
+<!-- Auth prompt -->
+<div id="auth-prompt" class="hidden">
+  <form id="auth-form">
+    <h2>Agent Hub</h2>
+    <p style="margin:0.5rem 0;color:var(--muted)">Enter API key to continue</p>
+    <input type="password" id="api-key-input" placeholder="API key" required>
+    <button type="submit">Connect</button>
+  </form>
+</div>
+
+<!-- Main app -->
+<div id="app" class="hidden">
+  <header>
+    <h1>Agent Hub</h1>
+    <nav>
+      <button id="nav-dashboard" class="active" onclick="showPage('dashboard')">Dashboard</button>
+      <button id="nav-skills" onclick="showPage('skills')">Skills</button>
+      <button onclick="logout()">Logout</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Dashboard -->
+    <div id="page-dashboard">
+      <div id="agent-cards"></div>
+    </div>
+
+    <!-- Agent detail panel -->
+    <div id="agent-panel" class="hidden"></div>
+
+    <!-- Skills page -->
+    <div id="page-skills" class="hidden">
+      <div id="skill-form">
+        <h3 id="skill-form-title">New Skill</h3>
+        <input type="text" id="skill-name" placeholder="Skill name" style="width:200px;margin-bottom:0.5rem">
+        <textarea id="skill-content" placeholder="SKILL.md content (YAML frontmatter + markdown)"></textarea>
+        <div style="margin-top:0.5rem">
+          <button class="btn btn-save" onclick="saveSkill()">Save</button>
+          <button class="btn" onclick="clearSkillForm()" style="margin-left:0.5rem">Clear</button>
+        </div>
+      </div>
+      <div id="skills-list" class="skills-list"></div>
+      <h3 style="margin:1rem 0 0.5rem">Enable/Disable Matrix</h3>
+      <div id="skills-matrix"></div>
+    </div>
+  </main>
+
+  <!-- Bottom bar -->
+  <div id="bottom-bar">
+    <select id="bar-agent"></select>
+    <input type="text" id="bar-task" placeholder="Enter task..." onkeydown="if(event.key==='Enter')sendTask()">
+    <button onclick="sendTask()">Send</button>
+  </div>
+</div>
+
+<script>
+let API_KEY = localStorage.getItem('hub_api_key') || '';
+let agents = [];
+let skills = [];
+let pollInterval = null;
+let currentAgent = null;
+let editingSkill = null;
+
+const API = '/api';
+
+function api(path, opts = {}) {
+  const headers = { 'Authorization': 'Bearer ' + API_KEY };
+  if (opts.body && typeof opts.body === 'object') {
+    headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(opts.body);
+  }
+  return fetch(API + path, { ...opts, headers }).then(r => {
+    if (r.status === 401) { logout(); throw new Error('Unauthorized'); }
+    return r.json();
+  });
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+function logout() {
+  localStorage.removeItem('hub_api_key');
+  API_KEY = '';
+  location.reload();
+}
+
+// Auth
+if (API_KEY) {
+  showApp();
+} else {
+  document.getElementById('auth-prompt').classList.remove('hidden');
+  document.getElementById('auth-form').onsubmit = async (e) => {
+    e.preventDefault();
+    API_KEY = document.getElementById('api-key-input').value;
+    localStorage.setItem('hub_api_key', API_KEY);
+    try {
+      await api('/status');
+      showApp();
+    } catch {
+      alert('Invalid API key');
+      API_KEY = '';
+      localStorage.removeItem('hub_api_key');
+    }
+  };
+}
+
+function showApp() {
+  document.getElementById('auth-prompt').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  startPolling();
+}
+
+function showPage(page) {
+  document.getElementById('page-dashboard').classList.toggle('hidden', page !== 'dashboard');
+  document.getElementById('page-skills').classList.toggle('hidden', page !== 'skills');
+  document.getElementById('agent-panel').classList.add('hidden');
+  currentAgent = null;
+  document.getElementById('nav-dashboard').classList.toggle('active', page === 'dashboard');
+  document.getElementById('nav-skills').classList.toggle('active', page === 'skills');
+  if (page === 'skills') loadSkills();
+}
+
+// Polling
+function startPolling() {
+  if (pollInterval) clearInterval(pollInterval);
+  pollStatus();
+  pollInterval = setInterval(pollStatus, 2000);
+}
+
+async function pollStatus() {
+  try {
+    const data = await api('/status');
+    agents = data.agents || [];
+    renderCards();
+    renderBar();
+    if (currentAgent) pollAgentDetail();
+  } catch(e) {
+    console.error('Poll error:', e);
+  }
+}
+
+// Dashboard cards
+function renderCards() {
+  const groups = { working: [], idle: [], failed: [] };
+  agents.forEach(a => {
+    const g = a.status === 'working' ? 'working' : a.status === 'failed' ? 'failed' : 'idle';
+    groups[g].push(a);
+  });
+  let html = '';
+  const labels = { working: 'Working', idle: 'Idle', failed: 'Failed' };
+  for (const [key, label] of Object.entries(labels)) {
+    if (groups[key].length === 0) continue;
+    html += `<div class="state-group"><h2>${label} (${groups[key].length})</h2><div class="cards">`;
+    groups[key].forEach(a => {
+      const cls = a.status === 'working' ? 'working' : a.status === 'failed' ? 'failed' : '';
+      html += `<div class="card ${cls}" onclick="showAgent('${esc(a.name)}')">
+        <h3>${esc(a.name)}</h3>
+        <div class="meta">${esc(a.last_run ? a.last_run.agent : '')} · ${a.queue_length || 0} in queue</div>
+        ${a.current_task ? `<div class="task">${esc(a.current_task)}</div>` : ''}
+      </div>`;
+    });
+    html += '</div></div>';
+  }
+  document.getElementById('agent-cards').innerHTML = html || '<p style="color:var(--muted)">No agents configured.</p>';
+}
+
+function renderBar() {
+  const sel = document.getElementById('bar-agent');
+  const current = sel.value;
+  sel.innerHTML = agents.map(a => `<option value="${esc(a.name)}">${esc(a.name)}</option>`).join('');
+  if (current && agents.find(a => a.name === current)) sel.value = current;
+}
+
+// Agent detail
+async function showAgent(name) {
+  currentAgent = name;
+  document.getElementById('agent-panel').classList.remove('hidden');
+  document.getElementById('page-dashboard').classList.add('hidden');
+  await pollAgentDetail();
+}
+
+async function pollAgentDetail() {
+  if (!currentAgent) return;
+  try {
+    const agent = await api('/agents/' + currentAgent);
+    const runs = await api('/runs?agent=' + currentAgent);
+    const allSkills = await api('/skills');
+    renderAgentPanel(agent, runs.runs || [], allSkills.skills || []);
+  } catch(e) { console.error(e); }
+}
+
+function renderAgentPanel(agent, runs, allSkills) {
+  const latest = runs[0];
+  const agentSkills = (agent.skills || []);
+  let html = `<h2>${esc(agent.name)} <span style="font-weight:normal;color:var(--muted)">(${esc(agent.title || '')})</span></h2>`;
+
+  // Output
+  if (latest && latest.raw_output) {
+    html += `<div class="panel-section"><h3>Latest Output</h3><div class="output-box">${esc(latest.raw_output)}</div></div>`;
+  }
+
+  // Stop button
+  if (latest && latest.state === 'working') {
+    html += `<button class="btn btn-danger" onclick="stopRun('${esc(latest.id)}')">Stop</button> `;
+  }
+
+  // Edit form
+  html += `<div class="panel-section"><h3>Edit Agent</h3>
+    <input type="text" id="edit-title" value="${esc(agent.title || '')}" placeholder="Title" style="margin-bottom:0.3rem">
+    <input type="text" id="edit-desc" value="${esc(agent.description || '')}" placeholder="Description" style="margin-bottom:0.3rem">
+    <input type="text" id="edit-project" value="${esc(agent.project_dir || '')}" placeholder="Project dir" style="margin-bottom:0.3rem">
+    <textarea id="edit-guidelines" placeholder="Guidelines">${esc(agent.guidelines || '')}</textarea>
+    <button class="btn btn-save" style="margin-top:0.5rem" onclick="saveAgent('${esc(agent.name)}')">Save</button>
+  </div>`;
+
+  // Skill toggles
+  html += `<div class="panel-section"><h3>Skills</h3><div class="skill-toggles">`;
+  allSkills.forEach(s => {
+    const checked = agentSkills.includes(s.name) ? 'checked' : '';
+    html += `<label class="skill-toggle"><input type="checkbox" ${checked} onchange="toggleSkill('${esc(agent.name)}','${esc(s.name)}',this.checked)">${esc(s.name)}</label>`;
+  });
+  html += '</div></div>';
+
+  // Run history
+  html += `<div class="panel-section"><h3>Run History</h3>`;
+  runs.slice(0, 20).forEach(r => {
+    html += `<div class="run-item" onclick="showRunDetail('${esc(r.id)}')">
+      <span class="state ${esc(r.state)}">${esc(r.state)}</span>
+      ${esc(r.task ? r.task.substring(0, 60) : '')}
+      ${r.fail_reason ? ' — ' + esc(r.fail_reason) : ''}
+    </div>`;
+  });
+  html += '</div>';
+
+  document.getElementById('agent-panel').innerHTML = html;
+}
+
+async function saveAgent(name) {
+  const body = {
+    title: document.getElementById('edit-title').value,
+    description: document.getElementById('edit-desc').value,
+    project_dir: document.getElementById('edit-project').value,
+    guidelines: document.getElementById('edit-guidelines').value,
+  };
+  await api('/agents/' + name, { method: 'PUT', body });
+  alert('Saved');
+}
+
+async function toggleSkill(agent, skill, enabled) {
+  if (enabled) {
+    await api('/agents/' + agent + '/skills/' + skill, { method: 'POST' });
+  } else {
+    await api('/agents/' + agent + '/skills/' + skill, { method: 'DELETE' });
+  }
+}
+
+async function stopRun(runId) {
+  await api('/runs/' + runId + '/stop', { method: 'POST' });
+}
+
+async function showRunDetail(runId) {
+  const run = await api('/runs/' + runId);
+  alert(`State: ${run.state}\nTask: ${run.task}\nAnswer: ${run.answer || '(none)'}\n${run.fail_reason ? 'Error: ' + run.fail_reason : ''}`);
+}
+
+// Send task
+async function sendTask() {
+  const agent = document.getElementById('bar-agent').value;
+  const task = document.getElementById('bar-task').value.trim();
+  if (!agent || !task) return;
+  await api('/agents/' + agent + '/runs', { method: 'POST', body: { task } });
+  document.getElementById('bar-task').value = '';
+}
+
+// Skills page
+async function loadSkills() {
+  try {
+    const data = await api('/skills');
+    skills = data.skills || [];
+    renderSkillsList();
+    renderSkillsMatrix();
+  } catch(e) { console.error(e); }
+}
+
+function renderSkillsList() {
+  let html = '';
+  skills.forEach(s => {
+    html += `<div class="skill-card">
+      <h3>${esc(s.name)}</h3>
+      <div class="desc">${esc(s.description || '')}</div>
+      <div class="agents">Used by: ${esc((s.used_by || []).join(', ') || 'none')}</div>
+      <div class="actions">
+        <button class="btn btn-small" onclick="editSkill('${esc(s.name)}')">Edit</button>
+        <button class="btn btn-small btn-danger" onclick="deleteSkill('${esc(s.name)}')">Delete</button>
+      </div>
+    </div>`;
+  });
+  document.getElementById('skills-list').innerHTML = html || '<p style="color:var(--muted)">No skills yet.</p>';
+}
+
+function renderSkillsMatrix() {
+  if (!skills.length || !agents.length) return;
+  let html = '<table class="matrix-table"><tr><th>Skill</th>';
+  agents.forEach(a => { html += `<th>${esc(a.name)}</th>`; });
+  html += '</tr>';
+  skills.forEach(s => {
+    html += '<tr><td>' + esc(s.name) + '</td>';
+    agents.forEach(a => {
+      const checked = (a.skills || []).includes(s.name) ? 'checked' : '';
+      html += `<td><input type="checkbox" ${checked} onchange="toggleSkill('${esc(a.name)}','${esc(s.name)}',this.checked)"></td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</table>';
+  document.getElementById('skills-matrix').innerHTML = html;
+}
+
+function editSkill(name) {
+  const s = skills.find(sk => sk.name === name);
+  if (!s) return;
+  editingSkill = name;
+  document.getElementById('skill-name').value = name;
+  document.getElementById('skill-content').value = s.content || '';
+  document.getElementById('skill-form-title').textContent = 'Edit Skill: ' + name;
+}
+
+async function saveSkill() {
+  const name = document.getElementById('skill-name').value.trim();
+  const content = document.getElementById('skill-content').value;
+  if (!name) return alert('Name required');
+  const method = editingSkill ? 'PUT' : 'POST';
+  await api('/skills/' + name, { method, body: { name, content, description: '' } });
+  clearSkillForm();
+  await loadSkills();
+}
+
+function clearSkillForm() {
+  editingSkill = null;
+  document.getElementById('skill-name').value = '';
+  document.getElementById('skill-content').value = '';
+  document.getElementById('skill-form-title').textContent = 'New Skill';
+}
+
+async function deleteSkill(name) {
+  if (!confirm('Delete skill ' + name + '?')) return;
+  await api('/skills/' + name, { method: 'DELETE' });
+  await loadSkills();
+}
+</script>
+</body>
+</html>
