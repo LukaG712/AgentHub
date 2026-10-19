@@ -274,6 +274,10 @@ def _kill_process_group(run: Run) -> bool:
     """Safely kill a process group, verifying PID/PGID match."""
     if run.state != "working" or run.pid is None or run.pgid is None:
         return False
+    # Never send a signal to ourselves — it would raise KeyboardInterrupt
+    # in the parent process asynchronously.
+    if run.pid == os.getpid():
+        return False
     try:
         # Verify PGID still matches (POSIX only)
         if sys.platform != "win32":
@@ -548,6 +552,15 @@ def run_agent(
     else:
         file_lock.acquire()
 
+    # Ignore SIGINT while spawning and managing the child process so that
+    # CTRL_BREAK_EVENT delivered by a dying child cannot raise
+    # KeyboardInterrupt in the parent (common on Windows when the child
+    # is a Python interpreter sharing the same console).  signal.signal()
+    # works only from the main thread — silently skip when called from a
+    # worker thread.
+    _old_sigint_handler = None
+    if threading.current_thread() is threading.main_thread():
+        _old_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
         # Sync skills before running
         _sync_agent_before_run(agent_name)
@@ -603,6 +616,12 @@ def run_agent(
                 }
                 if sys.platform != "win32":
                     popen_kwargs["start_new_session"] = True
+                else:
+                    # Fully detach from parent console so the child cannot
+                    # deliver CTRL_BREAK_EVENT (KeyboardInterrupt) to the
+                    # parent process.  DETACHED_PROCESS is stricter than
+                    # CREATE_NEW_PROCESS_GROUP.
+                    popen_kwargs["creationflags"] = subprocess.DETACHED_PROCESS
 
                 try:
                     process = subprocess.Popen(cmd, **popen_kwargs)
@@ -641,24 +660,38 @@ def run_agent(
                     time.sleep(0.5)
 
                 if timed_out:
-                    # Kill the process directly first
+                    # Kill the process directly first.  Wrap in KeyboardInterrupt
+                    # handling because terminating a Python child can raise
+                    # KeyboardInterrupt in the parent on some platforms.
                     try:
                         process.kill()
-                    except (OSError, ProcessLookupError):
+                    except (OSError, ProcessLookupError, KeyboardInterrupt):
                         pass
-                    _kill_process_group(run)
+                    try:
+                        _kill_process_group(run)
+                    except KeyboardInterrupt:
+                        pass
 
                 # Wait for process to finish, then close streams, then join thread
                 try:
                     process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
+                except (subprocess.TimeoutExpired, KeyboardInterrupt):
                     pass
                 # Close streams to unblock the reader thread
                 if process.stdout:
-                    process.stdout.close()
+                    try:
+                        process.stdout.close()
+                    except KeyboardInterrupt:
+                        pass
                 if process.stderr:
-                    process.stderr.close()
-                stream_thread.join(timeout=3)
+                    try:
+                        process.stderr.close()
+                    except KeyboardInterrupt:
+                        pass
+                try:
+                    stream_thread.join(timeout=3)
+                except KeyboardInterrupt:
+                    pass
 
                 raw_output = "".join(output_parts)
 
@@ -697,8 +730,9 @@ def run_agent(
             _persist_run_to_session(run)
 
         return run
-
     finally:
+        if _old_sigint_handler is not None:
+            signal.signal(signal.SIGINT, _old_sigint_handler)
         file_lock.release()
 
 
