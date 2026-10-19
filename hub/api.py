@@ -33,25 +33,44 @@ security = HTTPBearer(auto_error=False)
 # Static files directory
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 
-# SSE event store: maps run_id -> list of event strings (append-only, bounded).
-# Each client reads from this list via its own index, so multiple clients get
-# their own ordered copy of the full event stream.
-_sse_event_store: Dict[str, list] = {}
+# SSE event store: maps run_id -> SSERunStore (append-only, bounded).
+# Each client reads from the store via its own last event ID cursor, so
+# multiple clients get independent ordered streams that survive evictions.
+_sse_event_store: Dict[str, "SSERunStore"] = {}
 _sse_event_store_lock = threading.Lock()
 # Max events per run to prevent unbounded memory growth
 _SSE_MAX_EVENTS = 1000
 # Terminal events that must never be silently dropped
 _TERMINAL_EVENTS = {"complete", "error", "end"}
+# Global monotonically increasing event ID counter (across all runs)
+_sse_next_id: int = 0
 
 
-def _sse_buffer_for_run(run_id: str) -> list:
-    """Get or create an SSE event store for a run.
+class SSERunStore:
+    """Bounded, append-only event store for one run.
 
-    Returns a thread-safe list that all clients can read from independently.
+    Each event carries a monotonically increasing ID so clients can track
+    their position independently of list indices.  When the buffer is full,
+    the oldest non-terminal events are evicted and the store records the
+    lowest retained ID so reconnecting clients can detect a retention gap.
     """
+
+    __slots__ = ("events", "evicted_before_id")
+
+    def __init__(self) -> None:
+        # List of tuples: (event_id: int, sse_string: str)
+        self.events: list = []
+        # If events were evicted, this holds the ID of the oldest evicted
+        # event (i.e. the first ID the client is missing).  None means no
+        # eviction has occurred.
+        self.evicted_before_id: Optional[int] = None
+
+
+def _sse_buffer_for_run(run_id: str) -> SSERunStore:
+    """Get or create an SSE event store for a run."""
     with _sse_event_store_lock:
         if run_id not in _sse_event_store:
-            _sse_event_store[run_id] = []
+            _sse_event_store[run_id] = SSERunStore()
         return _sse_event_store[run_id]
 
 
@@ -68,32 +87,50 @@ def _sse_send_event(run_id: str, event: str, data: str) -> None:
     dropped from the front to make room. Terminal events (complete, error, end)
     are never silently discarded — they always replace the oldest non-terminal
     event if the buffer is full.
+
+    Returns the assigned event ID (for testing).
     """
+    global _sse_next_id
     sse_event = f"event: {event}\ndata: {data}\n\n"
     is_terminal = event in _TERMINAL_EVENTS
 
     with _sse_event_store_lock:
         if run_id not in _sse_event_store:
-            _sse_event_store[run_id] = []
+            _sse_event_store[run_id] = SSERunStore()
         store = _sse_event_store[run_id]
 
-        if len(store) >= _SSE_MAX_EVENTS:
-            if is_terminal:
-                # Make room by removing the oldest non-terminal event
-                removed = False
-                for i in range(len(store)):
-                    if not any(f"event: {t}" in store[i] for t in _TERMINAL_EVENTS):
-                        store.pop(i)
-                        removed = True
-                        break
-                if not removed and store:
-                    # All events are terminal — remove the oldest one
-                    store.pop(0)
-            else:
-                # Drop the oldest event to make room
-                store.pop(0)
+        # Assign a monotonically increasing ID
+        _sse_next_id += 1
+        event_id = _sse_next_id
 
-        store.append(sse_event)
+        if len(store.events) >= _SSE_MAX_EVENTS:
+            # Evict from the front until there is room
+            if is_terminal:
+                # Try to remove the oldest non-terminal event first
+                removed = False
+                for i in range(len(store.events)):
+                    ev_id, ev_str = store.events[i]
+                    if not any(f"event: {t}" in ev_str for t in _TERMINAL_EVENTS):
+                        oldest_evicted = ev_id
+                        store.events.pop(i)
+                        removed = True
+                        if store.evicted_before_id is None or oldest_evicted < store.evicted_before_id:
+                            store.evicted_before_id = oldest_evicted
+                        break
+                if not removed and store.events:
+                    # All events are terminal — remove the oldest one
+                    oldest_evicted = store.events[0][0]
+                    store.events.pop(0)
+                    if store.evicted_before_id is None or oldest_evicted < store.evicted_before_id:
+                        store.evicted_before_id = oldest_evicted
+            else:
+                # Drop the oldest event
+                oldest_evicted = store.events[0][0]
+                store.events.pop(0)
+                if store.evicted_before_id is None or oldest_evicted < store.evicted_before_id:
+                    store.evicted_before_id = oldest_evicted
+
+        store.events.append((event_id, sse_event))
 
 
 def _get_api_key() -> str:
@@ -644,31 +681,69 @@ async def api_stream_session(
         store = _sse_buffer_for_run(rid)
 
         if target_run.state == "working":
-            # Run is in progress — replay all stored events, then wait for new ones
-            # Each client reads from index 0, so multiple clients get independent streams
-            last_index = -1
+            # Run is in progress — stream events using event ID cursors.
+            # Each client tracks its own last_event_id so multiple clients
+            # get independent ordered streams that survive evictions.
+            last_event_id = 0
+            received_end = False
             while True:
                 with _sse_event_store_lock:
-                    current_len = len(_sse_event_store.get(rid, []))
-                if current_len > last_index:
-                    with _sse_event_store_lock:
-                        new_events = _sse_event_store.get(rid, [])[last_index + 1:current_len]
+                    s = _sse_event_store.get(rid)
+                    if s is None:
+                        # Store was cleaned up; fall through to final-state replay
+                        break
+                    # Check for retention gap: if events were evicted before
+                    # the client's cursor, notify the client
+                    if s.evicted_before_id is not None and s.evicted_before_id <= last_event_id:
+                        yield (
+                            f"event: retention_gap\ndata: "
+                            f"{json.dumps({'run_id': rid, 'evicted_before_id': s.evicted_before_id})}\n\n"
+                        )
+                    # Find events after the client's cursor
+                    new_events = [
+                        ev_str for ev_id, ev_str in s.events if ev_id > last_event_id
+                    ]
+                if new_events:
                     for ev in new_events:
                         yield ev
-                    last_index = current_len - 1
-                    if "event: end" in new_events[-1] if new_events else False:
+                    with _sse_event_store_lock:
+                        s = _sse_event_store.get(rid)
+                        if s and s.events:
+                            last_event_id = s.events[-1][0]
+                    # Check for end event
+                    if any("event: end" in ev for ev in new_events):
+                        received_end = True
                         break
                 else:
                     try:
                         await asyncio.sleep(0.2)
                     except asyncio.CancelledError:
                         break
-                    # Timeout guard — stop after 5 minutes of no new events
-                    # (handled by client-side timeout instead)
+
+            # If we broke out without receiving an end event, replay final state
+            if not received_end:
+                if target_run.state == "done":
+                    yield f"event: complete\ndata: {json.dumps({'run_id': rid, 'state': 'done', 'answer': target_run.answer})}\n\n"
+                elif target_run.state == "failed":
+                    yield f"event: error\ndata: {json.dumps({'run_id': rid, 'state': 'failed', 'reason': target_run.fail_reason})}\n\n"
+                yield "event: end\n\n"
         else:
             # Run already finished — replay all stored events
             with _sse_event_store_lock:
-                events = list(_sse_event_store.get(rid, []))
+                s = _sse_event_store.get(rid)
+                if s is not None:
+                    events = [ev_str for _, ev_str in s.events]
+                else:
+                    events = []
+            # Notify about retention gap if events were evicted
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(rid)
+                evicted_before = s.evicted_before_id if s else None
+            if evicted_before is not None:
+                yield (
+                    f"event: retention_gap\ndata: "
+                    f"{json.dumps({'run_id': rid, 'evicted_before_id': evicted_before})}\n\n"
+                )
             for ev in events:
                 yield ev
             # If no stored events, replay the final state from the run record

@@ -696,10 +696,14 @@ class TestSSEStreaming:
             # Buffer is full — next event should evict the oldest
             _sse_send_event(run_id, "output", '{"text": "line4"}')
             with _sse_event_store_lock:
-                store = _sse_event_store.get(run_id, [])
-            assert len(store) == 3
+                store = _sse_event_store.get(run_id)
+            assert store is not None
+            assert len(store.events) == 3
             # Oldest event should be evicted
-            assert "line1" not in store[0]
+            evicted_strings = [ev_str for _, ev_str in store.events]
+            assert "line1" not in evicted_strings[0]
+            # Eviction should be tracked
+            assert store.evicted_before_id is not None
         finally:
             api_mod._SSE_MAX_EVENTS = old_max
             _sse_remove_buffer(run_id)
@@ -720,9 +724,11 @@ class TestSSEStreaming:
             # Terminal event must be delivered even though buffer is full
             _sse_send_event(run_id, "complete", '{"state": "done"}')
             with _sse_event_store_lock:
-                store = _sse_event_store.get(run_id, [])
+                store = _sse_event_store.get(run_id)
             # The complete event must be present
-            found_complete = any("event: complete" in ev for ev in store)
+            assert store is not None
+            ev_strings = [ev_str for _, ev_str in store.events]
+            found_complete = any("event: complete" in ev for ev in ev_strings)
             assert found_complete, "Terminal event was silently dropped"
         finally:
             api_mod._SSE_MAX_EVENTS = old_max
@@ -754,16 +760,19 @@ class TestSSEStreaming:
             _sse_send_event(run_id, "end", "")
             # Both "clients" read the full store independently
             with _sse_event_store_lock:
-                store = list(_sse_event_store.get(run_id, []))
-            # Client 1 reads all events
-            assert len(store) == 5
-            assert "event: start" in store[0]
-            assert "event: complete" in store[3]
-            assert "event: end" in store[4]
+                s = _sse_event_store.get(run_id)
+            assert s is not None
+            # Client 1 reads all events by scanning event IDs
+            client1_events = [ev_str for _, ev_str in s.events]
+            assert len(client1_events) == 5
+            assert "event: start" in client1_events[0]
+            assert "event: complete" in client1_events[3]
+            assert "event: end" in client1_events[4]
             # Client 2 reads the same full list (not consumed by client 1)
             with _sse_event_store_lock:
-                store2 = list(_sse_event_store.get(run_id, []))
-            assert len(store2) == 5
+                s2 = _sse_event_store.get(run_id)
+            client2_events = [ev_str for _, ev_str in s2.events]
+            assert len(client2_events) == 5
         finally:
             _sse_remove_buffer(run_id)
 
@@ -1022,6 +1031,185 @@ class TestSSEStreaming:
         )
         text_default = resp_default.text
         assert run_id_2 in text_default
+
+    def test_sse_event_ids_monotonic(self, client):
+        """Test that event IDs are monotonically increasing within a run."""
+        from hub.api import _sse_send_event, _sse_remove_buffer, \
+            _sse_event_store, _sse_event_store_lock
+        run_id = "test-monotonic-ids"
+        try:
+            for i in range(10):
+                _sse_send_event(run_id, "output", f'{{"text": "line{i}"}}')
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            assert s is not None
+            ids = [ev_id for ev_id, _ in s.events]
+            # IDs should be strictly increasing
+            for i in range(1, len(ids)):
+                assert ids[i] > ids[i - 1], f"Event IDs not monotonic: {ids}"
+        finally:
+            _sse_remove_buffer(run_id)
+
+    def test_sse_cursor_survives_eviction(self, client):
+        """Test that event ID cursors remain valid after events are evicted."""
+        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
+            _sse_event_store, _sse_event_store_lock
+        import hub.api as api_mod
+        run_id = "test-cursor-eviction"
+        old_max = api_mod._SSE_MAX_EVENTS
+        api_mod._SSE_MAX_EVENTS = 3
+        try:
+            # Fill buffer
+            _sse_send_event(run_id, "output", '{"text": "a"}')
+            _sse_send_event(run_id, "output", '{"text": "b"}')
+            _sse_send_event(run_id, "output", '{"text": "c"}')
+            # Client reads up to event ID of "b"
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            assert s is not None
+            # Find the ID of the second event ("b")
+            client_last_id = s.events[1][0]
+            # Now send more events, causing eviction
+            _sse_send_event(run_id, "output", '{"text": "d"}')
+            _sse_send_event(run_id, "output", '{"text": "e"}')
+            _sse_send_event(run_id, "output", '{"text": "f"}')
+            # Client resumes from last_id — should only get events after client_last_id
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            new_events = [ev_str for ev_id, ev_str in s.events if ev_id > client_last_id]
+            # Should get some new events, not duplicates of old ones
+            assert len(new_events) > 0
+            # Should not contain "a" which was evicted
+            for ev in new_events:
+                assert '{"text": "a"}' not in ev
+        finally:
+            api_mod._SSE_MAX_EVENTS = old_max
+            _sse_remove_buffer(run_id)
+
+    def test_sse_retention_gap_notification(self, client):
+        """Test that evicted_before_id is set when events are evicted."""
+        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
+            _sse_event_store, _sse_event_store_lock
+        import hub.api as api_mod
+        run_id = "test-retention-gap"
+        old_max = api_mod._SSE_MAX_EVENTS
+        api_mod._SSE_MAX_EVENTS = 3
+        try:
+            # No eviction yet
+            _sse_send_event(run_id, "output", '{"text": "a"}')
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            assert s.evicted_before_id is None
+            # Fill and overflow
+            _sse_send_event(run_id, "output", '{"text": "b"}')
+            _sse_send_event(run_id, "output", '{"text": "c"}')
+            _sse_send_event(run_id, "output", '{"text": "d"}')  # evicts "a"
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            # Should track that events were evicted
+            assert s.evicted_before_id is not None
+        finally:
+            api_mod._SSE_MAX_EVENTS = old_max
+            _sse_remove_buffer(run_id)
+
+    def test_sse_terminal_recovery_after_overflow(self, client):
+        """Test that terminal state is recoverable even after many evictions."""
+        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
+            _sse_event_store, _sse_event_store_lock
+        import hub.api as api_mod
+        run_id = "test-terminal-recovery"
+        old_max = api_mod._SSE_MAX_EVENTS
+        api_mod._SSE_MAX_EVENTS = 3
+        try:
+            # Fill with non-terminal events
+            for i in range(10):
+                _sse_send_event(run_id, "output", f'{{"text": "line{i}"}}')
+            # Send terminal event — must survive
+            _sse_send_event(run_id, "complete", '{"state": "done"}')
+            _sse_send_event(run_id, "end", "")
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            assert s is not None
+            ev_strings = [ev_str for _, ev_str in s.events]
+            # Terminal events must be present
+            assert any("event: complete" in ev for ev in ev_strings), \
+                "Complete event lost after overflow"
+            assert any("event: end" in ev for ev in ev_strings), \
+                "End event lost after overflow"
+        finally:
+            api_mod._SSE_MAX_EVENTS = old_max
+            _sse_remove_buffer(run_id)
+
+    def test_sse_reconnect_after_eviction(self, client):
+        """Test that a reconnecting client sees retention gap and remaining events."""
+        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
+            _sse_event_store, _sse_event_store_lock
+        import hub.api as api_mod
+        run_id = "test-reconnect"
+        old_max = api_mod._SSE_MAX_EVENTS
+        api_mod._SSE_MAX_EVENTS = 4
+        try:
+            # Client connects, reads first 3 events
+            _sse_send_event(run_id, "start", '{"state": "working"}')
+            _sse_send_event(run_id, "output", '{"text": "line1"}')
+            _sse_send_event(run_id, "output", '{"text": "line2"}')
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            assert s is not None
+            client_last_id = s.events[-1][0]
+            # Disconnect, then many more events cause eviction
+            for i in range(10):
+                _sse_send_event(run_id, "output", f'{{"text": "late{i}"}}')
+            _sse_send_event(run_id, "complete", '{"state": "done"}')
+            _sse_send_event(run_id, "end", "")
+            # Client reconnects — should see retention gap and remaining events
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            # Retention gap should be recorded
+            assert s.evicted_before_id is not None
+            # Remaining events after client's cursor
+            remaining = [ev_str for ev_id, ev_str in s.events if ev_id > client_last_id]
+            # Should have some events, including terminal
+            assert any("event: complete" in ev for ev in remaining), \
+                "Terminal event not in remaining events after reconnect"
+        finally:
+            api_mod._SSE_MAX_EVENTS = old_max
+            _sse_remove_buffer(run_id)
+
+    def test_sse_multiple_clients_different_positions(self, client):
+        """Test two clients at different cursor positions each get correct events."""
+        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
+            _sse_event_store, _sse_event_store_lock
+        import hub.api as api_mod
+        run_id = "test-diff-positions"
+        old_max = api_mod._SSE_MAX_EVENTS
+        api_mod._SSE_MAX_EVENTS = 5
+        try:
+            # Send 3 events
+            _sse_send_event(run_id, "output", '{"text": "a"}')
+            _sse_send_event(run_id, "output", '{"text": "b"}')
+            _sse_send_event(run_id, "output", '{"text": "c"}')
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            assert s is not None
+            # Client 1 is at event 1, Client 2 is at event 2
+            client1_last = s.events[0][0]
+            client2_last = s.events[1][0]
+            # Send more events
+            _sse_send_event(run_id, "output", '{"text": "d"}')
+            _sse_send_event(run_id, "output", '{"text": "e"}')
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            # Client 1 gets events after its cursor
+            c1_new = [ev_str for ev_id, ev_str in s.events if ev_id > client1_last]
+            # Client 2 gets events after its cursor (fewer)
+            c2_new = [ev_str for ev_id, ev_str in s.events if ev_id > client2_last]
+            assert len(c1_new) > len(c2_new), \
+                "Client behind should receive more events than client ahead"
+            assert len(c2_new) >= 1, "Client 2 should still get new events"
+        finally:
+            api_mod._SSE_MAX_EVENTS = old_max
+            _sse_remove_buffer(run_id)
 
 
 class TestRemote:
