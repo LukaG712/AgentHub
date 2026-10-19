@@ -193,3 +193,13 @@ Abstract Junie as one provider among many, add tool permissions, and improve err
 - Add graceful error handling for timeouts, failed commands, and interrupted sessions in the frontend.
 - Add tests for provider interface, permissions, and error scenarios.
 - Update `docs/API.md` with new endpoints and `README.md` with the updated architecture and setup instructions.
+
+### ✓ Step 5: Phase 4: Remote execution support
+Allow dispatching agent runs to a remote machine (e.g., Proxmox VM) via SSH.
+- Create `hub/remote.py` with `RemoteTarget` class: SSH connection management, project sync via rsync/SCP, remote command execution with timeout and output streaming, and cleanup.
+- Add `SSHProvider` to `hub/providers.py` that uses `RemoteTarget` to run agents on remote machines.
+- Extend `hub.yaml` config with `remote` section per agent: host, user, port, key_path, remote_project_dir.
+- Extend `hub/api.py` with `GET /api/remote/status` endpoint to check remote target connectivity.
+- Add startup validation for remote targets.
+- Add tests for remote module and SSH provider.
+- Update `README.md` and `docs/API.md` with remote execution documentation.

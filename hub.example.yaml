@@ -44,3 +44,23 @@ agents:
 #   project_dir: "~/workspace/software"
 #   skills: []
 #   guidelines: "Write clean, well-tested Python. Follow PEP 8."
+
+# --- Remote execution example ---
+# To run an agent on a remote machine (e.g., Proxmox VM), add a 'remote' section:
+
+# remote-builder:
+#   title: "Remote software builder"
+#   description: "Runs on a remote Linux VM."
+#   runner: ssh
+#   project_dir: "~/workspace/software"
+#   skills: []
+#   guidelines: "Write clean, well-tested Python. Follow PEP 8."
+#   remote:
+#     host: "192.168.1.100"
+#     user: "deploy"
+#     port: 22
+#     key_path: "~/.ssh/id_ed25519"
+#     remote_project_dir: "/home/deploy/software"
+#     sync_before_run: true
+#     connection_timeout: 30
+#     command_timeout: 1800

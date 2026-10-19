@@ -672,3 +672,14 @@ class TestObsidian:
             json={"session_id": "nonexistent-session-id"},
         )
         assert resp.status_code in (400, 404)
+
+
+class TestRemote:
+    def test_remote_status(self, client):
+        """Remote status should return SSH availability and targets."""
+        resp = client.get("/api/remote/status", headers=HEADERS)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "ssh_available" in data
+        assert "targets" in data
+        assert isinstance(data["targets"], list)

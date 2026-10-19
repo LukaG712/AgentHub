@@ -448,6 +448,10 @@ def run_agent(
     # Load permissions from agent config
     permissions = AgentPermissions.from_dict(agent_cfg.get("permissions", {}))
 
+    # Check if this is a remote (SSH) provider — it handles execution internally
+    from hub.providers import SSHProvider
+    is_remote = isinstance(provider, SSHProvider)
+
     # Create run
     run_id = str(uuid.uuid4())
     run = Run(
@@ -482,112 +486,132 @@ def run_agent(
         run.started = datetime.now(timezone.utc).isoformat()
         _save_run(run)
 
-        # Build command using the provider
-        cmd = provider.build_command(task, project_dir, permissions)
+        # Log file path
+        log_path = _run_dir(agent_name) / f"{run_id}.log"
+        run.log_file = str(log_path.relative_to(_PROJECT_ROOT))
 
-        # Retry logic
-        retry_delays = [30, 60, 90]
-        attempt = 0
-        max_attempts = len(retry_delays) + 1
-
-        while attempt < max_attempts:
-            # Cap raw output
-            output_lock = threading.Lock()
-            output_parts: List[str] = []
-
-            # Log file path
-            log_path = _run_dir(agent_name) / f"{run_id}.log"
-            run.log_file = str(log_path.relative_to(_PROJECT_ROOT))
-
-            # Start subprocess in its own process group
-            popen_kwargs: Dict[str, Any] = {
-                "stdout": subprocess.PIPE,
-                "stderr": subprocess.PIPE,
-                "text": True,
-            }
-            if sys.platform != "win32":
-                popen_kwargs["start_new_session"] = True
-
-            process = subprocess.Popen(cmd, **popen_kwargs)
-            run.pid = process.pid
-            try:
-                run.pgid = os.getpgid(process.pid)
-            except AttributeError:
-                run.pgid = process.pid  # Windows fallback
-            _save_run(run)
-
-            # Start output streaming thread
-            stream_thread = threading.Thread(
-                target=_stream_output,
-                args=(process, log_path, output_parts, output_lock),
-                daemon=True,
-            )
-            stream_thread.start()
-
-            # Wait with timeout
-            start_time = time.monotonic()
-            timed_out = False
-            while True:
-                ret = process.poll()
-                elapsed = time.monotonic() - start_time
-                if ret is not None:
-                    break
-                if elapsed >= timeout:
-                    timed_out = True
-                    break
-                time.sleep(0.5)
-
-            if timed_out:
-                # Kill the process directly first
-                try:
-                    process.kill()
-                except (OSError, ProcessLookupError):
-                    pass
-                _kill_process_group(run)
-
-            # Wait for process to finish, then close streams, then join thread
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                pass
-            # Close streams to unblock the reader thread
-            if process.stdout:
-                process.stdout.close()
-            if process.stderr:
-                process.stderr.close()
-            stream_thread.join(timeout=3)
-
-            raw_output = "".join(output_parts)
-
-            if timed_out:
+        if is_remote:
+            # Remote (SSH) provider — execute via provider.run() directly
+            result = provider.run(task, project_dir, permissions, timeout=timeout)
+            run.exit_code = result.exit_code
+            run.raw_output = result.raw_output[-_RAW_OUTPUT_CAP:] if result.raw_output else ""
+            run.answer = result.answer or _parse_json_output(result.raw_output)
+            if result.error:
                 run.state = "failed"
-                run.fail_reason = "timeout"
-                run.exit_code = -1
-                run.finished = datetime.now(timezone.utc).isoformat()
-                run.raw_output = raw_output[-_RAW_OUTPUT_CAP:]
-                _save_run(run)
-                # Retry on timeout? No, don't retry timeout
-                break
-
-            run.exit_code = process.returncode
-
-            if _check_429(raw_output) and attempt < len(retry_delays):
-                time.sleep(retry_delays[attempt])
-                attempt += 1
-                continue
-
-            # Parse output
-            run.answer = _parse_json_output(raw_output)
-            run.raw_output = raw_output[-_RAW_OUTPUT_CAP:]
-
-            if process.returncode == 0:
+                run.fail_reason = result.error
+            elif result.exit_code == 0:
                 run.state = "done"
             else:
                 run.state = "failed"
-                run.fail_reason = f"exit code {process.returncode}"
+                run.fail_reason = f"exit code {result.exit_code}"
             run.finished = datetime.now(timezone.utc).isoformat()
+            # Write output to log file
+            with open(log_path, "w", encoding="utf-8") as log_f:
+                log_f.write(result.raw_output)
             _save_run(run)
-            break
+        else:
+            # Local subprocess provider — build command and run via subprocess
+            cmd = provider.build_command(task, project_dir, permissions)
+
+            # Retry logic
+            retry_delays = [30, 60, 90]
+            attempt = 0
+            max_attempts = len(retry_delays) + 1
+
+            while attempt < max_attempts:
+                # Cap raw output
+                output_lock = threading.Lock()
+                output_parts: List[str] = []
+
+                # Start subprocess in its own process group
+                popen_kwargs: Dict[str, Any] = {
+                    "stdout": subprocess.PIPE,
+                    "stderr": subprocess.PIPE,
+                    "text": True,
+                }
+                if sys.platform != "win32":
+                    popen_kwargs["start_new_session"] = True
+
+                process = subprocess.Popen(cmd, **popen_kwargs)
+                run.pid = process.pid
+                try:
+                    run.pgid = os.getpgid(process.pid)
+                except AttributeError:
+                    run.pgid = process.pid  # Windows fallback
+                _save_run(run)
+
+                # Start output streaming thread
+                stream_thread = threading.Thread(
+                    target=_stream_output,
+                    args=(process, log_path, output_parts, output_lock),
+                    daemon=True,
+                )
+                stream_thread.start()
+
+                # Wait with timeout
+                start_time = time.monotonic()
+                timed_out = False
+                while True:
+                    ret = process.poll()
+                    elapsed = time.monotonic() - start_time
+                    if ret is not None:
+                        break
+                    if elapsed >= timeout:
+                        timed_out = True
+                        break
+                    time.sleep(0.5)
+
+                if timed_out:
+                    # Kill the process directly first
+                    try:
+                        process.kill()
+                    except (OSError, ProcessLookupError):
+                        pass
+                    _kill_process_group(run)
+
+                # Wait for process to finish, then close streams, then join thread
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    pass
+                # Close streams to unblock the reader thread
+                if process.stdout:
+                    process.stdout.close()
+                if process.stderr:
+                    process.stderr.close()
+                stream_thread.join(timeout=3)
+
+                raw_output = "".join(output_parts)
+
+                if timed_out:
+                    run.state = "failed"
+                    run.fail_reason = "timeout"
+                    run.exit_code = -1
+                    run.finished = datetime.now(timezone.utc).isoformat()
+                    run.raw_output = raw_output[-_RAW_OUTPUT_CAP:]
+                    _save_run(run)
+                    # Retry on timeout? No, don't retry timeout
+                    break
+
+                run.exit_code = process.returncode
+
+                if _check_429(raw_output) and attempt < len(retry_delays):
+                    time.sleep(retry_delays[attempt])
+                    attempt += 1
+                    continue
+
+                # Parse output
+                run.answer = _parse_json_output(raw_output)
+                run.raw_output = raw_output[-_RAW_OUTPUT_CAP:]
+
+                if process.returncode == 0:
+                    run.state = "done"
+                else:
+                    run.state = "failed"
+                    run.fail_reason = f"exit code {process.returncode}"
+                run.finished = datetime.now(timezone.utc).isoformat()
+                _save_run(run)
+                break
 
         # Persist session messages if session_id is set
         if session_id:

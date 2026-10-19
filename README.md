@@ -13,6 +13,7 @@ A self-hosted dashboard that lets you manage AI coding agents (JetBrains Junie C
 - **Startup validation** — `/api/status` reports provider availability, missing projects, and configuration issues.
 - **Ollama integration** — optional local LLM for prompt refinement, summarization, and task decomposition.
 - **Obsidian integration** — optional vault integration for reading notes and writing session summaries.
+- **Remote execution** — dispatch agent runs to a remote machine via SSH with automatic project sync.
 - **Web dashboard** — see agent status, send tasks, view output, and manage everything from a browser.
 - **Run in the background** — install as a systemd service (Linux) or run via PowerShell (Windows).
 
@@ -277,6 +278,27 @@ The provider abstraction layer (`hub/providers.py`) lets you add new agent backe
    register_provider(MyAgentProvider())
    ```
 3. Create agents that reference `runner: myagent` in `hub.yaml` or via the API.
+
+## Remote Execution
+
+AgentHub can dispatch agent runs to a remote machine (e.g., a Proxmox VM) via SSH. The project is synced automatically before each run.
+
+1. Configure an agent with `runner: ssh` and a `remote` section in `hub.yaml`:
+   ```yaml
+   agents:
+     remote-builder:
+       runner: ssh
+       project_dir: "~/workspace/project"
+       remote:
+         host: "192.168.1.100"
+         user: "deploy"
+         key_path: "~/.ssh/id_ed25519"
+         remote_project_dir: "/home/deploy/project"
+   ```
+2. The hub syncs the project directory to the remote host, then runs the agent command via SSH.
+3. Check connectivity with `GET /api/remote/status`.
+
+Requires an SSH client on the host machine and key-based authentication to the remote target.
 
 ## Running Tests
 

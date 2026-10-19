@@ -5,6 +5,7 @@ import contextlib
 import json
 import os
 import queue
+import shutil
 import threading
 import time
 from pathlib import Path
@@ -14,7 +15,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from hub import agents, memory, ollama, obsidian, providers, skills
+from hub import agents, memory, ollama, obsidian, providers, remote, skills
 from hub.config import load_config, save_config, validate_name
 from hub.runner import (
     run_agent,
@@ -113,6 +114,17 @@ def _validate_startup() -> Dict[str, Any]:
                     "agent": agent_name,
                     "severity": "warning",
                     "message": f"Project directory does not exist: {project_dir}",
+                })
+
+        # Check remote target connectivity
+        remote_cfg = remote.get_agent_remote_config(config, agent_name)
+        if remote_cfg:
+            target = remote.RemoteTarget(remote_cfg)
+            if not target.is_available():
+                issues.append({
+                    "agent": agent_name,
+                    "severity": "warning",
+                    "message": f"Remote target '{remote_cfg.host}' is not reachable",
                 })
 
     # Check registered providers
@@ -867,6 +879,47 @@ async def api_obsidian_sync_session(
         raise HTTPException(status_code=500, detail="Failed to write session summary to Obsidian")
 
     return {"note": note.to_dict()}
+
+
+# --- Remote Execution ---
+
+
+@app.get("/api/remote/status")
+async def api_remote_status(_auth: None = Depends(_verify_token)):
+    """Check remote execution configuration and connectivity."""
+    config = load_config()
+    targets: List[Dict[str, Any]] = []
+
+    # Check top-level remote config
+    top_level = remote.get_remote_config(config)
+    if top_level:
+        target = remote.RemoteTarget(top_level)
+        targets.append({
+            "scope": "global",
+            "host": top_level.host,
+            "user": top_level.user,
+            "port": top_level.port,
+            "available": target.is_available(),
+        })
+
+    # Check per-agent remote configs
+    for agent_name, agent_cfg in config.get("agents", {}).items():
+        agent_remote = remote.get_agent_remote_config(config, agent_name)
+        if agent_remote:
+            t = remote.RemoteTarget(agent_remote)
+            targets.append({
+                "scope": "agent",
+                "agent": agent_name,
+                "host": agent_remote.host,
+                "user": agent_remote.user,
+                "port": agent_remote.port,
+                "available": t.is_available(),
+            })
+
+    return {
+        "ssh_available": shutil.which("ssh") is not None,
+        "targets": targets,
+    }
 
 
 # --- Static files ---

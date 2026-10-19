@@ -571,6 +571,68 @@ POST /api/obsidian/sync
 
 ---
 
+## Remote Execution (Optional)
+
+Remote execution allows dispatching agent runs to a remote machine via SSH. Configure it per-agent in `hub.yaml` under the `remote` section, or globally at the top level.
+
+### Check remote status
+
+```
+GET /api/remote/status
+```
+
+Returns SSH client availability and configured remote targets.
+
+**Response:**
+```json
+{
+  "ssh_available": true,
+  "targets": [
+    {
+      "scope": "agent",
+      "agent": "remote-builder",
+      "host": "192.168.1.100",
+      "user": "deploy",
+      "port": 22,
+      "available": true
+    }
+  ]
+}
+```
+
+### Configuration
+
+Add a `remote` section to an agent's config in `hub.yaml`:
+
+```yaml
+agents:
+  remote-builder:
+    runner: ssh
+    project_dir: "~/workspace/project"
+    remote:
+      host: "192.168.1.100"
+      user: "deploy"
+      port: 22
+      key_path: "~/.ssh/id_ed25519"
+      remote_project_dir: "/home/deploy/project"
+      sync_before_run: true
+      connection_timeout: 30
+      command_timeout: 1800
+```
+
+- `host` (required): Remote machine hostname or IP.
+- `user`: SSH user (default: `root`).
+- `port`: SSH port (default: `22`).
+- `key_path`: Path to SSH private key for authentication.
+- `remote_project_dir`: Where the project will be synced on the remote host (default: `~/agent-project`).
+- `sync_before_run`: Whether to sync the local project before each run (default: `true`).
+- `connection_timeout`: SSH connection timeout in seconds (default: `30`).
+- `command_timeout`: Maximum command execution time in seconds (default: `1800`).
+
+The runner will automatically sync the project directory to the remote host before execution, then run the agent command via SSH.
+
+---
+
 ## Example: Full workflow
 
 Start a task and poll until it finishes:

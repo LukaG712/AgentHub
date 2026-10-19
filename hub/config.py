@@ -106,7 +106,7 @@ def add_agent(config: Dict[str, Any], name: str, agent_data: Dict[str, Any]) -> 
 def update_agent(config: Dict[str, Any], name: str, updates: Dict[str, Any]) -> Dict[str, Any]:
     if name not in config.get("agents", {}):
         raise KeyError(f"Agent '{name}' not found")
-    allowed = {"title", "description", "runner", "project_dir", "skills", "guidelines", "permissions"}
+    allowed = {"title", "description", "runner", "project_dir", "skills", "guidelines", "permissions", "remote"}
     for key in updates:
         if key not in allowed:
             raise ValueError(f"Cannot update agent field: {key}")

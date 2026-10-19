@@ -9,6 +9,7 @@ from hub.providers import (
     AgentPermissions,
     AgentProvider,
     JunieProvider,
+    SSHProvider,
     ProviderRunResult,
     get_provider,
     list_providers,
@@ -210,3 +211,94 @@ class TestProviderRunResult:
         """Error result has error message."""
         result = ProviderRunResult(exit_code=-1, raw_output="", error="timeout")
         assert result.error == "timeout"
+
+
+class TestSSHProvider:
+    """Tests for SSHProvider."""
+
+    def test_name_default(self):
+        """Default name is 'ssh'."""
+        p = SSHProvider()
+        assert p.name == "ssh"
+
+    def test_name_custom(self):
+        """Custom name is respected."""
+        p = SSHProvider(name="remote-vm")
+        assert p.name == "remote-vm"
+
+    def test_check_available_no_ssh(self):
+        """Returns False when SSH is not available."""
+        with patch("shutil.which", return_value=None):
+            p = SSHProvider()
+            assert p.check_available() is False
+
+    def test_check_available_with_ssh(self):
+        """Returns True when SSH is available."""
+        with patch("shutil.which", return_value="/usr/bin/ssh"):
+            p = SSHProvider()
+            assert p.check_available() is True
+
+    def test_build_command(self):
+        """Build command returns placeholder."""
+        p = SSHProvider()
+        perms = AgentPermissions()
+        cmd = p.build_command("task", "/project", perms)
+        assert "ssh" in cmd
+
+    def test_run_no_remote_config(self):
+        """Run returns error when no remote config."""
+        p = SSHProvider()
+        perms = AgentPermissions()
+        with patch("hub.config.load_config", return_value={"agents": {}}):
+            result = p.run("task", "/project", perms)
+            assert result.exit_code == -1
+            assert "not configured" in (result.error or "")
+
+    def test_run_remote_unavailable(self):
+        """Run returns error when remote host is unreachable."""
+        p = SSHProvider()
+        perms = AgentPermissions()
+        config = {
+            "agents": {
+                "remote-agent": {
+                    "runner": "ssh",
+                    "remote": {
+                        "host": "unreachable.com",
+                        "user": "root",
+                    }
+                }
+            }
+        }
+        with patch("hub.config.load_config", return_value=config), \
+             patch("shutil.which", return_value="/usr/bin/ssh"):
+            result = p.run("task", "/project", perms)
+            assert result.exit_code == -1
+            assert "Cannot connect" in (result.error or "")
+
+    def test_run_success(self):
+        """Run returns success when remote execution succeeds."""
+        p = SSHProvider()
+        perms = AgentPermissions()
+        config = {
+            "agents": {
+                "remote-agent": {
+                    "runner": "ssh",
+                    "remote": {
+                        "host": "remote.com",
+                        "user": "root",
+                        "sync_before_run": False,
+                    }
+                }
+            }
+        }
+        with patch("hub.config.load_config", return_value=config), \
+             patch("shutil.which", return_value="/usr/bin/ssh"):
+            # Mock RemoteTarget
+            mock_target = MagicMock()
+            mock_target.is_available.return_value = True
+            mock_target.execute.return_value = (0, '{"answer": "done"}', "")
+            mock_target.build_remote_command.return_value = "junie --task 'test'"
+            with patch("hub.remote.RemoteTarget", return_value=mock_target):
+                result = p.run("task", "/project", perms)
+                assert result.exit_code == 0
+                assert "done" in result.raw_output

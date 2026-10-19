@@ -241,6 +241,106 @@ class JunieProvider(AgentProvider):
             )
 
 
+class SSHProvider(AgentProvider):
+    """Provider for running agents on a remote machine via SSH.
+
+    Uses the remote module to sync the project and execute the agent
+    command on a remote host.
+    """
+
+    def __init__(self, name: str = "ssh"):
+        self._name = name
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def check_available(self) -> bool:
+        """Check if SSH client is available."""
+        return shutil.which("ssh") is not None
+
+    def build_command(
+        self,
+        task: str,
+        project_dir: str,
+        permissions: AgentPermissions,
+        extra_args: Optional[List[str]] = None,
+    ) -> List[str]:
+        """Build a command for remote execution.
+
+        Returns a placeholder command — actual execution happens via SSH.
+        """
+        return ["ssh", "remote-exec"]
+
+    def run(
+        self,
+        task: str,
+        project_dir: str,
+        permissions: AgentPermissions,
+        timeout: int = 1800,
+        extra_args: Optional[List[str]] = None,
+    ) -> ProviderRunResult:
+        """Run an agent task on a remote host via SSH."""
+        from hub.remote import RemoteConfig, RemoteTarget, RemoteError, get_agent_remote_config
+        from hub.config import load_config
+
+        config = load_config()
+        # Find the agent that uses this provider
+        agent_name = None
+        for an, acfg in config.get("agents", {}).items():
+            if acfg.get("runner", "junie") == self._name:
+                agent_name = an
+                break
+
+        remote_cfg = get_agent_remote_config(config, agent_name or "")
+        if remote_cfg is None:
+            return ProviderRunResult(
+                exit_code=-1,
+                raw_output="",
+                error="Remote execution not configured — add 'remote' section to agent config",
+            )
+
+        target = RemoteTarget(remote_cfg)
+        if not target.is_available():
+            return ProviderRunResult(
+                exit_code=-1,
+                raw_output="",
+                error=f"Cannot connect to remote host {remote_cfg.host}",
+            )
+
+        # Sync project if configured
+        if remote_cfg.sync_before_run and project_dir:
+            if not target.sync_project(project_dir):
+                return ProviderRunResult(
+                    exit_code=-1,
+                    raw_output="",
+                    error="Failed to sync project to remote host",
+                )
+
+        # Build the remote command
+        # Use JunieProvider to build the base command, then adapt for remote
+        junie = JunieProvider()
+        local_cmd = junie.build_command(task, project_dir, permissions, extra_args)
+        remote_cmd = target.build_remote_command(local_cmd, project_dir)
+
+        # Execute remotely
+        try:
+            exit_code, stdout, stderr = target.execute(remote_cmd, timeout=timeout)
+            raw = stdout + stderr
+            answer = self.parse_answer(raw)
+            return ProviderRunResult(
+                exit_code=exit_code,
+                raw_output=raw,
+                answer=answer,
+            )
+        except RemoteError as e:
+            return ProviderRunResult(
+                exit_code=-1,
+                raw_output="",
+                error=str(e),
+            )
+
+
 # --- Provider registry ---
 
 _providers: Dict[str, AgentProvider] = {}
