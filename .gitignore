@@ -6,6 +6,7 @@ dist/
 build/
 *.egg
 *.spec
+!agent_hub.spec
 
 # Runtime data
 data/
