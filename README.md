@@ -1,9 +1,9 @@
 ```
- ██████╗ ███╗   ██╗████████╗██╗   ██╗███████╗    ██╗    ██╗██╗
-██╔═══██╗████╗  ██║╚══██╔══╝██║   ██║██╔════╝    ██║    ██║██║
-██║   ██║██╔██╗ ██║   ██║   ██║   ██║█████╗      ██║ █╗ ██║██║
-██║   ██║██║╚██╗██║   ██║   ██║   ██║██╔══╝      ██║███╗██║██║
-╚██████╔╝██║ ╚████║   ██║   ╚██████╔╝███████╗    ╚███╔███╔╝██║
+ ██████�- ███�-   ██�-████████�-██�-   ██�-███████�-    ██�-    ██�-██�-
+██╔═══██�-████�-  ██║╚══██╔══╝██║   ██║██╔════╝    ██║    ██║██║
+██║   ██║██╔██�- ██║   ██║   ██║   ██║█████�-      ██║ █�- ██║██║
+██║   ██║██║╚██�-██║   ██║   ██║   ██║██╔══╝      ██║███�-██║██║
+╚██████╔╝██║ ╚████║   ██║   ╚██████╔╝███████�-    ╚███╔███╔╝██║
  ╚═════╝ ╚═╝  ╚═══╝   ╚═╝    ╚═════╝ ╚══════╝     ╚══╝╚══╝ ╚═╝
 ```
 
@@ -35,7 +35,7 @@ Everything you need to manage AI coding agents from one place:
 | 🖥️ **Dashboard** | Web UI | Browser-based interface for all agent management tasks |
 | ⚙️ **Background** | Service mode | Run as a systemd service (Linux) or via PowerShell (Windows) |
 
-## 🔗 How it Works with JunieOrchestrator
+## �- How it Works with JunieOrchestrator
 
 Agent Hub pairs perfectly with [JunieOrchestrator](https://github.com/LukaG712/JunieOrchestrator) for a complete AI pipeline. Think of it this way:
 
@@ -447,7 +447,7 @@ PENDING → WAITING (on dependencies) → RUNNING → NEEDS_APPROVAL → COMPLET
 | POST | `/api/coordinator` | 🆕 Create a new coordinator |
 | GET | `/api/coordinator` | 📋 List all active coordinators |
 | GET | `/api/coordinator/{id}` | 🔍 Get coordinator details |
-| DELETE | `/api/coordinator/{id}` | 🗑️ Delete a coordinator |
+| DELETE | `/api/coordinator/{id}` | �-�️ Delete a coordinator |
 | POST | `/api/coordinator/{id}/tasks` | ➕ Add a task |
 | DELETE | `/api/coordinator/{id}/tasks/{task_id}` | ➖ Remove a pending task |
 | POST | `/api/coordinator/{id}/execute` | 🚀 Start execution |
@@ -510,7 +510,7 @@ Quality checklist for the web dashboard:
 - [ ] Memory page allows inline editing of memories
 - [ ] Git status panel shows branch, changed files, and untracked files
 - [ ] Coordinator view shows task plans, dependencies, and worker status
-- [ ] Permission indicators (✓/✗) display for selected agent
+- [ ] Permission indicators (✓/�-) display for selected agent
 - [ ] Auto-scroll respects manual scrolling in chat
 
 ---
