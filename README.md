@@ -1,10 +1,11 @@
 ```
- ██████�- ███�-   ██�-████████�-██�-   ██�-███████�-    ██�-    ██�-██�-
-██╔═══██�-████�-  ██║╚══██╔══╝██║   ██║██╔════╝    ██║    ██║██║
-██║   ██║██╔██�- ██║   ██║   ██║   ██║█████�-      ██║ █�- ██║██║
-██║   ██║██║╚██�-██║   ██║   ██║   ██║██╔══╝      ██║███�-██║██║
-╚██████╔╝██║ ╚████║   ██║   ╚██████╔╝███████�-    ╚███╔███╔╝██║
- ╚═════╝ ╚═╝  ╚═══╝   ╚═╝    ╚═════╝ ╚══════╝     ╚══╝╚══╝ ╚═╝
+    e Y8b                                d8   888 888           888      
+   d8b Y8b     e88 888  ,e e,  888 8e   d88   888 888 8888 8888 888 88e  
+  d888b Y8b   d888 888 d88 88b 888 88b d88888 8888888 8888 8888 888 888b 
+ d888888888b  Y888 888 888   , 888 888  888   888 888 Y888 888P 888 888P 
+d8888888b Y8b  "88 888  "YeeP" 888 888  888   888 888  "88 88"  888 88"  
+                ,  88P                                                   
+               "8",P"                                                    
 ```
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -35,7 +36,7 @@ Everything you need to manage AI coding agents from one place:
 | 🖥️ **Dashboard** | Web UI | Browser-based interface for all agent management tasks |
 | ⚙️ **Background** | Service mode | Run as a systemd service (Linux) or via PowerShell (Windows) |
 
-## �- How it Works with JunieOrchestrator
+## �- How it Works with JunieOrchestrator
 
 Agent Hub pairs perfectly with [JunieOrchestrator](https://github.com/LukaG712/JunieOrchestrator) for a complete AI pipeline. Think of it this way:
 
@@ -447,7 +448,7 @@ PENDING → WAITING (on dependencies) → RUNNING → NEEDS_APPROVAL → COMPLET
 | POST | `/api/coordinator` | 🆕 Create a new coordinator |
 | GET | `/api/coordinator` | 📋 List all active coordinators |
 | GET | `/api/coordinator/{id}` | 🔍 Get coordinator details |
-| DELETE | `/api/coordinator/{id}` | �-�️ Delete a coordinator |
+| DELETE | `/api/coordinator/{id}` | �-�️ Delete a coordinator |
 | POST | `/api/coordinator/{id}/tasks` | ➕ Add a task |
 | DELETE | `/api/coordinator/{id}/tasks/{task_id}` | ➖ Remove a pending task |
 | POST | `/api/coordinator/{id}/execute` | 🚀 Start execution |
@@ -510,7 +511,7 @@ Quality checklist for the web dashboard:
 - [ ] Memory page allows inline editing of memories
 - [ ] Git status panel shows branch, changed files, and untracked files
 - [ ] Coordinator view shows task plans, dependencies, and worker status
-- [ ] Permission indicators (✓/�-) display for selected agent
+- [ ] Permission indicators (✓/�-) display for selected agent
 - [ ] Auto-scroll respects manual scrolling in chat
 
 ---
