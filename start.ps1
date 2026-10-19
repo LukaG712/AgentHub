@@ -12,7 +12,7 @@ $GREEN = 'Green'; $YELLOW = 'Yellow'; $RED = 'Red'
 
 # -- Auto-setup if needed -----------------------------------------------
 $needsSetup = $false
-$VENV_PYTHON = Join-Path $SCRIPT_DIR '.venv' 'Scripts' 'python.exe'
+$VENV_PYTHON = Join-Path (Join-Path (Join-Path $SCRIPT_DIR '.venv') 'Scripts') 'python.exe'
 $ENV_FILE = Join-Path $SCRIPT_DIR '.env'
 
 if (-not (Test-Path $VENV_PYTHON)) {
