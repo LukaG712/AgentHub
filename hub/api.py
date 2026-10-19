@@ -52,7 +52,7 @@ class SSERunStore:
     Each event carries a monotonically increasing ID so clients can track
     their position independently of list indices.  When the buffer is full,
     the oldest non-terminal events are evicted and the store records the
-    lowest retained ID so reconnecting clients can detect a retention gap.
+    highest evicted ID so reconnecting clients can detect a retention gap.
     """
 
     __slots__ = ("events", "evicted_before_id")
@@ -60,9 +60,10 @@ class SSERunStore:
     def __init__(self) -> None:
         # List of tuples: (event_id: int, sse_string: str)
         self.events: list = []
-        # If events were evicted, this holds the ID of the oldest evicted
-        # event (i.e. the first ID the client is missing).  None means no
-        # eviction has occurred.
+        # If events were evicted, this holds the highest event ID that was
+        # evicted so far.  A client whose cursor (last_event_id) is less
+        # than this value knows it missed at least one event.  None means
+        # no eviction has occurred.
         self.evicted_before_id: Optional[int] = None
 
 
@@ -114,20 +115,20 @@ def _sse_send_event(run_id: str, event: str, data: str) -> None:
                         oldest_evicted = ev_id
                         store.events.pop(i)
                         removed = True
-                        if store.evicted_before_id is None or oldest_evicted < store.evicted_before_id:
+                        if store.evicted_before_id is None or oldest_evicted > store.evicted_before_id:
                             store.evicted_before_id = oldest_evicted
                         break
                 if not removed and store.events:
                     # All events are terminal — remove the oldest one
                     oldest_evicted = store.events[0][0]
                     store.events.pop(0)
-                    if store.evicted_before_id is None or oldest_evicted < store.evicted_before_id:
+                    if store.evicted_before_id is None or oldest_evicted > store.evicted_before_id:
                         store.evicted_before_id = oldest_evicted
             else:
                 # Drop the oldest event
                 oldest_evicted = store.events[0][0]
                 store.events.pop(0)
-                if store.evicted_before_id is None or oldest_evicted < store.evicted_before_id:
+                if store.evicted_before_id is None or oldest_evicted > store.evicted_before_id:
                     store.evicted_before_id = oldest_evicted
 
         store.events.append((event_id, sse_event))
@@ -686,32 +687,42 @@ async def api_stream_session(
             # get independent ordered streams that survive evictions.
             last_event_id = 0
             received_end = False
+            gap_sent = False
             while True:
+                # Acquire lock only to snapshot; release before yielding.
                 with _sse_event_store_lock:
                     s = _sse_event_store.get(rid)
                     if s is None:
                         # Store was cleaned up; fall through to final-state replay
                         break
-                    # Check for retention gap: if events were evicted before
-                    # the client's cursor, notify the client
-                    if s.evicted_before_id is not None and s.evicted_before_id <= last_event_id:
-                        yield (
-                            f"event: retention_gap\ndata: "
-                            f"{json.dumps({'run_id': rid, 'evicted_before_id': s.evicted_before_id})}\n\n"
-                        )
-                    # Find events after the client's cursor
+                    # Check for retention gap: client is behind when its
+                    # cursor is less than the highest evicted ID.
+                    has_gap = (
+                        s.evicted_before_id is not None
+                        and s.evicted_before_id > last_event_id
+                    )
+                    # Snapshot (id, string) pairs after the client's cursor
                     new_events = [
-                        ev_str for ev_id, ev_str in s.events if ev_id > last_event_id
+                        (ev_id, ev_str)
+                        for ev_id, ev_str in s.events
+                        if ev_id > last_event_id
                     ]
+                # Yield outside the lock so slow clients don't block producers.
+                if has_gap and not gap_sent:
+                    yield (
+                        f"event: retention_gap\ndata: "
+                        f"{json.dumps({'run_id': rid, 'evicted_before_id': s.evicted_before_id})}\n\n"
+                    )
+                    gap_sent = True
                 if new_events:
-                    for ev in new_events:
-                        yield ev
-                    with _sse_event_store_lock:
-                        s = _sse_event_store.get(rid)
-                        if s and s.events:
-                            last_event_id = s.events[-1][0]
+                    for ev_id, ev_str in new_events:
+                        yield ev_str
+                    # Advance cursor using the IDs of events in this snapshot,
+                    # not from the shared store, so new events arriving between
+                    # snapshot and cursor update are never skipped.
+                    last_event_id = new_events[-1][0]
                     # Check for end event
-                    if any("event: end" in ev for ev in new_events):
+                    if any("event: end" in ev_str for _, ev_str in new_events):
                         received_end = True
                         break
                 else:

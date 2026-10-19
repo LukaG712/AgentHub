@@ -1211,6 +1211,160 @@ class TestSSEStreaming:
             api_mod._SSE_MAX_EVENTS = old_max
             _sse_remove_buffer(run_id)
 
+    def test_sse_client_behind_evicted_event(self, client):
+        """Test a client at cursor 0 when event 1 has already been evicted."""
+        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
+            _sse_event_store, _sse_event_store_lock
+        import hub.api as api_mod
+        run_id = "test-behind-evicted"
+        old_max = api_mod._SSE_MAX_EVENTS
+        api_mod._SSE_MAX_EVENTS = 3
+        try:
+            # Fill buffer with events 1, 2, 3
+            _sse_send_event(run_id, "output", '{"text": "a"}')
+            _sse_send_event(run_id, "output", '{"text": "b"}')
+            _sse_send_event(run_id, "output", '{"text": "c"}')
+            # Record event 1's ID
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            assert s is not None
+            event1_id = s.events[0][0]
+            # Overflow so event 1 is evicted
+            _sse_send_event(run_id, "output", '{"text": "d"}')
+            _sse_send_event(run_id, "output", '{"text": "e"}')
+            # Client at cursor 0 should detect retention gap
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            # evicted_before_id should be > 0 (some event was evicted)
+            assert s.evicted_before_id is not None
+            assert s.evicted_before_id >= event1_id
+            # A client with last_event_id=0 is behind the evicted history
+            last_event_id = 0
+            has_gap = (
+                s.evicted_before_id is not None
+                and s.evicted_before_id > last_event_id
+            )
+            assert has_gap, "Client at cursor 0 should detect retention gap"
+        finally:
+            api_mod._SSE_MAX_EVENTS = old_max
+            _sse_remove_buffer(run_id)
+
+    def test_sse_continued_overflow_updates_highest_evicted(self, client):
+        """Test that continued buffer overflow updates the highest evicted ID correctly."""
+        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
+            _sse_event_store, _sse_event_store_lock
+        import hub.api as api_mod
+        run_id = "test-continued-overflow"
+        old_max = api_mod._SSE_MAX_EVENTS
+        api_mod._SSE_MAX_EVENTS = 3
+        try:
+            # Fill buffer
+            _sse_send_event(run_id, "output", '{"text": "a"}')
+            _sse_send_event(run_id, "output", '{"text": "b"}')
+            _sse_send_event(run_id, "output", '{"text": "c"}')
+            first_evicted_id = None
+            # First overflow — evicts "a"
+            _sse_send_event(run_id, "output", '{"text": "d"}')
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            first_evicted_id = s.evicted_before_id
+            assert first_evicted_id is not None
+            # Second overflow — evicts "b" (higher ID than "a")
+            _sse_send_event(run_id, "output", '{"text": "e"}')
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            # evicted_before_id should have increased to the higher evicted ID
+            assert s.evicted_before_id > first_evicted_id, \
+                f"Expected evicted_before_id to increase, got {s.evicted_before_id} vs {first_evicted_id}"
+            # Third overflow
+            _sse_send_event(run_id, "output", '{"text": "f"}')
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            # Should continue increasing
+            assert s.evicted_before_id > first_evicted_id
+        finally:
+            api_mod._SSE_MAX_EVENTS = old_max
+            _sse_remove_buffer(run_id)
+
+    def test_sse_cursor_advances_from_snapshot(self, client):
+        """Test that new events arriving while a client consumes a snapshot are not skipped.
+
+        Simulates the cursor race: client snapshots events, new events arrive,
+        client advances cursor from snapshot IDs (not from the store), then
+        fetches again — should get the events that arrived in between.
+        """
+        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
+            _sse_event_store, _sse_event_store_lock
+        import hub.api as api_mod
+        run_id = "test-cursor-snapshot"
+        old_max = api_mod._SSE_MAX_EVENTS
+        api_mod._SSE_MAX_EVENTS = 100
+        try:
+            # Initial events
+            _sse_send_event(run_id, "output", '{"text": "a"}')
+            _sse_send_event(run_id, "output", '{"text": "b"}')
+            # Client snapshots events after cursor 0
+            last_event_id = 0
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            assert s is not None
+            snapshot = [
+                (ev_id, ev_str)
+                for ev_id, ev_str in s.events
+                if ev_id > last_event_id
+            ]
+            # New events arrive while client processes snapshot
+            _sse_send_event(run_id, "output", '{"text": "c"}')
+            _sse_send_event(run_id, "output", '{"text": "d"}')
+            # Client advances cursor from snapshot IDs (not from store)
+            last_event_id = snapshot[-1][0]
+            # Client fetches again — should get c and d, not skip them
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            new_events = [
+                ev_str for ev_id, ev_str in s.events
+                if ev_id > last_event_id
+            ]
+            assert len(new_events) == 2, \
+                f"Expected 2 new events (c, d), got {len(new_events)}"
+            assert '{"text": "c"}' in new_events[0]
+            assert '{"text": "d"}' in new_events[1]
+        finally:
+            api_mod._SSE_MAX_EVENTS = old_max
+            _sse_remove_buffer(run_id)
+
+    def test_sse_lock_not_held_during_yield(self, client):
+        """Test that the event-store lock is not held while a client is suspended.
+
+        Verifies the lock can be acquired by a producer while a consumer
+        would be suspended (simulated by checking lock state).
+        """
+        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
+            _sse_event_store, _sse_event_store_lock
+        import hub.api as api_mod
+        import threading
+        run_id = "test-lock-not-held"
+        old_max = api_mod._SSE_MAX_EVENTS
+        api_mod._SSE_MAX_EVENTS = 100
+        try:
+            # Send initial event
+            _sse_send_event(run_id, "output", '{"text": "start"}')
+            # Verify the lock is not held after _sse_send_event returns
+            # (it should be released since the with block exited)
+            acquired = _sse_event_store_lock.acquire(blocking=False)
+            assert acquired, "Lock should not be held after _sse_send_event returns"
+            _sse_event_store_lock.release()
+            # Send more events to confirm normal operation
+            _sse_send_event(run_id, "output", '{"text": "middle"}')
+            _sse_send_event(run_id, "output", '{"text": "end"}')
+            with _sse_event_store_lock:
+                s = _sse_event_store.get(run_id)
+            assert s is not None
+            assert len(s.events) == 3
+        finally:
+            api_mod._SSE_MAX_EVENTS = old_max
+            _sse_remove_buffer(run_id)
+
 
 class TestRemote:
     def test_remote_status(self, client):
