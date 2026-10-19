@@ -6,175 +6,486 @@
 <title>Agent Hub</title>
 <style>
 :root {
-  --bg: #f5f5f5; --fg: #1a1a1a; --card-bg: #fff; --border: #ddd;
-  --accent: #2563eb; --accent-hover: #1d4ed8; --danger: #dc2626;
-  --success: #16a34a; --warning: #d97706; --muted: #6b7280;
+  --bg: #f3f4f6; --bg-secondary: #fff; --bg-tertiary: #f9fafb;
+  --fg: #111827; --fg-secondary: #4b5563; --fg-muted: #9ca3af;
+  --border: #e5e7eb; --border-strong: #d1d5db;
+  --accent: #2563eb; --accent-hover: #1d4ed8; --accent-light: #dbeafe;
+  --danger: #dc2626; --danger-light: #fee2e2;
+  --success: #16a34a; --success-light: #dcfce7;
+  --warning: #d97706; --warning-light: #fef3c7;
   --user-bubble: #2563eb; --user-bubble-text: #fff;
-  --assistant-bubble: #e5e7eb; --assistant-bubble-text: #1a1a1a;
+  --bot-bubble: #e5e7eb; --bot-bubble-text: #111827;
+  --sidebar-width: 260px; --panel-width: 300px;
+  --header-height: 48px;
+  --radius: 8px; --radius-lg: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.15);
+  --transition: 0.2s ease;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #111827; --fg: #e5e7eb; --card-bg: #1f2937; --border: #374151;
-    --accent: #3b82f6; --accent-hover: #60a5fa; --danger: #ef4444;
-    --success: #22c55e; --warning: #f59e0b; --muted: #9ca3af;
+    --bg: #0b0f14; --bg-secondary: #151b23; --bg-tertiary: #1c2333;
+    --fg: #e5e7eb; --fg-secondary: #9ca3af; --fg-muted: #6b7280;
+    --border: #2a3444; --border-strong: #374151;
+    --accent: #3b82f6; --accent-hover: #60a5fa; --accent-light: #1e3a5f;
+    --danger: #ef4444; --danger-light: #3b1f1f;
+    --success: #22c55e; --success-light: #1a3d2a;
+    --warning: #f59e0b; --warning-light: #3d3318;
     --user-bubble: #3b82f6; --user-bubble-text: #fff;
-    --assistant-bubble: #374151; --assistant-bubble-text: #e5e7eb;
+    --bot-bubble: #2a3444; --bot-bubble-text: #e5e7eb;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4);
+    --shadow-lg: 0 4px 12px rgba(0,0,0,0.5);
   }
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--fg); }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg); color: var(--fg);
+  font-size: 14px; line-height: 1.5;
+  height: 100vh; overflow: hidden;
+}
 .hidden { display: none !important; }
+button { cursor: pointer; font-family: inherit; }
+input, textarea, select { font-family: inherit; }
 
-/* Auth prompt */
-#auth-prompt { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-#auth-prompt form { background: var(--card-bg); padding: 2rem; border-radius: 8px; border: 1px solid var(--border); }
-#auth-prompt input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); width: 250px; }
-#auth-prompt button { padding: 0.5rem 1rem; background: var(--accent); color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 0.5rem; }
+/* ===== Auth Prompt ===== */
+#auth-prompt {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; background: var(--bg);
+}
+#auth-prompt form {
+  background: var(--bg-secondary); padding: 2rem; border-radius: var(--radius-lg);
+  border: 1px solid var(--border); box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+#auth-prompt h2 { margin-bottom: 0.5rem; font-size: 1.5rem; }
+#auth-prompt p { color: var(--fg-muted); margin-bottom: 1rem; font-size: 0.9rem; }
+#auth-prompt input {
+  padding: 0.6rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg); color: var(--fg); width: 260px; font-size: 0.9rem;
+}
+#auth-prompt button {
+  padding: 0.6rem 1.2rem; background: var(--accent); color: #fff;
+  border: none; border-radius: var(--radius); font-size: 0.9rem; margin-left: 0.5rem;
+}
+#auth-prompt button:hover { background: var(--accent-hover); }
+
+/* ===== App Layout ===== */
+#app { display: flex; flex-direction: column; height: 100vh; }
 
 /* Header */
-header { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); background: var(--card-bg); }
-header h1 { font-size: 1.2rem; }
-nav button { background: none; border: none; color: var(--fg); cursor: pointer; padding: 0.5rem 0.75rem; font-size: 0.9rem; }
-nav button.active { border-bottom: 2px solid var(--accent); }
-
-/* Main */
-main { padding: 1rem; max-width: 1200px; margin: 0 auto; }
-
-/* Agent cards */
-.state-group { margin-bottom: 1.5rem; }
-.state-group h2 { font-size: 1rem; margin-bottom: 0.5rem; color: var(--muted); }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem; }
-.card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; cursor: pointer; transition: border-color 0.2s; }
-.card:hover { border-color: var(--accent); }
-.card h3 { font-size: 1rem; margin-bottom: 0.25rem; }
-.card .meta { font-size: 0.85rem; color: var(--muted); }
-.card .task { font-size: 0.85rem; margin-top: 0.5rem; color: var(--accent); }
-.card.working { border-left: 3px solid var(--success); }
-.card.failed { border-left: 3px solid var(--danger); }
-
-/* Bottom bar */
-#bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card-bg); border-top: 1px solid var(--border); padding: 0.75rem 1rem; display: flex; gap: 0.5rem; align-items: center; }
-#bottom-bar select, #bottom-bar input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); }
-#bottom-bar input { flex: 1; }
-#bottom-bar button { padding: 0.5rem 1rem; background: var(--accent); color: #fff; border: none; border-radius: 4px; cursor: pointer; }
-
-/* Agent panel */
-#agent-panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
-#agent-panel h2 { margin-bottom: 1rem; }
-.panel-section { margin-bottom: 1rem; }
-.panel-section h3 { font-size: 0.9rem; color: var(--muted); margin-bottom: 0.5rem; }
-.panel-section textarea, .panel-section input { width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font-family: inherit; }
-.panel-section textarea { min-height: 80px; resize: vertical; }
-.output-box { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.75rem; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; }
-.btn { padding: 0.4rem 0.8rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
-.btn-danger { background: var(--danger); color: #fff; }
-.btn-save { background: var(--accent); color: #fff; }
-.btn-small { padding: 0.2rem 0.5rem; font-size: 0.8rem; }
-.skill-toggles { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.skill-toggle { display: flex; align-items: center; gap: 0.3rem; }
-
-/* Skills page */
-.skills-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.75rem; }
-.skill-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
-.skill-card h3 { margin-bottom: 0.25rem; }
-.skill-card .desc { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.5rem; }
-.skill-card .agents { font-size: 0.8rem; color: var(--muted); }
-.skill-card .actions { margin-top: 0.5rem; display: flex; gap: 0.3rem; }
-#skill-form { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-#skill-form textarea { width: 100%; min-height: 120px; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font-family: monospace; }
-
-/* Run history */
-.run-item { padding: 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; cursor: pointer; }
-.run-item:hover { background: var(--bg); }
-.run-item .state { font-weight: bold; }
-.run-item .state.done { color: var(--success); }
-.run-item .state.failed { color: var(--danger); }
-.run-item .state.working { color: var(--warning); }
-
-/* Matrix */
-.matrix-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.matrix-table th, .matrix-table td { padding: 0.4rem; border: 1px solid var(--border); text-align: center; }
-.matrix-table th { background: var(--bg); }
-
-/* Chat page */
-#page-chat { display: flex; gap: 0; height: calc(100vh - 120px); }
-#chat-sidebar { width: 260px; border-right: 1px solid var(--border); background: var(--card-bg); display: flex; flex-direction: column; flex-shrink: 0; }
-#chat-sidebar-header { padding: 0.75rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-#chat-sidebar-header h3 { font-size: 0.9rem; }
-#chat-session-list { flex: 1; overflow-y: auto; }
-.chat-session-item { padding: 0.6rem 0.75rem; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
-.chat-session-item:hover { background: var(--bg); }
-.chat-session-item.active { background: var(--accent); color: #fff; }
-.chat-session-item .session-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.chat-session-item .session-preview { font-size: 0.8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.chat-session-item.active .session-preview { color: rgba(255,255,255,0.7); }
-.chat-session-item .session-actions { display: none; float: right; }
-.chat-session-item:hover .session-actions { display: inline; }
-.chat-session-item .session-actions button { background: none; border: none; cursor: pointer; color: inherit; font-size: 0.8rem; padding: 0 0.2rem; }
-#chat-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-#chat-messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
-.chat-message { max-width: 70%; padding: 0.6rem 0.9rem; border-radius: 12px; font-size: 0.9rem; line-height: 1.4; word-break: break-word; white-space: pre-wrap; }
-.chat-message.user { align-self: flex-end; background: var(--user-bubble); color: var(--user-bubble-text); border-bottom-right-radius: 4px; }
-.chat-message.assistant { align-self: flex-start; background: var(--assistant-bubble); color: var(--assistant-bubble-text); border-bottom-left-radius: 4px; }
-.chat-message.system { align-self: center; background: var(--bg); color: var(--muted); font-size: 0.8rem; font-style: italic; border-radius: 8px; padding: 0.4rem 0.8rem; }
-.chat-message .msg-time { font-size: 0.7rem; opacity: 0.6; margin-top: 0.3rem; }
-#chat-input-bar { padding: 0.75rem; border-top: 1px solid var(--border); background: var(--card-bg); display: flex; gap: 0.5rem; align-items: center; }
-#chat-input-bar select { padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); }
-#chat-input-bar textarea { flex: 1; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font-family: inherit; resize: none; min-height: 36px; max-height: 120px; }
-#chat-input-bar button { padding: 0.5rem 1rem; background: var(--accent); color: #fff; border: none; border-radius: 4px; cursor: pointer; }
-#chat-input-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
-#chat-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 0.9rem; }
-.chat-streaming { font-style: italic; color: var(--muted); }
-
-/* Run detail modal */
-#run-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
-#run-modal { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto; }
-#run-modal h2 { margin-bottom: 0.5rem; font-size: 1.1rem; }
-#run-modal .run-meta { font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem; }
-#run-modal .run-section { margin-bottom: 0.75rem; }
-#run-modal .run-section h4 { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.3rem; }
-#run-modal .run-section .output-box { max-height: 200px; }
-#run-modal .close-btn { float: right; background: none; border: none; color: var(--fg); font-size: 1.2rem; cursor: pointer; }
-
-/* Memory page */
-#page-memory { max-width: 800px; }
-
-/* Coordinator page */
-#page-coordinator { max-width: 900px; }
-.coordinator-form { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-.coordinator-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; }
-.coordinator-card h3 { margin-bottom: 0.5rem; }
-.coordinator-status { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
-.coordinator-status.pending { background: var(--bg); color: var(--muted); }
-.coordinator-status.waiting { background: #fef3c7; color: #92400e; }
-.coordinator-status.running { background: #dbeafe; color: #1e40af; }
-.coordinator-status.completed { background: #dcfce7; color: #166534; }
-.coordinator-status.failed { background: #fee2e2; color: #991b1b; }
-.coordinator-status.cancelled { background: var(--bg); color: var(--muted); }
-.coordinator-status.needs_approval { background: #fef3c7; color: #92400e; }
-.task-item { padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 0.5rem; }
-.task-item .task-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem; }
-.task-item .task-name { font-weight: 600; }
-.task-item .task-desc { font-size: 0.85rem; color: var(--muted); }
-.task-item .task-deps { font-size: 0.8rem; color: var(--muted); }
-.task-actions { display: flex; gap: 0.3rem; }
-.memory-search { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-.memory-search input { flex: 1; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); }
-.memory-form { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-.memory-form textarea { width: 100%; min-height: 80px; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font-family: inherit; margin-bottom: 0.5rem; }
-.memory-item { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; margin-bottom: 0.5rem; }
-.memory-item .memory-content { font-size: 0.9rem; margin-bottom: 0.3rem; white-space: pre-wrap; }
-.memory-item .memory-meta { font-size: 0.8rem; color: var(--muted); display: flex; gap: 0.5rem; align-items: center; }
-.memory-item .memory-actions { margin-left: auto; }
-
-@media (max-width: 600px) {
-  .cards { grid-template-columns: 1fr; }
-  #bottom-bar { flex-wrap: wrap; }
-  #bottom-bar input { min-width: 100%; order: 3; }
-  #page-chat { flex-direction: column; height: auto; }
-  #chat-sidebar { width: 100%; max-height: 200px; border-right: none; border-bottom: 1px solid var(--border); }
-  .chat-message { max-width: 90%; }
+#app-header {
+  height: var(--header-height); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1rem; border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
 }
+#app-header .logo { font-size: 1.1rem; font-weight: 700; }
+#app-header .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+.icon-btn {
+  background: none; border: 1px solid var(--border); color: var(--fg);
+  width: 32px; height: 32px; border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; transition: background var(--transition);
+}
+.icon-btn:hover { background: var(--bg-tertiary); }
+
+/* Main layout */
+#app-body { display: flex; flex: 1; overflow: hidden; }
+
+/* ===== Sidebar ===== */
+#sidebar {
+  width: var(--sidebar-width); flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg-secondary);
+  display: flex; flex-direction: column;
+  transition: transform var(--transition);
+}
+#sidebar-header {
+  padding: 0.75rem; border-bottom: 1px solid var(--border);
+}
+#sidebar-header h3 { font-size: 0.85rem; color: var(--fg-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.btn-new-bot {
+  width: 100%; padding: 0.5rem; background: var(--accent); color: #fff;
+  border: none; border-radius: var(--radius); font-size: 0.85rem;
+  display: flex; align-items: center; justify-content: center; gap: 0.3rem;
+}
+.btn-new-bot:hover { background: var(--accent-hover); }
+#sidebar-search {
+  display: none; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);
+}
+#sidebar-search.visible { display: block; }
+#sidebar-search input {
+  width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg); color: var(--fg);
+  font-size: 0.85rem;
+}
+#bot-list {
+  flex: 1; overflow-y: auto; padding: 0.25rem;
+}
+.bot-item {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.5rem 0.5rem; border-radius: var(--radius);
+  cursor: pointer; transition: background var(--transition);
+  position: relative;
+}
+.bot-item:hover { background: var(--bg-tertiary); }
+.bot-item.active { background: var(--accent-light); }
+.bot-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700; color: #fff;
+  flex-shrink: 0;
+}
+.bot-info { flex: 1; min-width: 0; }
+.bot-name { font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bot-desc { font-size: 0.75rem; color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bot-status-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.bot-status-dot.working { background: var(--success); }
+.bot-status-dot.idle { background: var(--fg-muted); }
+.bot-status-dot.failed { background: var(--danger); }
+
+#sidebar-footer {
+  padding: 0.5rem 0.75rem; border-top: 1px solid var(--border);
+}
+.sidebar-link {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.4rem 0.5rem; border-radius: var(--radius);
+  font-size: 0.85rem; color: var(--fg-secondary);
+  cursor: pointer; transition: background var(--transition);
+}
+.sidebar-link:hover { background: var(--bg-tertiary); }
+.sidebar-link.disabled { opacity: 0.4; cursor: not-allowed; }
+.sidebar-link.disabled:hover { background: none; }
+
+/* ===== Chat Area ===== */
+#chat-area {
+  flex: 1; display: flex; flex-direction: column; min-width: 0;
+  background: var(--bg);
+}
+#chat-header {
+  padding: 0.6rem 1rem; border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary); display: flex; align-items: center; gap: 0.6rem;
+}
+#chat-header .bot-avatar { width: 28px; height: 28px; font-size: 0.7rem; }
+#chat-header .chat-bot-name { font-weight: 600; font-size: 0.95rem; }
+#chat-header .chat-bot-status { font-size: 0.8rem; color: var(--fg-muted); }
+
+#chat-messages {
+  flex: 1; overflow-y: auto; padding: 1rem;
+  display: flex; flex-direction: column; gap: 0.75rem;
+}
+.chat-message {
+  max-width: 75%; padding: 0.6rem 0.9rem;
+  border-radius: var(--radius-lg); font-size: 0.9rem;
+  line-height: 1.5; word-break: break-word; white-space: pre-wrap;
+}
+.chat-message.user {
+  align-self: flex-end; background: var(--user-bubble);
+  color: var(--user-bubble-text); border-bottom-right-radius: 4px;
+}
+.chat-message.bot {
+  align-self: flex-start; background: var(--bot-bubble);
+  color: var(--bot-bubble-text); border-bottom-left-radius: 4px;
+}
+.chat-message.system {
+  align-self: center; background: var(--bg-tertiary);
+  color: var(--fg-muted); font-size: 0.8rem; font-style: italic;
+  border-radius: var(--radius); padding: 0.4rem 0.8rem;
+}
+.msg-time { font-size: 0.7rem; opacity: 0.6; margin-top: 0.25rem; }
+
+/* Bot run message */
+.bot-run {
+  align-self: flex-start; max-width: 85%;
+  background: var(--bot-bubble); color: var(--bot-bubble-text);
+  border-radius: var(--radius-lg); overflow: hidden;
+}
+.bot-run-header {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+.bot-run-status { font-weight: 600; }
+.bot-run-status.working { color: var(--warning); }
+.bot-run-status.done { color: var(--success); }
+.bot-run-status.failed { color: var(--danger); }
+.bot-run-elapsed { color: var(--fg-muted); }
+.btn-stop-run {
+  margin-left: auto; padding: 0.2rem 0.6rem;
+  background: var(--danger); color: #fff; border: none;
+  border-radius: var(--radius); font-size: 0.75rem;
+}
+.btn-stop-run:hover { opacity: 0.85; }
+.bot-run-task {
+  padding: 0.5rem 0.75rem; font-size: 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+.bot-run-output {
+  max-height: 200px; overflow-y: auto;
+  font-family: monospace; font-size: 0.8rem;
+  white-space: pre-wrap; word-break: break-all;
+}
+.bot-run-output.collapsed { max-height: 0; overflow: hidden; }
+.bot-run-toggle {
+  padding: 0.3rem 0.75rem; font-size: 0.75rem;
+  background: none; border: none; color: var(--fg-muted);
+  cursor: pointer; border-top: 1px solid var(--border);
+}
+.bot-run-toggle:hover { color: var(--fg); }
+.bot-run-answer {
+  padding: 0.5rem 0.75rem; font-size: 0.9rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Composer */
+#composer {
+  padding: 0.75rem 1rem; border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+#composer-inner {
+  display: flex; gap: 0.5rem; align-items: flex-end;
+  max-width: 800px; margin: 0 auto;
+}
+#composer textarea {
+  flex: 1; padding: 0.6rem 0.8rem; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg); color: var(--fg);
+  resize: none; min-height: 38px; max-height: 120px;
+  font-size: 0.9rem; line-height: 1.4;
+}
+#composer textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+#send-btn {
+  padding: 0.6rem 1rem; background: var(--accent); color: #fff;
+  border: none; border-radius: var(--radius); font-size: 0.85rem;
+  height: 38px;
+}
+#send-btn:hover { background: var(--accent-hover); }
+#send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Empty chat */
+#chat-empty {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  color: var(--fg-muted); font-size: 0.95rem; text-align: center; padding: 2rem;
+}
+
+/* ===== Right Panel ===== */
+#right-panel {
+  width: var(--panel-width); flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg-secondary);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+  transition: transform var(--transition), width var(--transition), opacity var(--transition);
+}
+#right-panel.hidden-panel {
+  width: 0; opacity: 0; overflow: hidden; border: none;
+}
+.panel-section {
+  padding: 1rem; border-bottom: 1px solid var(--border);
+}
+.panel-section h3 {
+  font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--fg-muted); margin-bottom: 0.5rem;
+}
+.panel-bot-name { font-size: 1.1rem; font-weight: 700; }
+.panel-bot-title { font-size: 0.85rem; color: var(--fg-secondary); margin-top: 0.15rem; }
+.panel-bot-desc { font-size: 0.85rem; color: var(--fg-secondary); margin-top: 0.5rem; line-height: 1.4; }
+.panel-field { margin-bottom: 0.5rem; }
+.panel-field label { display: block; font-size: 0.8rem; color: var(--fg-muted); margin-bottom: 0.2rem; }
+.panel-field input, .panel-field textarea {
+  width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg); color: var(--fg);
+  font-size: 0.85rem;
+}
+.panel-field textarea { min-height: 60px; resize: vertical; }
+.panel-field .field-actions { display: flex; gap: 0.3rem; margin-top: 0.3rem; }
+.btn-save-field {
+  padding: 0.25rem 0.6rem; background: var(--accent); color: #fff;
+  border: none; border-radius: var(--radius); font-size: 0.75rem;
+}
+.btn-save-field:hover { background: var(--accent-hover); }
+.panel-runner { font-size: 0.85rem; color: var(--fg-secondary); }
+
+/* Skills in panel */
+.panel-skills { display: flex; flex-direction: column; gap: 0.3rem; }
+.panel-skill-item {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.85rem;
+}
+.panel-skill-item input[type="checkbox"] { accent-color: var(--accent); }
+
+/* Run history in panel */
+.panel-run-item {
+  padding: 0.4rem 0; border-bottom: 1px solid var(--border);
+  font-size: 0.8rem; cursor: pointer;
+}
+.panel-run-item:hover { color: var(--accent); }
+.panel-run-item:last-child { border-bottom: none; }
+.panel-run-state { font-weight: 600; }
+.panel-run-state.done { color: var(--success); }
+.panel-run-state.failed { color: var(--danger); }
+.panel-run-state.working { color: var(--warning); }
+
+/* Placeholder sections */
+.placeholder-card {
+  padding: 1rem; border-bottom: 1px solid var(--border);
+  opacity: 0.5;
+}
+.placeholder-card h3 {
+  font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--fg-muted); margin-bottom: 0.3rem;
+}
+.placeholder-card p { font-size: 0.8rem; color: var(--fg-muted); font-style: italic; }
+
+/* ===== Skills Page ===== */
+#skills-page {
+  flex: 1; display: none; flex-direction: column;
+  overflow-y: auto; padding: 1.5rem;
+  max-width: 900px; margin: 0 auto; width: 100%;
+}
+#skills-page.visible { display: flex; }
+#skills-page h2 { margin-bottom: 1rem; font-size: 1.2rem; }
+.skill-form-card {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1rem; margin-bottom: 1rem;
+}
+.skill-form-card h3 { margin-bottom: 0.5rem; font-size: 0.95rem; }
+.skill-form-card input, .skill-form-card textarea {
+  width: 100%; padding: 0.5rem; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg); color: var(--fg);
+  font-size: 0.85rem; margin-bottom: 0.5rem;
+}
+.skill-form-card textarea { min-height: 120px; font-family: monospace; }
+.skill-form-actions { display: flex; gap: 0.3rem; }
+.skills-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem; margin-bottom: 1.5rem;
+}
+.skill-card {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1rem;
+}
+.skill-card h4 { margin-bottom: 0.25rem; font-size: 0.95rem; }
+.skill-card .desc { font-size: 0.8rem; color: var(--fg-muted); margin-bottom: 0.4rem; }
+.skill-card .used-by { font-size: 0.75rem; color: var(--fg-muted); }
+.skill-card .actions { margin-top: 0.4rem; display: flex; gap: 0.3rem; }
+.btn-sm {
+  padding: 0.2rem 0.5rem; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg); color: var(--fg);
+  font-size: 0.75rem;
+}
+.btn-sm:hover { background: var(--bg-tertiary); }
+.btn-sm.danger { color: var(--danger); border-color: var(--danger); }
+.skills-matrix-section h3 { margin-bottom: 0.5rem; font-size: 1rem; }
+.matrix-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.matrix-table th, .matrix-table td {
+  padding: 0.4rem 0.6rem; border: 1px solid var(--border); text-align: center;
+}
+.matrix-table th { background: var(--bg-tertiary); font-weight: 600; }
+
+/* ===== New Bot Dialog ===== */
+#dialog-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5); display: flex;
+  align-items: center; justify-content: center; z-index: 200;
+}
+#dialog-overlay.hidden { display: none; }
+.dialog-box {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1.5rem;
+  max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+.dialog-box h2 { margin-bottom: 1rem; font-size: 1.1rem; }
+.dialog-field { margin-bottom: 0.75rem; }
+.dialog-field label { display: block; font-size: 0.8rem; color: var(--fg-muted); margin-bottom: 0.2rem; }
+.dialog-field input, .dialog-field textarea, .dialog-field select {
+  width: 100%; padding: 0.5rem; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg); color: var(--fg);
+  font-size: 0.85rem;
+}
+.dialog-field textarea { min-height: 60px; resize: vertical; }
+.dialog-field .error { font-size: 0.75rem; color: var(--danger); margin-top: 0.2rem; }
+.dialog-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
+.btn-dialog {
+  padding: 0.5rem 1rem; border-radius: var(--radius); font-size: 0.85rem;
+}
+.btn-dialog.primary { background: var(--accent); color: #fff; border: none; }
+.btn-dialog.primary:hover { background: var(--accent-hover); }
+.btn-dialog.secondary { background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
+.btn-dialog.secondary:hover { background: var(--bg-tertiary); }
+
+/* ===== Run Detail Modal ===== */
+#run-modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5); display: flex;
+  align-items: center; justify-content: center; z-index: 200;
+}
+#run-modal-overlay.hidden { display: none; }
+#run-modal {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1.5rem;
+  max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+#run-modal h2 { margin-bottom: 0.5rem; font-size: 1.1rem; }
+#run-modal .run-meta { font-size: 0.85rem; color: var(--fg-muted); margin-bottom: 1rem; }
+#run-modal .run-section { margin-bottom: 0.75rem; }
+#run-modal .run-section h4 { font-size: 0.85rem; color: var(--fg-muted); margin-bottom: 0.3rem; }
+.output-box {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0.75rem;
+  max-height: 200px; overflow-y: auto;
+  font-family: monospace; font-size: 0.8rem;
+  white-space: pre-wrap; word-break: break-all;
+}
+.close-btn {
+  float: right; background: none; border: none; color: var(--fg);
+  font-size: 1.2rem; cursor: pointer;
+}
+
+/* ===== Spinner ===== */
+.spinner {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid var(--fg-muted); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  #right-panel { display: none; }
+  #right-panel.mobile-visible {
+    display: flex; position: fixed; top: var(--header-height);
+    right: 0; bottom: 0; width: 85%; max-width: 320px;
+    z-index: 150; box-shadow: var(--shadow-lg);
+  }
+}
+@media (max-width: 480px) {
+  #sidebar {
+    position: fixed; top: var(--header-height); left: 0; bottom: 0;
+    z-index: 150; transform: translateX(-100%);
+    box-shadow: var(--shadow-lg);
+  }
+  #sidebar.mobile-open { transform: translateX(0); }
+  #sidebar-toggle { display: flex !important; }
+  .chat-message { max-width: 90%; }
+  .bot-run { max-width: 95%; }
+}
+#sidebar-toggle { display: none; }
+
+/* ===== Focus styles ===== */
+:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
 </style>
 </head>
 <body>
@@ -183,146 +494,209 @@ main { padding: 1rem; max-width: 1200px; margin: 0 auto; }
 <div id="auth-prompt" class="hidden">
   <form id="auth-form">
     <h2>Agent Hub</h2>
-    <p style="margin:0.5rem 0;color:var(--muted)">Enter API key to continue</p>
-    <input type="password" id="api-key-input" placeholder="API key" required>
+    <p>Enter API key to continue</p>
+    <input type="password" id="api-key-input" placeholder="API key" required aria-label="API key">
     <button type="submit">Connect</button>
   </form>
 </div>
 
 <!-- Main app -->
 <div id="app" class="hidden">
-  <header>
-    <h1>Agent Hub</h1>
-    <nav>
-      <button id="nav-dashboard" class="active" onclick="showPage('dashboard')">Dashboard</button>
-      <button id="nav-chat" onclick="showPage('chat')">Chat</button>
-      <button id="nav-coordinator" onclick="showPage('coordinator')">Coordinator</button>
-      <button id="nav-skills" onclick="showPage('skills')">Skills</button>
-      <button id="nav-memory" onclick="showPage('memory')">Memory</button>
-      <button onclick="logout()">Logout</button>
-    </nav>
+  <header id="app-header">
+    <div style="display:flex;align-items:center;gap:0.5rem">
+      <button id="sidebar-toggle" class="icon-btn" aria-label="Toggle sidebar" onclick="toggleSidebar()">☰</button>
+      <span class="logo">Agent Hub</span>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" id="panel-toggle" aria-label="Toggle right panel" onclick="togglePanel()" title="Toggle panel">☰</button>
+      <button class="icon-btn" aria-label="Logout" onclick="logout()" title="Logout">⏻</button>
+    </div>
   </header>
 
-  <main>
-    <!-- Dashboard -->
-    <div id="page-dashboard">
-      <div id="agent-cards"></div>
-    </div>
+  <div id="app-body">
+    <!-- Sidebar -->
+    <nav id="sidebar" role="navigation" aria-label="Bot list">
+      <div id="sidebar-header">
+        <h3>Bots</h3>
+        <button class="btn-new-bot" onclick="openNewBotDialog()" aria-label="Create new bot">+ New Bot</button>
+      </div>
+      <div id="sidebar-search">
+        <input type="text" id="bot-search-input" placeholder="Search bots..." oninput="filterBots()" aria-label="Search bots">
+      </div>
+      <div id="bot-list"></div>
+      <div id="sidebar-footer">
+        <div class="sidebar-link" onclick="navigateTo('skills')" role="button" tabindex="0" aria-label="Skills page">
+          <span>⚙</span> Skills
+        </div>
+        <div class="sidebar-link disabled" title="Coming soon" aria-label="Marketplace (coming soon)">
+          <span>🏪</span> Marketplace <span style="font-size:0.7rem;color:var(--fg-muted)">(soon)</span>
+        </div>
+      </div>
+    </nav>
 
-    <!-- Agent detail panel -->
-    <div id="agent-panel" class="hidden"></div>
+    <!-- Chat Area -->
+    <main id="chat-area">
+      <div id="chat-header" class="hidden">
+        <div class="bot-avatar" id="chat-avatar"></div>
+        <div>
+          <div class="chat-bot-name" id="chat-bot-name"></div>
+          <div class="chat-bot-status" id="chat-bot-status"></div>
+        </div>
+      </div>
+      <div id="chat-empty">
+        <div>
+          <p>Select a Bot from the sidebar to start chatting.</p>
+          <p style="font-size:0.8rem;margin-top:0.5rem">Or create a new Bot to get started.</p>
+        </div>
+      </div>
+      <div id="chat-messages" class="hidden"></div>
+      <div id="composer" class="hidden">
+        <div id="composer-inner">
+          <textarea id="composer-input" placeholder="Type a message..." rows="1"
+            onkeydown="handleComposerKey(event)" aria-label="Message input"></textarea>
+          <button id="send-btn" onclick="sendComposerMessage()" aria-label="Send message">Send</button>
+        </div>
+      </div>
+    </main>
 
-    <!-- Skills page -->
-    <div id="page-skills" class="hidden">
-      <div id="skill-form">
+    <!-- Skills Page -->
+    <div id="skills-page">
+      <h2>Skills</h2>
+      <div class="skill-form-card">
         <h3 id="skill-form-title">New Skill</h3>
-        <input type="text" id="skill-name" placeholder="Skill name" style="width:200px;margin-bottom:0.5rem">
+        <input type="text" id="skill-name" placeholder="Skill name">
         <textarea id="skill-content" placeholder="SKILL.md content (YAML frontmatter + markdown)"></textarea>
-        <div style="margin-top:0.5rem">
-          <button class="btn btn-save" onclick="saveSkill()">Save</button>
-          <button class="btn" onclick="clearSkillForm()" style="margin-left:0.5rem">Clear</button>
+        <div class="skill-form-actions">
+          <button class="btn-dialog primary" onclick="saveSkill()">Save</button>
+          <button class="btn-dialog secondary" onclick="clearSkillForm()">Clear</button>
         </div>
       </div>
-      <div id="skills-list" class="skills-list"></div>
-      <h3 style="margin:1rem 0 0.5rem">Enable/Disable Matrix</h3>
-      <div id="skills-matrix"></div>
-    </div>
-
-    <!-- Chat page -->
-    <div id="page-chat" class="hidden">
-      <div id="chat-sidebar">
-        <div id="chat-sidebar-header">
-          <h3>Sessions</h3>
-          <button class="btn btn-small btn-save" onclick="createChatSession()">+ New</button>
-        </div>
-        <div id="chat-session-list"></div>
-      </div>
-      <div id="chat-main">
-        <div id="chat-empty">Select or create a session to start chatting.</div>
-        <div id="chat-messages" class="hidden"></div>
-        <div id="chat-input-bar" class="hidden">
-          <select id="chat-agent-select"></select>
-          <textarea id="chat-input" placeholder="Type a message..." rows="1" onkeydown="handleChatInputKey(event)"></textarea>
-          <button id="chat-send-btn" onclick="sendChatMessage()">Send</button>
-        </div>
+      <div id="skills-list" class="skills-grid"></div>
+      <div class="skills-matrix-section">
+        <h3>Enable/Disable Matrix</h3>
+        <div id="skills-matrix"></div>
       </div>
     </div>
 
-    <!-- Memory page -->
-    <div id="page-memory" class="hidden">
-      <h2 style="margin-bottom:1rem">Memory</h2>
-      <div class="memory-search">
-        <input type="text" id="memory-search-input" placeholder="Search memories..." oninput="searchMemories()">
-      </div>
-      <div class="memory-form">
-        <textarea id="memory-content-input" placeholder="New memory content..."></textarea>
-        <div style="display:flex;gap:0.5rem;align-items:center">
-          <input type="text" id="memory-tags-input" placeholder="Tags (comma separated)" style="flex:1;padding:0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg)">
-          <button class="btn btn-save" onclick="createMemory()">Save Memory</button>
+    <!-- Right Panel -->
+    <aside id="right-panel" aria-label="Bot details panel">
+      <div id="panel-content">
+        <div class="panel-section" id="panel-bot-info">
+          <div class="panel-bot-name" id="panel-bot-name">—</div>
+          <div class="panel-bot-title" id="panel-bot-title"></div>
+          <div class="panel-bot-desc" id="panel-bot-desc"></div>
         </div>
-      </div>
-      <div id="memory-list"></div>
-    </div>
-
-    <!-- Coordinator page -->
-    <div id="page-coordinator" class="hidden">
-      <h2 style="margin-bottom:1rem">Multi-Agent Coordinator</h2>
-      <div id="coordinator-create" class="coordinator-form">
-        <h3>Create Coordinator</h3>
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end">
-          <div>
-            <label style="font-size:0.85rem;color:var(--muted)">Project Directory</label>
-            <input type="text" id="coord-project-dir" placeholder="/path/to/project" style="width:300px;padding:0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg)">
+        <div class="panel-section">
+          <h3>Runner</h3>
+          <div class="panel-runner" id="panel-runner">—</div>
+        </div>
+        <div class="panel-section">
+          <h3>Project Directory</h3>
+          <div class="panel-field">
+            <input type="text" id="panel-project-dir" placeholder="Project directory">
+            <div class="field-actions">
+              <button class="btn-save-field" onclick="savePanelField('project_dir')">Save</button>
+            </div>
           </div>
-          <div>
-            <label style="font-size:0.85rem;color:var(--muted)">Max Concurrency</label>
-            <input type="number" id="coord-max-concurrency" value="3" min="1" max="10" style="width:80px;padding:0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg)">
+        </div>
+        <div class="panel-section">
+          <h3>Guidelines</h3>
+          <div class="panel-field">
+            <textarea id="panel-guidelines" placeholder="Agent guidelines..."></textarea>
+            <div class="field-actions">
+              <button class="btn-save-field" onclick="savePanelField('guidelines')">Save</button>
+            </div>
           </div>
-          <button class="btn btn-save" onclick="createCoordinator()">Create</button>
+        </div>
+        <div class="panel-section">
+          <h3>Skills</h3>
+          <div class="panel-skills" id="panel-skills"></div>
+        </div>
+        <div class="panel-section">
+          <h3>Run History</h3>
+          <div id="panel-run-history"></div>
+        </div>
+        <div class="placeholder-card">
+          <h3>Memory</h3>
+          <p>Coming soon</p>
+        </div>
+        <div class="placeholder-card">
+          <h3>Routines</h3>
+          <p>Coming soon</p>
+        </div>
+        <div class="placeholder-card">
+          <h3>Plugins</h3>
+          <p>Coming soon</p>
         </div>
       </div>
-      <div id="coordinator-list" style="margin-top:1rem"></div>
-      <div id="coordinator-detail" class="hidden" style="margin-top:1rem">
-        <div id="coordinator-detail-content"></div>
-      </div>
-    </div>
-  </main>
-
-  <!-- Run detail modal -->
-  <div id="run-modal-overlay" class="hidden" onclick="if(event.target===this)closeRunModal()">
-    <div id="run-modal"></div>
-  </div>
-
-  <!-- Bottom bar -->
-  <div id="bottom-bar">
-    <select id="bar-agent"></select>
-    <input type="text" id="bar-task" placeholder="Enter task..." onkeydown="if(event.key==='Enter')sendTask()">
-    <button onclick="sendTask()">Send</button>
+    </aside>
   </div>
 </div>
 
+<!-- New Bot Dialog -->
+<div id="dialog-overlay" class="hidden" onclick="if(event.target===this)closeNewBotDialog()">
+  <div class="dialog-box">
+    <h2>New Bot</h2>
+    <div class="dialog-field">
+      <label for="new-bot-desc">Describe the job in a sentence</label>
+      <textarea id="new-bot-desc" placeholder="e.g. A bot that reviews pull requests and suggests improvements" oninput="autoGenerateBotName()"></textarea>
+    </div>
+    <div class="dialog-field">
+      <label for="new-bot-name">Name</label>
+      <input type="text" id="new-bot-name" placeholder="Auto-generated from description" pattern="^[a-z0-9][a-z0-9-]{0,40}$">
+      <div class="error" id="name-error"></div>
+    </div>
+    <div class="dialog-field">
+      <label for="new-bot-title">Title</label>
+      <input type="text" id="new-bot-title" placeholder="Display title">
+    </div>
+    <div class="dialog-field">
+      <label for="new-bot-runner">Runner</label>
+      <select id="new-bot-runner"></select>
+    </div>
+    <div class="dialog-field">
+      <label for="new-bot-project">Project Directory</label>
+      <input type="text" id="new-bot-project" placeholder="/path/to/project">
+    </div>
+    <div class="dialog-field">
+      <label for="new-bot-guidelines">Guidelines</label>
+      <textarea id="new-bot-guidelines" placeholder="Any guidelines for this bot..."></textarea>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn-dialog secondary" onclick="closeNewBotDialog()">Cancel</button>
+      <button class="btn-dialog primary" onclick="createNewBot()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Run detail modal -->
+<div id="run-modal-overlay" class="hidden" onclick="if(event.target===this)closeRunModal()">
+  <div id="run-modal"></div>
+</div>
+
 <script>
+// ===================== State =====================
 let API_KEY = localStorage.getItem('hub_api_key') || '';
 let agents = [];
 let skills = [];
+let agentDetails = {};
 let pollInterval = null;
-let currentAgent = null;
-let editingSkill = null;
-
-// Chat state
-let chatSessions = [];
+let currentBot = null;
+let botSessions = {};
 let currentSessionId = null;
 let chatSSE = null;
 let chatStreaming = false;
-let streamingOutput = '';  // Accumulate incremental output
-let autoScrollChat = true;  // Track whether to auto-scroll
-let sseReconnectTimer = null;  // For SSE auto-reconnect
-
-// Memory state
-let memories = [];
+let streamingOutput = '';
+let autoScrollChat = true;
+let sseReconnectTimer = null;
+let editingSkill = null;
+let activeRunId = null;
+let elapsedTimer = null;
+let elapsedSeconds = 0;
 
 const API = '/api';
 
+// ===================== API Helper =====================
 function api(path, opts = {}) {
   const headers = { 'Authorization': 'Bearer ' + API_KEY };
   if (opts.body && typeof opts.body === 'object') {
@@ -331,10 +705,12 @@ function api(path, opts = {}) {
   }
   return fetch(API + path, { ...opts, headers }).then(r => {
     if (r.status === 401) { logout(); throw new Error('Unauthorized'); }
+    if (r.status >= 400) throw new Error(r.statusText);
     return r.json();
   });
 }
 
+// ===================== Utilities =====================
 function esc(s) {
   const d = document.createElement('div');
   d.textContent = s || '';
@@ -347,7 +723,29 @@ function logout() {
   location.reload();
 }
 
-// Auth
+// ===================== Avatar Generation =====================
+function avatarColor(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = Math.abs(hash) % 360;
+  return `hsl(${h}, 55%, 50%)`;
+}
+
+function avatarInitials(name) {
+  const parts = name.replace(/[-_]/g, ' ').split(' ').filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.substring(0, 2).toUpperCase();
+}
+
+function renderAvatar(name, size) {
+  const color = avatarColor(name);
+  const initials = avatarInitials(name);
+  return `<div class="bot-avatar" style="background:${color};width:${size||32}px;height:${size||32}px;font-size:${(size||32)*0.35}px">${esc(initials)}</div>`;
+}
+
+// ===================== Auth =====================
 if (API_KEY) {
   showApp();
 } else {
@@ -371,36 +769,39 @@ function showApp() {
   document.getElementById('auth-prompt').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   startPolling();
+  loadAllAgents();
+  setupComposer();
+  setupRouter();
 }
 
-function showPage(page) {
-  document.getElementById('page-dashboard').classList.toggle('hidden', page !== 'dashboard');
-  document.getElementById('page-skills').classList.toggle('hidden', page !== 'skills');
-  document.getElementById('page-chat').classList.toggle('hidden', page !== 'chat');
-  document.getElementById('page-memory').classList.toggle('hidden', page !== 'memory');
-  document.getElementById('page-coordinator').classList.toggle('hidden', page !== 'coordinator');
-  document.getElementById('agent-panel').classList.add('hidden');
-  currentAgent = null;
-  document.getElementById('nav-dashboard').classList.toggle('active', page === 'dashboard');
-  document.getElementById('nav-chat').classList.toggle('active', page === 'chat');
-  document.getElementById('nav-coordinator').classList.toggle('active', page === 'coordinator');
-  document.getElementById('nav-skills').classList.toggle('active', page === 'skills');
-  document.getElementById('nav-memory').classList.toggle('active', page === 'memory');
-  if (page === 'skills') loadSkills();
-  if (page === 'chat') {
-    loadChatSessions().then(() => {
-      // Restore last selected session from localStorage
-      const savedSession = localStorage.getItem('hub_current_session');
-      if (savedSession && chatSessions.find(s => s.id === savedSession)) {
-        selectChatSession(savedSession);
-      }
-    });
+// ===================== Router =====================
+function setupRouter() {
+  window.addEventListener('hashchange', handleRoute);
+  handleRoute();
+}
+
+function navigateTo(route) {
+  window.location.hash = route;
+}
+
+function handleRoute() {
+  const hash = window.location.hash || '#bot/';
+  const chatArea = document.getElementById('chat-area');
+  const skillsPage = document.getElementById('skills-page');
+
+  if (hash.startsWith('#bot/')) {
+    const botName = decodeURIComponent(hash.slice(5));
+    chatArea.style.display = 'flex';
+    skillsPage.classList.remove('visible');
+    if (botName) selectBot(botName);
+  } else if (hash === '#skills') {
+    chatArea.style.display = 'none';
+    skillsPage.classList.add('visible');
+    loadSkills();
   }
-  if (page === 'memory') loadMemories();
-  if (page === 'coordinator') loadCoordinators();
 }
 
-// Polling
+// ===================== Polling =====================
 function startPolling() {
   if (pollInterval) clearInterval(pollInterval);
   pollStatus();
@@ -411,261 +812,537 @@ async function pollStatus() {
   try {
     const data = await api('/status');
     agents = data.agents || [];
-    renderCards();
-    renderBar();
-    if (currentAgent) pollAgentDetail();
+    renderBotList();
+    updateSearchVisibility();
+    if (currentBot) {
+      updateBotStatusInChat();
+      updateBotStatusInPanel();
+    }
   } catch(e) {
     console.error('Poll error:', e);
   }
 }
 
-// Dashboard cards
-function renderCards() {
-  const groups = { working: [], idle: [], failed: [] };
-  agents.forEach(a => {
-    const g = a.status === 'working' ? 'working' : a.status === 'failed' ? 'failed' : 'idle';
-    groups[g].push(a);
-  });
-  let html = '';
-  const labels = { working: 'Working', idle: 'Idle', failed: 'Failed' };
-  for (const [key, label] of Object.entries(labels)) {
-    if (groups[key].length === 0) continue;
-    html += `<div class="state-group"><h2>${label} (${groups[key].length})</h2><div class="cards">`;
-    groups[key].forEach(a => {
-      const cls = a.status === 'working' ? 'working' : a.status === 'failed' ? 'failed' : '';
-      html += `<div class="card ${cls}" onclick="showAgent('${esc(a.name)}')">
-        <h3>${esc(a.name)}</h3>
-        <div class="meta">${esc(a.last_run ? a.last_run.agent : '')} · ${a.queue_length || 0} in queue</div>
-        ${a.current_task ? `<div class="task">${esc(a.current_task)}</div>` : ''}
-      </div>`;
-    });
-    html += '</div></div>';
-  }
-  document.getElementById('agent-cards').innerHTML = html || '<p style="color:var(--muted)">No agents configured.</p>';
-}
-
-function renderBar() {
-  const sel = document.getElementById('bar-agent');
-  const current = sel.value;
-  sel.innerHTML = agents.map(a => `<option value="${esc(a.name)}">${esc(a.name)}</option>`).join('');
-  if (current && agents.find(a => a.name === current)) sel.value = current;
-}
-
-// Agent detail
-async function showAgent(name) {
-  currentAgent = name;
-  document.getElementById('agent-panel').classList.remove('hidden');
-  document.getElementById('page-dashboard').classList.add('hidden');
-  await pollAgentDetail();
-}
-
-async function pollAgentDetail() {
-  if (!currentAgent) return;
+async function loadAllAgents() {
   try {
-    const agent = await api('/agents/' + currentAgent);
-    const runs = await api('/runs?agent=' + currentAgent);
-    const allSkills = await api('/skills');
-    renderAgentPanel(agent, runs.runs || [], allSkills.skills || []);
+    const names = agents.map(a => a.name);
+    for (const name of names) {
+      try {
+        agentDetails[name] = await api('/agents/' + name);
+      } catch(e) { console.error('Failed to load agent:', name, e); }
+    }
   } catch(e) { console.error(e); }
 }
 
-function renderAgentPanel(agent, runs, allSkills) {
-  const latest = runs[0];
-  const agentSkills = (agent.skills || []);
-  let html = `<h2>${esc(agent.name)} <span style="font-weight:normal;color:var(--muted)">(${esc(agent.title || '')})</span></h2>`;
-
-  // Output
-  if (latest && latest.raw_output) {
-    html += `<div class="panel-section"><h3>Latest Output</h3><div class="output-box">${esc(latest.raw_output)}</div></div>`;
+// ===================== Sidebar =====================
+function renderBotList(filter) {
+  const list = document.getElementById('bot-list');
+  let filtered = agents;
+  if (filter) {
+    const q = filter.toLowerCase();
+    filtered = agents.filter(a =>
+      a.name.toLowerCase().includes(q) ||
+      (agentDetails[a.name] && agentDetails[a.name].title && agentDetails[a.name].title.toLowerCase().includes(q)) ||
+      (agentDetails[a.name] && agentDetails[a.name].description && agentDetails[a.name].description.toLowerCase().includes(q))
+    );
   }
-
-  // Stop button
-  if (latest && latest.state === 'working') {
-    html += `<button class="btn btn-danger" onclick="stopRun('${esc(latest.id)}')">Stop</button> `;
+  if (!filtered.length) {
+    list.innerHTML = '<div style="padding:1rem;color:var(--fg-muted);font-size:0.85rem;text-align:center">No bots found.</div>';
+    return;
   }
-
-  // Edit form
-  html += `<div class="panel-section"><h3>Edit Agent</h3>
-    <input type="text" id="edit-title" value="${esc(agent.title || '')}" placeholder="Title" style="margin-bottom:0.3rem">
-    <input type="text" id="edit-desc" value="${esc(agent.description || '')}" placeholder="Description" style="margin-bottom:0.3rem">
-    <div style="display:flex;gap:0.3rem;margin-bottom:0.3rem">
-      <input type="text" id="edit-project" value="${esc(agent.project_dir || '')}" placeholder="Project dir" style="flex:1">
-      <button class="btn btn-small" onclick="browseProjects()">Browse</button>
-    </div>
-    <div id="project-browse-list" class="hidden" style="max-height:150px;overflow-y:auto;margin-bottom:0.3rem;padding:0.3rem;border:1px solid var(--border);border-radius:4px;background:var(--bg)"></div>
-    <textarea id="edit-guidelines" placeholder="Guidelines">${esc(agent.guidelines || '')}</textarea>
-    <button class="btn btn-save" style="margin-top:0.5rem" onclick="saveAgent('${esc(agent.name)}')">Save</button>
-  </div>`;
-
-  // Permissions display
-  const perms = agent.permissions || {};
-  const permLabels = {
-    file_read: 'File Read',
-    file_write: 'File Write',
-    command_exec: 'Command Exec',
-    git_ops: 'Git Ops',
-    network: 'Network',
-  };
-  html += '<div class="panel-section"><h3>Permissions</h3><div class="skill-toggles">';
-  for (const [key, label] of Object.entries(permLabels)) {
-    const enabled = perms[key] !== false;  // Default true
-    const icon = enabled ? '✓' : '✗';
-    const color = enabled ? 'var(--success)' : 'var(--danger)';
-    html += `<span style="color:${color};font-size:0.85rem;margin-right:0.5rem">${icon} ${label}</span>`;
-  }
-  html += '</div></div>';
-
-  // Skill toggles
-  html += `<div class="panel-section"><h3>Skills</h3><div class="skill-toggles">`;
-  allSkills.forEach(s => {
-    const checked = agentSkills.includes(s.name) ? 'checked' : '';
-    html += `<label class="skill-toggle"><input type="checkbox" ${checked} onchange="toggleSkill('${esc(agent.name)}','${esc(s.name)}',this.checked)">${esc(s.name)}</label>`;
-  });
-  html += '</div></div>';
-
-  // Run history
-  html += `<div class="panel-section"><h3>Run History</h3>`;
-  runs.slice(0, 20).forEach(r => {
-    html += `<div class="run-item" onclick="showRunDetail('${esc(r.id)}')">
-      <span class="state ${esc(r.state)}">${esc(r.state)}</span>
-      ${esc(r.task ? r.task.substring(0, 60) : '')}
-      ${r.fail_reason ? ' — ' + esc(r.fail_reason) : ''}
+  let html = '';
+  filtered.forEach(a => {
+    const detail = agentDetails[a.name] || {};
+    const title = detail.title || a.name;
+    const desc = detail.description || '';
+    const statusClass = a.status === 'working' ? 'working' : a.status === 'failed' ? 'failed' : 'idle';
+    const activeClass = currentBot === a.name ? 'active' : '';
+    html += `<div class="bot-item ${activeClass}" onclick="selectBot('${esc(a.name)}')" role="button" tabindex="0" aria-label="Select bot ${esc(title)}">
+      ${renderAvatar(a.name)}
+      <div class="bot-info">
+        <div class="bot-name">${esc(title)}</div>
+        ${desc ? `<div class="bot-desc">${esc(desc)}</div>` : ''}
+      </div>
+      <div class="bot-status-dot ${statusClass}" title="${a.status}"></div>
     </div>`;
   });
-  html += '</div>';
-
-  document.getElementById('agent-panel').innerHTML = html;
+  list.innerHTML = html;
 }
 
-async function saveAgent(name) {
-  const body = {
-    title: document.getElementById('edit-title').value,
-    description: document.getElementById('edit-desc').value,
-    project_dir: document.getElementById('edit-project').value,
-    guidelines: document.getElementById('edit-guidelines').value,
-  };
-  await api('/agents/' + name, { method: 'PUT', body });
-  alert('Saved');
+function updateSearchVisibility() {
+  const search = document.getElementById('sidebar-search');
+  if (agents.length >= 5) {
+    search.classList.add('visible');
+  } else {
+    search.classList.remove('visible');
+  }
 }
 
-async function browseProjects() {
-  const listEl = document.getElementById('project-browse-list');
-  if (!listEl) return;
-  listEl.classList.remove('hidden');
-  listEl.innerHTML = '<div style="padding:0.5rem;color:var(--muted)">Loading...</div>';
+function filterBots() {
+  const q = document.getElementById('bot-search-input').value;
+  renderBotList(q);
+}
+
+// ===================== Bot Selection =====================
+async function selectBot(name) {
+  currentBot = name;
+  window.location.hash = '#bot/' + encodeURIComponent(name);
+  renderBotList(document.getElementById('bot-search-input').value);
+
+  // Show chat header
+  document.getElementById('chat-header').classList.remove('hidden');
+  document.getElementById('chat-empty').classList.add('hidden');
+  document.getElementById('chat-messages').classList.remove('hidden');
+  document.getElementById('composer').classList.remove('hidden');
+
+  const detail = agentDetails[name] || {};
+  const title = detail.title || name;
+  document.getElementById('chat-avatar').innerHTML = '';
+  document.getElementById('chat-avatar').style.background = avatarColor(name);
+  document.getElementById('chat-avatar').textContent = avatarInitials(name);
+  document.getElementById('chat-bot-name').textContent = title;
+  updateBotStatusInChat();
+
+  // Update right panel
+  updateRightPanel(name);
+
+  // Close mobile sidebar
+  document.getElementById('sidebar').classList.remove('mobile-open');
+
+  // Find or create session
+  await findOrCreateSession(name);
+}
+
+function updateBotStatusInChat() {
+  if (!currentBot) return;
+  const a = agents.find(x => x.name === currentBot);
+  const statusEl = document.getElementById('chat-bot-status');
+  if (a) {
+    const label = a.status === 'working' ? 'Working' : a.status === 'failed' ? 'Failed' : 'Idle';
+    statusEl.textContent = label;
+  }
+}
+
+function updateBotStatusInPanel() {
+  // Panel status is part of updateRightPanel
+}
+
+// ===================== Session Management =====================
+async function findOrCreateSession(botName) {
   try {
-    const data = await api('/projects');
-    const projects = data.projects || [];
-    if (!projects.length) {
-      listEl.innerHTML = '<div style="padding:0.5rem;color:var(--muted)">No Git repositories found in common directories.</div>';
+    let sessions = await api('/sessions');
+    // Find session for this bot
+    let session = sessions.find(s => s.agent_id === botName);
+    if (!session) {
+      session = await api('/sessions', {
+        method: 'POST',
+        body: { agent_id: botName, title: botName }
+      });
+    }
+    botSessions[botName] = session.id;
+    currentSessionId = session.id;
+    localStorage.setItem('hub_current_session', session.id);
+    await loadChatMessages(session.id);
+    disconnectSSE();
+    connectSSE(session.id);
+  } catch(e) {
+    console.error('Session error:', e);
+  }
+}
+
+// ===================== Chat Messages =====================
+async function loadChatMessages(sessionId) {
+  try {
+    const data = await api('/sessions/' + sessionId);
+    const messages = data.messages || [];
+    const runs = await api('/runs?agent=' + currentBot);
+    const runList = runs.runs || [];
+    const container = document.getElementById('chat-messages');
+    let html = '';
+
+    // Build a map of run_id -> run data
+    const runMap = {};
+    runList.forEach(r => { runMap[r.id] = r; });
+
+    messages.forEach(m => {
+      const role = m.role === 'user' ? 'user' : m.role === 'assistant' ? 'bot' : 'system';
+      const time = m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+      if (role === 'user') {
+        html += `<div class="chat-message user">${esc(m.content)}<div class="msg-time">${esc(time)}</div></div>`;
+      } else if (role === 'bot') {
+        // Check if this message is associated with a run
+        const runId = m.run_id || '';
+        const run = runMap[runId];
+        if (run) {
+          html += renderBotRun(run, time);
+        } else {
+          html += `<div class="chat-message bot">${esc(m.content)}<div class="msg-time">${esc(time)}</div></div>`;
+        }
+      } else {
+        html += `<div class="chat-message system">${esc(m.content)}${time ? `<div class="msg-time">${esc(time)}</div>` : ''}</div>`;
+      }
+    });
+
+    container.innerHTML = html;
+    scrollToBottom();
+  } catch(e) {
+    console.error('Failed to load messages:', e);
+  }
+}
+
+function renderBotRun(run, time) {
+  const stateClass = run.state === 'done' ? 'done' : run.state === 'failed' ? 'failed' : 'working';
+  const stateLabel = run.state === 'done' ? 'Done' : run.state === 'failed' ? 'Failed' : run.state === 'working' ? 'Working...' : run.state || 'Unknown';
+  const hasOutput = run.raw_output || run.answer;
+  const outputId = 'output-' + run.id;
+
+  let html = `<div class="bot-run" data-run-id="${esc(run.id)}">
+    <div class="bot-run-header">
+      <span class="bot-run-status ${stateClass}">${esc(stateLabel)}</span>`;
+
+  if (run.state === 'working') {
+    html += `<span class="bot-run-elapsed elapsed-${esc(run.id)}">00:00</span>`;
+    html += `<button class="btn-stop-run" onclick="stopRun('${esc(run.id)}')">Stop</button>`;
+  }
+
+  if (time) html += `<span class="bot-run-elapsed">${esc(time)}</span>`;
+  html += `</div>`;
+
+  if (run.task) {
+    html += `<div class="bot-run-task">${esc(run.task)}</div>`;
+  }
+
+  if (run.fail_reason) {
+    html += `<div class="bot-run-answer" style="color:var(--danger)">${esc(run.fail_reason)}</div>`;
+  }
+
+  if (run.answer && run.state === 'done') {
+    html += `<div class="bot-run-answer">${esc(run.answer)}</div>`;
+  }
+
+  if (hasOutput) {
+    const collapsed = run.raw_output && run.raw_output.length > 200 ? 'collapsed' : '';
+    html += `<button class="bot-run-toggle" onclick="toggleRunOutput('${esc(run.id)}')">▼ Output</button>`;
+    html += `<div class="bot-run-output ${collapsed}" id="${esc(outputId)}">${esc(run.raw_output || '')}</div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+function toggleRunOutput(runId) {
+  const el = document.getElementById('output-' + runId);
+  if (el) {
+    el.classList.toggle('collapsed');
+    const btn = el.previousElementSibling;
+    if (btn && btn.classList.contains('bot-run-toggle')) {
+      btn.textContent = el.classList.contains('collapsed') ? '▼ Output' : '▲ Output';
+    }
+  }
+}
+
+// ===================== Composer =====================
+function setupComposer() {
+  const input = document.getElementById('composer-input');
+  if (input) {
+    input.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+  }
+  const messages = document.getElementById('chat-messages');
+  if (messages) {
+    messages.addEventListener('scroll', function() {
+      const threshold = 50;
+      const isAtBottom = this.scrollHeight - this.scrollTop - this.clientHeight < threshold;
+      autoScrollChat = isAtBottom;
+    });
+  }
+}
+
+function handleComposerKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendComposerMessage();
+  }
+}
+
+async function sendComposerMessage() {
+  const input = document.getElementById('composer-input');
+  const text = input.value.trim();
+  if (!text || !currentSessionId || chatStreaming || !currentBot) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  chatStreaming = true;
+  document.getElementById('send-btn').disabled = true;
+
+  appendChatMessage('user', text);
+
+  try {
+    disconnectSSE();
+    const result = await api('/sessions/' + currentSessionId + '/messages', {
+      method: 'POST',
+      body: { content: text, agent_id: currentBot }
+    });
+    activeRunId = result.run_id;
+    connectSSE(currentSessionId, result.run_id);
+  } catch(e) {
+    console.error('Failed to send message:', e);
+    appendChatMessage('system', 'Error: Failed to send message.');
+    chatStreaming = false;
+    document.getElementById('send-btn').disabled = false;
+  }
+}
+
+function appendChatMessage(role, content) {
+  const container = document.getElementById('chat-messages');
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const div = document.createElement('div');
+  div.className = `chat-message ${role}`;
+  div.innerHTML = `${esc(content)}<div class="msg-time">${esc(time)}</div>`;
+  container.appendChild(div);
+  scrollToBottom();
+}
+
+function scrollToBottom() {
+  if (autoScrollChat) {
+    const container = document.getElementById('chat-messages');
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
+// ===================== SSE =====================
+function connectSSE(sessionId, runId) {
+  disconnectSSE();
+  const url = `${API}/sessions/${sessionId}/stream?token=${encodeURIComponent(API_KEY)}`;
+  chatSSE = new EventSource(url);
+
+  chatSSE.onopen = () => { console.log('SSE connected'); };
+
+  chatSSE.addEventListener('message', (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.event === 'start') {
+        chatStreaming = true;
+        streamingOutput = '';
+        activeRunId = data.run_id || activeRunId;
+        // Create a bot run message
+        appendBotRunStart(data.run_id);
+        // Start elapsed timer
+        startElapsedTimer(data.run_id);
+      } else if (data.event === 'output') {
+        if (data.text && data.text.trim()) {
+          streamingOutput += data.text;
+          updateStreamingOutput(data.run_id, streamingOutput);
+        }
+      } else if (data.event === 'complete') {
+        finishBotRun(data.run_id, 'done', data.answer || '');
+        streamingOutput = '';
+        chatStreaming = false;
+        document.getElementById('send-btn').disabled = false;
+        stopElapsedTimer(data.run_id);
+        // Reload messages to get the final state
+        setTimeout(() => {
+          if (currentSessionId) loadChatMessages(currentSessionId);
+        }, 500);
+      } else if (data.event === 'error') {
+        finishBotRun(data.run_id, 'failed', data.reason || data.message || 'Run failed.');
+        streamingOutput = '';
+        chatStreaming = false;
+        document.getElementById('send-btn').disabled = false;
+        stopElapsedTimer(data.run_id);
+      } else if (data.event === 'end' || data.event === 'idle') {
+        chatSSE.close();
+        chatSSE = null;
+      }
+    } catch(e) {
+      console.error('SSE parse error:', e);
+    }
+  });
+
+  chatSSE.onerror = () => {
+    console.error('SSE error, will reconnect...');
+    chatSSE.close();
+    chatSSE = null;
+    if (chatStreaming) {
+      clearTimeout(sseReconnectTimer);
+      sseReconnectTimer = setTimeout(() => {
+        if (currentSessionId) connectSSE(currentSessionId);
+      }, 3000);
+    } else {
+      chatStreaming = false;
+      document.getElementById('send-btn').disabled = false;
+    }
+  };
+}
+
+function disconnectSSE() {
+  if (chatSSE) { chatSSE.close(); chatSSE = null; }
+  clearTimeout(sseReconnectTimer);
+  sseReconnectTimer = null;
+}
+
+function appendBotRunStart(runId) {
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'bot-run';
+  div.dataset.runId = runId;
+  div.id = 'run-' + runId;
+  div.innerHTML = `
+    <div class="bot-run-header">
+      <span class="bot-run-status working">Working...</span>
+      <span class="bot-run-elapsed elapsed-${runId}">00:00</span>
+      <button class="btn-stop-run" onclick="stopRun('${esc(runId)}')">Stop</button>
+    </div>
+    <div class="bot-run-output streaming-output-${runId}"></div>
+  `;
+  container.appendChild(div);
+  scrollToBottom();
+}
+
+function updateStreamingOutput(runId, output) {
+  const el = document.querySelector(`.streaming-output-${runId}`);
+  if (el) {
+    const lines = output.split('\n').slice(-20);
+    el.textContent = lines.join('\n');
+    scrollToBottom();
+  }
+}
+
+function finishBotRun(runId, state, answer) {
+  const el = document.getElementById('run-' + runId);
+  if (el) {
+    const statusEl = el.querySelector('.bot-run-status');
+    if (statusEl) {
+      statusEl.className = `bot-run-status ${state}`;
+      statusEl.textContent = state === 'done' ? 'Done' : 'Failed';
+    }
+    const stopBtn = el.querySelector('.btn-stop-run');
+    if (stopBtn) stopBtn.remove();
+    if (answer) {
+      const answerDiv = document.createElement('div');
+      answerDiv.className = 'bot-run-answer';
+      answerDiv.textContent = answer;
+      el.appendChild(answerDiv);
+    }
+  }
+}
+
+// ===================== Elapsed Timer =====================
+function startElapsedTimer(runId) {
+  stopElapsedTimer(runId);
+  elapsedSeconds = 0;
+  elapsedTimer = setInterval(() => {
+    elapsedSeconds++;
+    const mins = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+    const secs = String(elapsedSeconds % 60).padStart(2, '0');
+    const el = document.querySelector(`.elapsed-${runId}`);
+    if (el) el.textContent = `${mins}:${secs}`;
+  }, 1000);
+}
+
+function stopElapsedTimer(runId) {
+  if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+}
+
+// ===================== Stop Run =====================
+async function stopRun(runId) {
+  try {
+    await api('/runs/' + runId + '/stop', { method: 'POST' });
+  } catch(e) { console.error('Failed to stop run:', e); }
+}
+
+// ===================== Right Panel =====================
+function updateRightPanel(botName) {
+  const detail = agentDetails[botName];
+  if (!detail) return;
+
+  document.getElementById('panel-bot-name').textContent = detail.title || botName;
+  document.getElementById('panel-bot-title').textContent = detail.title ? botName : '';
+  document.getElementById('panel-bot-desc').textContent = detail.description || '';
+  document.getElementById('panel-runner').textContent = detail.runner || '—';
+  document.getElementById('panel-project-dir').value = detail.project_dir || '';
+  document.getElementById('panel-guidelines').value = detail.guidelines || '';
+
+  // Skills
+  loadPanelSkills(botName);
+
+  // Run history
+  loadPanelRunHistory(botName);
+}
+
+async function loadPanelSkills(botName) {
+  try {
+    const data = await api('/skills');
+    const allSkills = data.skills || [];
+    const detail = agentDetails[botName] || {};
+    const agentSkills = detail.skills || [];
+    const container = document.getElementById('panel-skills');
+    let html = '';
+    allSkills.forEach(s => {
+      const checked = agentSkills.includes(s.name) ? 'checked' : '';
+      html += `<label class="panel-skill-item">
+        <input type="checkbox" ${checked} onchange="toggleSkill('${esc(botName)}','${esc(s.name)}',this.checked)">
+        ${esc(s.name)}
+      </label>`;
+    });
+    container.innerHTML = html || '<div style="font-size:0.8rem;color:var(--fg-muted)">No skills available.</div>';
+  } catch(e) { console.error('Failed to load skills:', e); }
+}
+
+async function loadPanelRunHistory(botName) {
+  try {
+    const runs = await api('/runs?agent=' + botName);
+    const runList = runs.runs || [];
+    const container = document.getElementById('panel-run-history');
+    if (!runList.length) {
+      container.innerHTML = '<div style="font-size:0.8rem;color:var(--fg-muted)">No runs yet.</div>';
       return;
     }
     let html = '';
-    projects.forEach(p => {
-      html += `<div style="padding:0.3rem;cursor:pointer;border-bottom:1px solid var(--border);font-size:0.85rem"
-        onclick="selectProject('${esc(p.path)}'">${esc(p.name)}<br><span style="color:var(--muted);font-size:0.8rem">${esc(p.path)}</span></div>`;
+    runList.slice(0, 10).forEach(r => {
+      const stateClass = r.state === 'done' ? 'done' : r.state === 'failed' ? 'failed' : 'working';
+      const task = r.task ? r.task.substring(0, 50) : '';
+      html += `<div class="panel-run-item" onclick="showRunDetail('${esc(r.id)}')">
+        <span class="panel-run-state ${stateClass}">${esc(r.state)}</span>
+        ${esc(task)}
+      </div>`;
     });
-    listEl.innerHTML = html;
-  } catch(e) {
-    listEl.innerHTML = '<div style="padding:0.5rem;color:var(--danger)">Failed to load projects.</div>';
-  }
+    container.innerHTML = html;
+  } catch(e) { console.error('Failed to load run history:', e); }
 }
 
-function selectProject(path) {
-  document.getElementById('edit-project').value = path;
-  const listEl = document.getElementById('project-browse-list');
-  if (listEl) listEl.classList.add('hidden');
-}
-
-async function toggleSkill(agent, skill, enabled) {
-  if (enabled) {
-    await api('/agents/' + agent + '/skills/' + skill, { method: 'POST' });
-  } else {
-    await api('/agents/' + agent + '/skills/' + skill, { method: 'DELETE' });
+async function savePanelField(field) {
+  if (!currentBot) return;
+  const body = {};
+  if (field === 'project_dir') {
+    body.project_dir = document.getElementById('panel-project-dir').value;
+  } else if (field === 'guidelines') {
+    body.guidelines = document.getElementById('panel-guidelines').value;
   }
-}
-
-async function stopRun(runId) {
-  await api('/runs/' + runId + '/stop', { method: 'POST' });
-}
-
-async function showRunDetail(runId) {
-  const run = await api('/runs/' + runId);
-  const modal = document.getElementById('run-modal');
-  const stateClass = run.state === 'done' ? 'done' : run.state === 'failed' ? 'failed' : 'working';
-  let html = `<button class="close-btn" onclick="closeRunModal()">✕</button>
-    <h2>Run Detail</h2>
-    <div class="run-meta">
-      <span class="state ${esc(stateClass)}">${esc(run.state)}</span>
-      · ${esc(run.task ? run.task.substring(0, 80) : '')}
-      ${run.created_at ? ' · ' + esc(new Date(run.created_at).toLocaleString()) : ''}
-    </div>`;
-  if (run.fail_reason) {
-    html += `<div class="run-section"><h4>Error</h4><div class="output-box" style="color:var(--danger)">${esc(run.fail_reason)}</div></div>`;
-  }
-  if (run.answer) {
-    html += `<div class="run-section"><h4>Answer</h4><div class="output-box">${esc(run.answer)}</div></div>`;
-  }
-  if (run.raw_output) {
-    html += `<div class="run-section"><h4>Output</h4><div class="output-box">${esc(run.raw_output)}</div></div>`;
-  }
-  if (run.log_file) {
-    html += `<div class="run-section"><h4>Log File</h4><div class="output-box">${esc(run.log_file)}</div></div>`;
-  }
-  if (run.state === 'done' && run.answer) {
-    html += `<div style="margin-top:1rem;display:flex;gap:0.5rem">
-      <button class="btn btn-save" onclick="saveRunToMemory('${esc(run.id)}')">Save Answer to Memory</button>
-    </div>`;
-  }
-  modal.innerHTML = html;
-  document.getElementById('run-modal-overlay').classList.remove('hidden');
-}
-
-async function saveRunToMemory(runId) {
   try {
-    const run = await api('/runs/' + runId);
-    if (!run.answer) return;
-    const tags = prompt('Enter tags for this memory (comma separated, or leave empty):', '');
-    await api('/memories', {
-      method: 'POST',
-      body: {
-        content: run.answer,
-        tags: tags || '',
-        agent_id: run.agent,
-      },
-    });
-    alert('Saved to memory!');
-    if (currentSessionId) {
-      // Also link to current session if in chat
-      const memories = await api('/memories?search=' + encodeURIComponent(run.answer.substring(0, 50)));
-      if (memories.length) {
-        const saved = memories[0];
-        await api('/memories/' + saved.id, {
-          method: 'PUT',
-          body: { session_id: currentSessionId },
-        });
-      }
-    }
+    await api('/agents/' + currentBot, { method: 'PUT', body });
+    agentDetails[currentBot] = await api('/agents/' + currentBot);
   } catch(e) {
-    console.error('Failed to save memory:', e);
-    alert('Failed to save to memory');
+    console.error('Failed to save:', e);
+    alert('Failed to save');
   }
 }
 
-function closeRunModal() {
-  document.getElementById('run-modal-overlay').classList.add('hidden');
+// ===================== Panel Toggle =====================
+function togglePanel() {
+  const panel = document.getElementById('right-panel');
+  panel.classList.toggle('hidden-panel');
 }
 
-// Send task
-async function sendTask() {
-  const agent = document.getElementById('bar-agent').value;
-  const task = document.getElementById('bar-task').value.trim();
-  if (!agent || !task) return;
-  await api('/agents/' + agent + '/runs', { method: 'POST', body: { task } });
-  document.getElementById('bar-task').value = '';
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  sidebar.classList.toggle('mobile-open');
 }
 
-// Skills page
+// ===================== Skills Page =====================
 async function loadSkills() {
   try {
     const data = await api('/skills');
@@ -679,16 +1356,16 @@ function renderSkillsList() {
   let html = '';
   skills.forEach(s => {
     html += `<div class="skill-card">
-      <h3>${esc(s.name)}</h3>
+      <h4>${esc(s.name)}</h4>
       <div class="desc">${esc(s.description || '')}</div>
-      <div class="agents">Used by: ${esc((s.used_by || []).join(', ') || 'none')}</div>
+      <div class="used-by">Used by: ${esc((s.used_by || []).join(', ') || 'none')}</div>
       <div class="actions">
-        <button class="btn btn-small" onclick="editSkill('${esc(s.name)}')">Edit</button>
-        <button class="btn btn-small btn-danger" onclick="deleteSkill('${esc(s.name)}')">Delete</button>
+        <button class="btn-sm" onclick="editSkill('${esc(s.name)}')">Edit</button>
+        <button class="btn-sm danger" onclick="deleteSkill('${esc(s.name)}')">Delete</button>
       </div>
     </div>`;
   });
-  document.getElementById('skills-list').innerHTML = html || '<p style="color:var(--muted)">No skills yet.</p>';
+  document.getElementById('skills-list').innerHTML = html || '<p style="color:var(--fg-muted)">No skills yet.</p>';
 }
 
 function renderSkillsMatrix() {
@@ -740,603 +1417,158 @@ async function deleteSkill(name) {
   await loadSkills();
 }
 
-// ===================== Chat =====================
-
-async function loadChatSessions() {
+// ===================== Skill Toggle =====================
+async function toggleSkill(agent, skill, enabled) {
   try {
-    chatSessions = await api('/sessions');
-    renderChatSessions();
-    renderChatAgentSelect();
-  } catch(e) { console.error('Failed to load sessions:', e); }
+    if (enabled) {
+      await api('/agents/' + agent + '/skills/' + skill, { method: 'POST' });
+    } else {
+      await api('/agents/' + agent + '/skills/' + skill, { method: 'DELETE' });
+    }
+    // Refresh agent details
+    agentDetails[agent] = await api('/agents/' + agent);
+    // Update panel if current bot
+    if (currentBot === agent) {
+      loadPanelSkills(agent);
+    }
+    // Update matrix
+    if (document.getElementById('skills-page').classList.contains('visible')) {
+      renderSkillsMatrix();
+    }
+  } catch(e) { console.error('Skill toggle error:', e); }
 }
 
-function renderChatSessions() {
-  const list = document.getElementById('chat-session-list');
-  if (!chatSessions.length) {
-    list.innerHTML = '<div style="padding:1rem;color:var(--muted);font-size:0.85rem">No sessions yet.</div>';
+// ===================== New Bot Dialog =====================
+function openNewBotDialog() {
+  document.getElementById('dialog-overlay').classList.remove('hidden');
+  document.getElementById('new-bot-desc').value = '';
+  document.getElementById('new-bot-name').value = '';
+  document.getElementById('new-bot-title').value = '';
+  document.getElementById('new-bot-project').value = '';
+  document.getElementById('new-bot-guidelines').value = '';
+  document.getElementById('name-error').textContent = '';
+  // Populate runners
+  populateRunners();
+}
+
+function closeNewBotDialog() {
+  document.getElementById('dialog-overlay').classList.add('hidden');
+}
+
+async function populateRunners() {
+  try {
+    const data = await api('/status');
+    const runners = data.runners || [];
+    const sel = document.getElementById('new-bot-runner');
+    sel.innerHTML = runners.map(r => `<option value="${esc(r.name)}">${esc(r.name)}</option>`).join('');
+  } catch(e) { console.error('Failed to load runners:', e); }
+}
+
+function autoGenerateBotName() {
+  const desc = document.getElementById('new-bot-desc').value;
+  if (desc) {
+    const name = desc.toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .substring(0, 40)
+      .replace(/^-|-$/g, '');
+    if (name && /^[a-z0-9]/.test(name)) {
+      document.getElementById('new-bot-name').value = name;
+    }
+  }
+}
+
+async function createNewBot() {
+  const name = document.getElementById('new-bot-name').value.trim();
+  const title = document.getElementById('new-bot-title').value.trim();
+  const description = document.getElementById('new-bot-desc').value.trim();
+  const runner = document.getElementById('new-bot-runner').value;
+  const projectDir = document.getElementById('new-bot-project').value.trim();
+  const guidelines = document.getElementById('new-bot-guidelines').value.trim();
+
+  // Validate name
+  const nameRegex = /^[a-z0-9][a-z0-9-]{0,40}$/;
+  if (!name) {
+    document.getElementById('name-error').textContent = 'Name is required';
     return;
   }
-  let html = '';
-  chatSessions.forEach(s => {
-    const active = s.id === currentSessionId ? 'active' : '';
-    const title = s.title || 'Session';
-    const preview = s.last_message_preview || '';
-    html += `<div class="chat-session-item ${esc(active)}" onclick="selectChatSession('${esc(s.id)}')">
-      <span class="session-actions">
-        <button onclick="event.stopPropagation();deleteChatSession('${esc(s.id)}')" title="Delete">✕</button>
-      </span>
-      <div class="session-title" ondblclick="event.stopPropagation();renameChatSession('${esc(s.id)}')" title="Double-click to rename">${esc(title)}</div>
-      ${preview ? `<div class="session-preview">${esc(preview)}</div>` : ''}
-    </div>`;
-  });
-  list.innerHTML = html;
-}
-
-function renderChatAgentSelect() {
-  const sel = document.getElementById('chat-agent-select');
-  if (!sel.value && agents.length) sel.value = agents[0].name;
-  sel.innerHTML = agents.map(a => `<option value="${esc(a.name)}">${esc(a.name)}</option>`).join('');
-}
-
-async function createChatSession() {
-  const agentName = document.getElementById('chat-agent-select').value;
-  try {
-    const session = await api('/sessions', { method: 'POST', body: { agent_id: agentName, title: 'New Session' } });
-    await loadChatSessions();
-    selectChatSession(session.id);
-  } catch(e) { console.error('Failed to create session:', e); alert('Failed to create session'); }
-}
-
-async function selectChatSession(sessionId) {
-  // Disconnect any existing SSE
-  disconnectSSE();
-  currentSessionId = sessionId;
-  localStorage.setItem('hub_current_session', sessionId);
-  renderChatSessions();
-  document.getElementById('chat-empty').classList.add('hidden');
-  document.getElementById('chat-messages').classList.remove('hidden');
-  document.getElementById('chat-input-bar').classList.remove('hidden');
-  await loadChatMessages(sessionId);
-  // Connect SSE for live updates
-  connectSSE(sessionId);
-}
-
-async function deleteChatSession(sessionId) {
-  if (!confirm('Delete this session?')) return;
-  try {
-    await api('/sessions/' + sessionId, { method: 'DELETE' });
-    if (currentSessionId === sessionId) {
-      disconnectSSE();
-      currentSessionId = null;
-      localStorage.removeItem('hub_current_session');
-      document.getElementById('chat-messages').classList.add('hidden');
-      document.getElementById('chat-input-bar').classList.add('hidden');
-      document.getElementById('chat-empty').classList.remove('hidden');
-      document.getElementById('chat-empty').textContent = 'Select or create a session to start chatting.';
-    }
-    await loadChatSessions();
-  } catch(e) { console.error('Failed to delete session:', e); }
-}
-
-async function renameChatSession(sessionId) {
-  const session = chatSessions.find(s => s.id === sessionId);
-  if (!session) return;
-  const currentTitle = session.title || 'Session';
-  const newTitle = prompt('Rename session:', currentTitle);
-  if (newTitle && newTitle.trim() && newTitle.trim() !== currentTitle) {
-    try {
-      await api('/sessions/' + sessionId, { method: 'PUT', body: { title: newTitle.trim() } });
-      await loadChatSessions();
-    } catch(e) { console.error('Failed to rename session:', e); alert('Failed to rename session'); }
+  if (!nameRegex.test(name)) {
+    document.getElementById('name-error').textContent = 'Name must start with a letter or number, contain only lowercase letters, numbers, and hyphens (max 41 chars)';
+    return;
   }
-}
-
-async function loadChatMessages(sessionId) {
-  try {
-    const data = await api('/sessions/' + sessionId);
-    const messages = data.messages || [];
-    const container = document.getElementById('chat-messages');
-    let html = '';
-    messages.forEach(m => {
-      const role = m.role === 'user' ? 'user' : m.role === 'assistant' ? 'assistant' : 'system';
-      const time = m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-      html += `<div class="chat-message ${esc(role)}">
-        ${esc(m.content)}
-        ${time ? `<div class="msg-time">${esc(time)}</div>` : ''}
-      </div>`;
-    });
-    container.innerHTML = html;
-    container.scrollTop = container.scrollHeight;
-  } catch(e) { console.error('Failed to load messages:', e); }
-}
-
-async function sendChatMessage() {
-  const input = document.getElementById('chat-input');
-  const text = input.value.trim();
-  if (!text || !currentSessionId || chatStreaming) return;
-  const agentName = document.getElementById('chat-agent-select').value;
-  if (!agentName) return alert('Select an agent first');
-
-  // Clear input and disable send
-  input.value = '';
-  input.style.height = 'auto';
-  chatStreaming = true;
-  document.getElementById('chat-send-btn').disabled = true;
-
-  // Append user message immediately
-  appendChatMessage('user', text);
 
   try {
-    // Disconnect existing SSE before sending
-    disconnectSSE();
-
-    // Send message to API
-    const result = await api('/sessions/' + currentSessionId + '/messages', {
-      method: 'POST',
-      body: { content: text, agent_id: agentName }
-    });
-
-    // Connect SSE for live output
-    connectSSE(currentSessionId, result.run_id);
+    const body = {
+      name,
+      title: title || name,
+      description,
+      runner,
+      project_dir: projectDir,
+      guidelines,
+    };
+    await api('/agents/' + name, { method: 'POST', body });
+    closeNewBotDialog();
+    // Refresh
+    await pollStatus();
+    await loadAllAgents();
+    // Navigate to new bot
+    selectBot(name);
   } catch(e) {
-    console.error('Failed to send message:', e);
-    appendChatMessage('system', 'Error: Failed to send message.');
-    chatStreaming = false;
-    document.getElementById('chat-send-btn').disabled = false;
+    console.error('Failed to create bot:', e);
+    alert('Failed to create bot: ' + (e.message || e));
   }
 }
 
-function appendChatMessage(role, content) {
-  const container = document.getElementById('chat-messages');
-  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const div = document.createElement('div');
-  div.className = `chat-message ${role}`;
-  div.innerHTML = `${esc(content)}<div class="msg-time">${esc(time)}</div>`;
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
+// ===================== Run Detail Modal =====================
+async function showRunDetail(runId) {
+  try {
+    const run = await api('/runs/' + runId);
+    const modal = document.getElementById('run-modal');
+    const stateClass = run.state === 'done' ? 'done' : run.state === 'failed' ? 'failed' : 'working';
+    let html = `<button class="close-btn" onclick="closeRunModal()">✕</button>
+      <h2>Run Detail</h2>
+      <div class="run-meta">
+        <span class="panel-run-state ${stateClass}">${esc(run.state)}</span>
+        · ${esc(run.task ? run.task.substring(0, 80) : '')}
+        ${run.created_at ? ' · ' + esc(new Date(run.created_at).toLocaleString()) : ''}
+      </div>`;
+    if (run.fail_reason) {
+      html += `<div class="run-section"><h4>Error</h4><div class="output-box" style="color:var(--danger)">${esc(run.fail_reason)}</div></div>`;
+    }
+    if (run.answer) {
+      html += `<div class="run-section"><h4>Answer</h4><div class="output-box">${esc(run.answer)}</div></div>`;
+    }
+    if (run.raw_output) {
+      html += `<div class="run-section"><h4>Output</h4><div class="output-box">${esc(run.raw_output)}</div></div>`;
+    }
+    if (run.log_file) {
+      html += `<div class="run-section"><h4>Log File</h4><div class="output-box">${esc(run.log_file)}</div></div>`;
+    }
+    modal.innerHTML = html;
+    document.getElementById('run-modal-overlay').classList.remove('hidden');
+  } catch(e) { console.error('Failed to load run:', e); }
 }
 
-function handleChatInputKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendChatMessage();
-  }
+function closeRunModal() {
+  document.getElementById('run-modal-overlay').classList.add('hidden');
 }
 
-// Auto-resize textarea and auto-scroll tracking
-document.addEventListener('DOMContentLoaded', () => {
-  const chatInput = document.getElementById('chat-input');
-  if (chatInput) {
-    chatInput.addEventListener('input', function() {
-      this.style.height = 'auto';
-      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-    });
-  }
-  // Track manual scrolling in chat messages
-  const chatMessages = document.getElementById('chat-messages');
-  if (chatMessages) {
-    chatMessages.addEventListener('scroll', function() {
-      const threshold = 50;
-      const isAtBottom = this.scrollHeight - this.scrollTop - this.clientHeight < threshold;
-      autoScrollChat = isAtBottom;
-    });
+// ===================== Keyboard Navigation =====================
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeNewBotDialog();
+    closeRunModal();
+    document.getElementById('sidebar').classList.remove('mobile-open');
   }
 });
 
-function connectSSE(sessionId, runId) {
-  disconnectSSE();
-  const url = `${API}/sessions/${sessionId}/stream?token=${encodeURIComponent(API_KEY)}`;
-  chatSSE = new EventSource(url);
-
-  chatSSE.onopen = () => {
-    console.log('SSE connected');
-  };
-
-  chatSSE.addEventListener('message', (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      if (data.event === 'start') {
-        chatStreaming = true;
-        streamingOutput = '';
-        appendChatMessage('system', 'Agent is working...');
-      } else if (data.event === 'output') {
-        // Incremental output from the agent
-        if (data.text && data.text.trim()) {
-          streamingOutput += data.text;
-          // Show streaming indicator with latest content
-          let streaming = document.getElementById('chat-streaming-msg');
-          if (!streaming) {
-            appendChatMessage('system', '⋯');
-            streaming = document.getElementById('chat-streaming-msg');
-          }
-          if (!streaming) {
-            const container = document.getElementById('chat-messages');
-            streaming = container.lastElementChild;
-            streaming.id = 'chat-streaming-msg';
-          }
-          streaming.classList.add('chat-streaming');
-          // Show last few lines of accumulated output
-          const lines = streamingOutput.split('\n').slice(-3);
-          streaming.textContent = lines.join('\n').trim().substring(0, 500);
-          if (autoScrollChat) {
-            const container = document.getElementById('chat-messages');
-            container.scrollTop = container.scrollHeight;
-          }
-        }
-      } else if (data.event === 'complete') {
-        // Remove streaming indicator and system message
-        const streaming = document.getElementById('chat-streaming-msg');
-        if (streaming) streaming.remove();
-        // Remove the "Agent is working..." system message
-        const sysMsg = streaming ? streaming.previousElementSibling : null;
-        if (sysMsg && sysMsg.textContent === 'Agent is working...') {
-          sysMsg.remove();
-        }
-        if (data.answer) {
-          appendChatMessage('assistant', data.answer);
-        }
-        streamingOutput = '';
-        chatStreaming = false;
-        document.getElementById('chat-send-btn').disabled = false;
-        loadChatSessions();
-      } else if (data.event === 'error') {
-        const streaming = document.getElementById('chat-streaming-msg');
-        if (streaming) streaming.remove();
-        const sysMsg = streaming ? streaming.previousElementSibling : null;
-        if (sysMsg && sysMsg.textContent === 'Agent is working...') {
-          sysMsg.remove();
-        }
-        const reason = data.reason || data.message || 'Run failed.';
-        appendChatMessage('system', 'Error: ' + reason);
-        streamingOutput = '';
-        chatStreaming = false;
-        document.getElementById('chat-send-btn').disabled = false;
-      } else if (data.event === 'end') {
-        chatSSE.close();
-        chatSSE = null;
-      } else if (data.event === 'idle') {
-        chatSSE.close();
-        chatSSE = null;
-      }
-    } catch(e) {
-      console.error('SSE parse error:', e);
-    }
-  });
-
-  chatSSE.onerror = () => {
-    console.error('SSE error, will reconnect...');
-    chatSSE.close();
-    chatSSE = null;
-    // Auto-reconnect after 3 seconds if still streaming
-    if (chatStreaming) {
-      clearTimeout(sseReconnectTimer);
-      sseReconnectTimer = setTimeout(() => {
-        if (currentSessionId) {
-          connectSSE(currentSessionId);
-        }
-      }, 3000);
-    } else {
-      chatStreaming = false;
-      document.getElementById('chat-send-btn').disabled = false;
-      const streaming = document.getElementById('chat-streaming-msg');
-      if (streaming) streaming.remove();
-    }
-  };
-}
-
-function disconnectSSE() {
-  if (chatSSE) {
-    chatSSE.close();
-    chatSSE = null;
+// Enter key on sidebar items
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.classList.contains('bot-item')) {
+    e.target.click();
   }
-  clearTimeout(sseReconnectTimer);
-  sseReconnectTimer = null;
-  // Remove streaming indicator
-  const streaming = document.getElementById('chat-streaming-msg');
-  if (streaming) streaming.remove();
-}
-
-// ===================== Memory =====================
-
-async function loadMemories() {
-  try {
-    const data = await api('/memories');
-    memories = data.memories || [];
-    renderMemories(memories);
-  } catch(e) { console.error('Failed to load memories:', e); }
-}
-
-function renderMemories(list) {
-  const container = document.getElementById('memory-list');
-  if (!list.length) {
-    container.innerHTML = '<p style="color:var(--muted)">No memories yet.</p>';
-    return;
-  }
-  let html = '';
-  list.forEach(m => {
-    const date = m.created_at ? new Date(m.created_at).toLocaleDateString() : '';
-    const tags = m.tags ? m.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
-    html += `<div class="memory-item">
-      <div class="memory-content">${esc(m.content)}</div>
-      <div class="memory-meta">
-        ${date ? esc(date) : ''}
-        ${tags.length ? esc(tags.map(t => '#' + t).join(' ')) : ''}
-        <span class="memory-actions">
-          <button class="btn btn-small" onclick="editMemory('${esc(m.id)}')">Edit</button>
-          <button class="btn btn-small btn-danger" onclick="deleteMemory('${esc(m.id)}')">Delete</button>
-        </span>
-      </div>
-    </div>`;
-  });
-  container.innerHTML = html;
-}
-
-async function searchMemories() {
-  const query = document.getElementById('memory-search-input').value.trim();
-  try {
-    const url = query ? `/memories?search=${encodeURIComponent(query)}` : '/memories';
-    const data = await api(url);
-    memories = data.memories || [];
-    renderMemories(memories);
-  } catch(e) { console.error('Search failed:', e); }
-}
-
-async function createMemory() {
-  const content = document.getElementById('memory-content-input').value.trim();
-  if (!content) return alert('Memory content required');
-  const tags = document.getElementById('memory-tags-input').value.trim();
-  try {
-    await api('/memories', { method: 'POST', body: { content, tags } });
-    document.getElementById('memory-content-input').value = '';
-    document.getElementById('memory-tags-input').value = '';
-    await loadMemories();
-  } catch(e) { console.error('Failed to create memory:', e); alert('Failed to create memory'); }
-}
-
-async function deleteMemory(memoryId) {
-  if (!confirm('Delete this memory?')) return;
-  try {
-    await api('/memories/' + memoryId, { method: 'DELETE' });
-    await loadMemories();
-  } catch(e) { console.error('Failed to delete memory:', e); }
-}
-
-async function editMemory(memoryId) {
-  const memory = memories.find(m => m.id === memoryId);
-  if (!memory) return;
-  const currentContent = memory.content || '';
-  const newContent = prompt('Edit memory:', currentContent);
-  if (newContent !== null && newContent.trim() && newContent.trim() !== currentContent) {
-    try {
-      await api('/memories/' + memoryId, { method: 'PUT', body: { content: newContent.trim() } });
-      await loadMemories();
-    } catch(e) { console.error('Failed to update memory:', e); alert('Failed to update memory'); }
-  }
-}
-
-// ===================== Coordinator =====================
-
-let currentCoordinatorId = null;
-let coordinatorPollInterval = null;
-
-async function loadCoordinators() {
-  try {
-    const data = await api('/coordinator');
-    renderCoordinatorList(data);
-  } catch(e) { console.error('Failed to load coordinators:', e); }
-}
-
-function renderCoordinatorList(data) {
-  const container = document.getElementById('coordinator-list');
-  const ids = Object.keys(data);
-  if (!ids.length) {
-    container.innerHTML = '<p style="color:var(--muted)">No active coordinators.</p>';
-    return;
-  }
-  let html = '';
-  ids.forEach(cid => {
-    const c = data[cid];
-    const statusClass = c.is_complete ? 'completed' : c.is_running ? 'running' : 'pending';
-    html += `<div class="coordinator-card" onclick="selectCoordinator('${esc(cid)}')">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <h3>${esc(cid)}</h3>
-        <span class="coordinator-status ${statusClass}">${c.is_complete ? 'Complete' : c.is_running ? 'Running' : 'Pending'}</span>
-      </div>
-      <div class="task-desc">${c.total_tasks} tasks · ${c.running} running · concurrency ${c.max_concurrency}</div>
-      <div class="task-desc">${esc(c.project_dir)}</div>
-    </div>`;
-  });
-  container.innerHTML = html;
-}
-
-async function createCoordinator() {
-  const projectDir = document.getElementById('coord-project-dir').value.trim();
-  if (!projectDir) return alert('Project directory is required');
-  const maxConcurrency = parseInt(document.getElementById('coord-max-concurrency').value) || 3;
-  try {
-    const data = await api('/coordinator', {
-      method: 'POST',
-      body: { project_dir: projectDir, max_concurrency: maxConcurrency },
-    });
-    document.getElementById('coord-project-dir').value = '';
-    await loadCoordinators();
-  } catch(e) { console.error('Failed to create coordinator:', e); alert('Failed to create coordinator'); }
-}
-
-async function selectCoordinator(coordinatorId) {
-  currentCoordinatorId = coordinatorId;
-  document.getElementById('coordinator-detail').classList.remove('hidden');
-  await loadCoordinatorDetail(coordinatorId);
-  // Start polling for updates
-  if (coordinatorPollInterval) clearInterval(coordinatorPollInterval);
-  coordinatorPollInterval = setInterval(async () => {
-    if (currentCoordinatorId) {
-      await loadCoordinatorDetail(currentCoordinatorId);
-    }
-  }, 2000);
-}
-
-async function loadCoordinatorDetail(coordinatorId) {
-  try {
-    const data = await api('/coordinator/' + coordinatorId);
-    renderCoordinatorDetail(data);
-  } catch(e) { console.error('Failed to load coordinator detail:', e); }
-}
-
-function renderCoordinatorDetail(data) {
-  const container = document.getElementById('coordinator-detail-content');
-  let html = `<h3>Coordinator: ${esc(data.total_tasks)} tasks</h3>`;
-  html += `<div style="margin-bottom:1rem;display:flex;gap:0.5rem;flex-wrap:wrap">`;
-
-  if (!data.is_running && !data.is_complete) {
-    html += `<button class="btn btn-save" onclick="executeCoordinator('${esc(currentCoordinatorId)}')">Execute</button>`;
-  }
-  if (data.is_running) {
-    html += `<button class="btn btn-danger" onclick="cancelCoordinator('${esc(currentCoordinatorId)}')">Cancel All</button>`;
-  }
-  html += `<button class="btn" onclick="deleteCoordinator('${esc(currentCoordinatorId)}')">Delete</button>`;
-  html += `</div>`;
-
-  // Task form
-  html += `<div class="coordinator-form" style="margin-bottom:1rem">
-    <h4>Add Task</h4>
-    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end">
-      <div>
-        <label style="font-size:0.85rem;color:var(--muted)">Name</label>
-        <input type="text" id="coord-task-name" placeholder="Task name" style="width:150px;padding:0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg)">
-      </div>
-      <div>
-        <label style="font-size:0.85rem;color:var(--muted)">Description</label>
-        <input type="text" id="coord-task-desc" placeholder="Task description" style="width:300px;padding:0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg)">
-      </div>
-      <div>
-        <label style="font-size:0.85rem;color:var(--muted)">Agent</label>
-        <input type="text" id="coord-task-agent" value="vault" style="width:100px;padding:0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg)">
-      </div>
-      <div>
-        <label style="font-size:0.85rem;color:var(--muted)">Depends on</label>
-        <input type="text" id="coord-task-deps" placeholder="Task names, comma-sep" style="width:150px;padding:0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg)">
-      </div>
-      <button class="btn btn-save" onclick="addCoordinatorTask('${esc(currentCoordinatorId)}')">Add Task</button>
-    </div>
-  </div>`;
-
-  // Task list
-  html += `<h4>Tasks</h4>`;
-  const tasks = data.tasks || [];
-  if (!tasks.length) {
-    html += '<p style="color:var(--muted)">No tasks yet. Add tasks above.</p>';
-  }
-  tasks.forEach(task => {
-    const depNames = (task.dependencies || []).map(depId => {
-      const depTask = tasks.find(t => t.id === depId);
-      return depTask ? depTask.name : depId;
-    }).join(', ');
-    html += `<div class="task-item">
-      <div class="task-header">
-        <span class="task-name">${esc(task.name)}</span>
-        <span class="coordinator-status ${task.status}">${task.status}</span>
-      </div>
-      <div class="task-desc">${esc(task.description)}</div>
-      ${depNames ? `<div class="task-deps">Depends on: ${esc(depNames)}</div>` : ''}
-      <div class="task-actions" style="margin-top:0.3rem">
-        ${task.status === 'needs_approval' ? `
-          <button class="btn btn-small btn-save" onclick="approveTask('${esc(currentCoordinatorId)}','${esc(task.id)}')">Approve</button>
-          <button class="btn btn-small btn-danger" onclick="rejectTask('${esc(currentCoordinatorId)}','${esc(task.id)}')">Reject</button>
-        ` : ''}
-        ${task.status === 'pending' || task.status === 'waiting' ? `
-          <button class="btn btn-small btn-danger" onclick="removeTask('${esc(currentCoordinatorId)}','${esc(task.id)}')">Remove</button>
-        ` : ''}
-        ${task.output_lines && task.output_lines.length ? `
-          <button class="btn btn-small" onclick="showTaskOutput('${esc(task.id)}')">Output (${task.output_lines.length} lines)</button>
-        ` : ''}
-      </div>
-    </div>`;
-  });
-
-  container.innerHTML = html;
-}
-
-async function addCoordinatorTask(coordinatorId) {
-  const name = document.getElementById('coord-task-name').value.trim();
-  if (!name) return alert('Task name is required');
-  const description = document.getElementById('coord-task-desc').value.trim();
-  const agent = document.getElementById('coord-task-agent').value.trim() || 'vault';
-  const depsRaw = document.getElementById('coord-task-deps').value.trim();
-  const dependencies = depsRaw ? depsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
-  try {
-    await api('/coordinator/' + coordinatorId + '/tasks', {
-      method: 'POST',
-      body: { name, description, agent, dependencies },
-    });
-    document.getElementById('coord-task-name').value = '';
-    document.getElementById('coord-task-desc').value = '';
-    document.getElementById('coord-task-deps').value = '';
-    await loadCoordinatorDetail(coordinatorId);
-  } catch(e) { console.error('Failed to add task:', e); alert('Failed to add task: ' + (e.message || e)); }
-}
-
-async function removeTask(coordinatorId, taskId) {
-  try {
-    await api('/coordinator/' + coordinatorId + '/tasks/' + taskId, { method: 'DELETE' });
-    await loadCoordinatorDetail(coordinatorId);
-  } catch(e) { console.error('Failed to remove task:', e); }
-}
-
-async function executeCoordinator(coordinatorId) {
-  try {
-    await api('/coordinator/' + coordinatorId + '/execute', { method: 'POST' });
-    await loadCoordinatorDetail(coordinatorId);
-  } catch(e) { console.error('Failed to execute:', e); }
-}
-
-async function cancelCoordinator(coordinatorId) {
-  try {
-    await api('/coordinator/' + coordinatorId + '/cancel', { method: 'POST' });
-    await loadCoordinatorDetail(coordinatorId);
-  } catch(e) { console.error('Failed to cancel:', e); }
-}
-
-async function approveTask(coordinatorId, taskId) {
-  try {
-    await api('/coordinator/' + coordinatorId + '/tasks/' + taskId + '/approve', { method: 'POST' });
-    await loadCoordinatorDetail(coordinatorId);
-  } catch(e) { console.error('Failed to approve:', e); }
-}
-
-async function rejectTask(coordinatorId, taskId) {
-  try {
-    await api('/coordinator/' + coordinatorId + '/tasks/' + taskId + '/reject', { method: 'POST' });
-    await loadCoordinatorDetail(coordinatorId);
-  } catch(e) { console.error('Failed to reject:', e); }
-}
-
-async function deleteCoordinator(coordinatorId) {
-  if (!confirm('Delete this coordinator and clean up worktrees?')) return;
-  try {
-    await api('/coordinator/' + coordinatorId, { method: 'DELETE' });
-    currentCoordinatorId = null;
-    if (coordinatorPollInterval) {
-      clearInterval(coordinatorPollInterval);
-      coordinatorPollInterval = null;
-    }
-    document.getElementById('coordinator-detail').classList.add('hidden');
-    await loadCoordinators();
-  } catch(e) { console.error('Failed to delete coordinator:', e); }
-}
-
-function showTaskOutput(taskId) {
-  const allTasks = document.querySelectorAll('.task-item');
-  let output = '';
-  allTasks.forEach(item => {
-    const nameEl = item.querySelector('.task-name');
-    if (nameEl && nameEl.textContent === taskId) {
-      // Find output from the coordinator data
-    }
-  });
-  // Simple alert for now — could be a modal
-  alert('Task output: ' + taskId + '\n(Use the API to get full output)');
-}
+});
 </script>
 </body>
 </html>

@@ -496,23 +496,67 @@ Tests use a fake agent script — **no real `junie` binary needed**. POSIX-only 
 
 ## 🖥️ Web UI Manual Checks
 
-Quality checklist for the web dashboard:
+Quality checklist for the messenger-style web UI:
 
-- [ ] Dashboard shows agent cards grouped by state (Working, Idle, Failed)
-- [ ] Clicking an agent opens the detail panel with run history
-- [ ] Sending a task from the bottom bar dispatches a run
-- [ ] Skills page lists skills with enable/disable matrix
-- [ ] Dark/light mode follows system preference
-- [ ] First visit prompts for API key
-- [ ] No external URLs loaded (works offline)
-- [ ] Chat shows incremental output in real time as the agent runs
-- [ ] Session renaming works via double-click on session title
-- [ ] Sessions persist after page refresh (localStorage)
-- [ ] Memory page allows inline editing of memories
-- [ ] Git status panel shows branch, changed files, and untracked files
-- [ ] Coordinator view shows task plans, dependencies, and worker status
-- [ ] Permission indicators (✓/�-) display for selected agent
-- [ ] Auto-scroll respects manual scrolling in chat
+### Layout & Navigation
+- [ ] Three-column layout: sidebar (260px), chat thread (flex), right panel (300px, toggleable)
+- [ ] Left sidebar shows Bot list with avatars (initials + color), name, description, and status dots
+- [ ] Status dots: green = Working, gray = Idle, red = Failed
+- [ ] "+ New Bot" button at top of sidebar opens creation dialog
+- [ ] "Marketplace" link is disabled with "(soon)" label
+- [ ] Search/filter field appears when 5+ Bots are configured
+- [ ] Skills link in sidebar navigates to Skills page (`#skills` hash route)
+- [ ] Right panel toggle button in header shows/hides the panel
+
+### Chat Thread
+- [ ] Selecting a Bot loads its chat session (auto-creates session if none exists)
+- [ ] User messages appear as right-aligned blue bubbles
+- [ ] Bot messages appear as left-aligned gray bubbles
+- [ ] Run messages show: status (Working/Done/Failed), elapsed time, task, collapsible output, and answer
+- [ ] Stop button visible while a run is "Working"
+- [ ] SSE streaming: output appears incrementally in the chat thread
+- [ ] Composer at bottom: Enter sends, Shift+Enter for newline, auto-resize textarea
+- [ ] Auto-scroll to bottom on new messages, respects manual scrolling
+
+### Right Panel
+- [ ] Bot section: displays name, title, and description
+- [ ] Runner name shown (read-only, never editable)
+- [ ] Project Directory: editable field with Save button
+- [ ] Guidelines: editable textarea with Save button
+- [ ] Skills: checkboxes for each skill, toggles enable/disable for current Bot
+- [ ] Run History: clickable list of recent runs, opens run detail modal
+- [ ] Placeholder sections: Memory, Routines, Plugins (disabled, "Coming soon")
+
+### New Bot Dialog
+- [ ] "Describe the job in a sentence" field auto-generates a name
+- [ ] Editable fields: name, title, runner (select), project directory, guidelines
+- [ ] Name validation: `^[a-z0-9][a-z0-9-]{0,40}$` pattern with error message
+- [ ] Runner command template is never shown or editable
+- [ ] Submit creates the Bot and navigates to its chat
+
+### Skills Page
+- [ ] Skill cards with name, description, and "used by" info
+- [ ] Create/Edit/Delete skill forms
+- [ ] Enable/Disable matrix: skills as rows, Bots as columns with checkboxes
+
+### Dark/Light Mode & Responsive
+- [ ] Dark/light mode follows system preference (`prefers-color-scheme`)
+- [ ] All components respect CSS custom properties in both modes
+- [ ] At 768px: right panel hides, accessible as mobile sheet
+- [ ] At 480px: sidebar becomes slide-over drawer with hamburger toggle
+- [ ] Touch-friendly tap targets on mobile
+
+### Accessibility
+- [ ] Keyboard navigation: Tab through sidebar, Enter to select Bot, Escape to close dialogs
+- [ ] ARIA labels on interactive elements
+- [ ] Focus visible styles on all interactive elements
+- [ ] Sufficient color contrast (WCAG AA)
+
+### General
+- [ ] First visit prompts for API key, stored in localStorage
+- [ ] No external URLs, fonts, CDNs, or tracking (works offline)
+- [ ] SSE auto-reconnects after 3s if connection drops during active run
+- [ ] Run detail modal shows: state, task, error, answer, output, log file
 
 ---
 
