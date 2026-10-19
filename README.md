@@ -11,6 +11,8 @@ A self-hosted dashboard that lets you manage AI coding agents (JetBrains Junie C
 - **Provider abstraction** — Junie CLI is one provider; add others via the `AgentProvider` interface.
 - **Tool permissions** — control file read/write, command execution, Git ops, and network access per agent.
 - **Startup validation** — `/api/status` reports provider availability, missing projects, and configuration issues.
+- **Ollama integration** — optional local LLM for prompt refinement, summarization, and task decomposition.
+- **Obsidian integration** — optional vault integration for reading notes and writing session summaries.
 - **Web dashboard** — see agent status, send tasks, view output, and manage everything from a browser.
 - **Run in the background** — install as a systemd service (Linux) or run via PowerShell (Windows).
 
@@ -141,6 +143,47 @@ agents:
 | `HUB_API_KEY` | *(required)* | Bearer token for API auth (stored in `.env`) |
 | `HUB_TIMEOUT` | `1800` | Max seconds per agent run |
 | `JUNIE_BIN` | — | Override the `junie` binary path |
+
+### Ollama Integration (Optional)
+
+Ollama provides optional prompt refinement, summarization, and task decomposition using a local LLM. It is **not required** — Agent Hub works perfectly without it.
+
+1. Install [Ollama](https://ollama.ai) and pull a model:
+   ```bash
+   ollama pull llama3
+   ```
+2. Add the `ollama` section to `hub.yaml`:
+   ```yaml
+   ollama:
+     enabled: true
+     base_url: "http://localhost:11434"
+     model: "llama3"
+     timeout: 60
+   ```
+3. When sending a message via the API, include `refine_prompt: true` to have Ollama refine the prompt before agent execution:
+   ```json
+   {"content": "Fix the bug", "refine_prompt": true}
+   ```
+
+Ollama features:
+- **Prompt refinement** — improves clarity and completeness before agent execution
+- **Summarization** — condense long agent outputs or conversations
+- **Task decomposition** — break complex tasks into ordered subtasks
+- **Key point extraction** — extract important findings from agent output
+
+If Ollama is unavailable, all operations gracefully fall back to the original input.
+
+### Obsidian Integration (Optional)
+
+Obsidian vault integration allows reading notes and writing session summaries. It is **not required**.
+
+1. Add the `obsidian` section to `hub.yaml`:
+   ```yaml
+   obsidian:
+     enabled: true
+     vault_path: "/path/to/your/vault"
+   ```
+2. Use the API to list notes, read note content, and sync session summaries to your vault.
 
 ### Skills
 

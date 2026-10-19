@@ -14,7 +14,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from hub import agents, memory, obsidian, providers, skills
+from hub import agents, memory, ollama, obsidian, providers, skills
 from hub.config import load_config, save_config, validate_name
 from hub.runner import (
     run_agent,
@@ -436,7 +436,26 @@ async def api_dispatch_message(
         )
         conn.commit()
 
-    # Persist user message
+    # Optional prompt refinement via Ollama
+    refine_prompt = body.get("refine_prompt", False)
+    refined_content = content
+    if refine_prompt:
+        ollama_client = _get_ollama_client()
+        if ollama_client and ollama_client.is_available():
+            project_path = session.get("project_path", "")
+            context = None
+            if project_path:
+                context = memory.assemble_context(
+                    session_id=session_id,
+                    agent_id=agent_id,
+                    project_path=project_path,
+                )
+            refined_content = ollama_client.refine_prompt(
+                prompt=content,
+                context=context,
+            )
+
+    # Persist user message (original content, not refined)
     memory.add_message(
         session_id=session_id,
         role="user",
@@ -447,7 +466,7 @@ async def api_dispatch_message(
     run_id_placeholder = []
 
     def _run():
-        result = run_agent(agent_id, content, session_id=session_id)
+        result = run_agent(agent_id, refined_content, session_id=session_id)
         run_id_placeholder.append(result.id)
         # Send SSE events
         _sse_send_event(result.id, "start", json.dumps({"run_id": result.id, "state": "working"}))
@@ -651,6 +670,108 @@ async def api_list_projects(
 ):
     projects = memory.discover_projects()
     return {"projects": projects}
+
+
+# --- Ollama ---
+
+
+def _get_ollama_client() -> Optional[ollama.OllamaClient]:
+    """Get the Ollama client from config."""
+    return ollama.get_ollama_client()
+
+
+@app.get("/api/ollama/status")
+async def api_ollama_status(_auth: None = Depends(_verify_token)):
+    """Check if Ollama integration is configured and available."""
+    client = _get_ollama_client()
+    if client is None:
+        return {"enabled": False, "available": False}
+    return {
+        "enabled": True,
+        "available": client.is_available(),
+        "base_url": client.base_url,
+        "model": client.model,
+    }
+
+
+@app.post("/api/ollama/refine")
+async def api_ollama_refine(
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    """Refine a prompt using Ollama for clarity and completeness."""
+    client = _get_ollama_client()
+    if client is None:
+        raise HTTPException(status_code=400, detail="Ollama integration is not configured")
+
+    prompt = body.get("prompt", "")
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+
+    context = body.get("context", "")
+    system_instruction = body.get("system_instruction", "")
+
+    refined = client.refine_prompt(
+        prompt=prompt,
+        context=context or None,
+        system_instruction=system_instruction or None,
+    )
+
+    return {
+        "original": prompt,
+        "refined": refined,
+        "changed": refined != prompt,
+    }
+
+
+@app.post("/api/ollama/summarize")
+async def api_ollama_summarize(
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    """Summarize text using Ollama."""
+    client = _get_ollama_client()
+    if client is None:
+        raise HTTPException(status_code=400, detail="Ollama integration is not configured")
+
+    text = body.get("text", "")
+    if not text:
+        raise HTTPException(status_code=400, detail="text is required")
+
+    max_length = body.get("max_length", 500)
+    focus = body.get("focus", "")
+
+    summary = client.summarize(
+        text=text,
+        max_length=max_length,
+        focus=focus or None,
+    )
+
+    return {"summary": summary}
+
+
+@app.post("/api/ollama/decompose")
+async def api_ollama_decompose(
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    """Decompose a complex task into subtasks using Ollama."""
+    client = _get_ollama_client()
+    if client is None:
+        raise HTTPException(status_code=400, detail="Ollama integration is not configured")
+
+    task = body.get("task", "")
+    if not task:
+        raise HTTPException(status_code=400, detail="task is required")
+
+    context = body.get("context", "")
+
+    subtasks = client.decompose_task(
+        task=task,
+        context=context or None,
+    )
+
+    return {"subtasks": subtasks}
 
 
 # --- Obsidian ---

@@ -387,6 +387,190 @@ Removes the skill from the agent and cleans up the symlink.
 
 ---
 
+## Ollama (Optional)
+
+Ollama integration provides prompt refinement, summarization, and task decomposition. Configure it in `hub.yaml` under the `ollama` section.
+
+### Check Ollama status
+
+```
+GET /api/ollama/status
+```
+
+**Response:**
+```json
+{
+  "enabled": true,
+  "available": true,
+  "base_url": "http://localhost:11434",
+  "model": "llama3"
+}
+```
+
+Returns `enabled: false` when Ollama is not configured in `hub.yaml`.
+
+### Refine a prompt
+
+```
+POST /api/ollama/refine
+```
+
+**Request body:**
+```json
+{
+  "prompt": "Fix the bug",
+  "context": "Optional project context",
+  "system_instruction": "Optional custom instruction"
+}
+```
+
+`prompt` is required. `context` and `system_instruction` are optional.
+
+**Response:**
+```json
+{
+  "original": "Fix the bug",
+  "refined": "Fix the authentication bug by adding null checks",
+  "changed": true
+}
+```
+
+**Error:** `400` if Ollama is not configured or `prompt` is missing.
+
+### Summarize text
+
+```
+POST /api/ollama/summarize
+```
+
+**Request body:**
+```json
+{
+  "text": "Long text to summarize...",
+  "max_length": 500,
+  "focus": "errors"
+}
+```
+
+`text` is required. `max_length` defaults to 500. `focus` is optional.
+
+**Response:**
+```json
+{
+  "summary": "The agent encountered three errors..."
+}
+```
+
+**Error:** `400` if Ollama is not configured or `text` is missing.
+
+### Decompose a task
+
+```
+POST /api/ollama/decompose
+```
+
+**Request body:**
+```json
+{
+  "task": "Build a new feature",
+  "context": "Optional context"
+}
+```
+
+`task` is required.
+
+**Response:**
+```json
+{
+  "subtasks": [
+    {"step": "1", "description": "Plan the feature", "dependencies": []},
+    {"step": "2", "description": "Implement core logic", "dependencies": ["1"]}
+  ]
+}
+```
+
+**Error:** `400` if Ollama is not configured or `task` is missing.
+
+---
+
+## Obsidian (Optional)
+
+Obsidian integration allows reading notes and writing session summaries. Configure it in `hub.yaml` under the `obsidian` section.
+
+### Check Obsidian status
+
+```
+GET /api/obsidian/status
+```
+
+**Response:**
+```json
+{
+  "enabled": true,
+  "available": true,
+  "vault_path": "/path/to/vault"
+}
+```
+
+### List notes
+
+```
+GET /api/obsidian/notes?q=search&tag=tag&folder=folder&limit=50
+```
+
+All query parameters are optional.
+
+**Response:**
+```json
+{
+  "notes": [
+    {
+      "id": "note-id",
+      "title": "Note Title",
+      "path": "folder/note.md",
+      "tags": ["tag1"],
+      "created_at": "2026-01-01T00:00:00",
+      "modified_at": "2026-01-01T00:00:00"
+    }
+  ]
+}
+```
+
+### Get note content
+
+```
+GET /api/obsidian/notes/{note_id}
+```
+
+**Response:**
+```json
+{
+  "id": "note-id",
+  "title": "Note Title",
+  "path": "folder/note.md",
+  "content": "# Note Title\n\nContent..."
+}
+```
+
+### Sync session to Obsidian
+
+```
+POST /api/obsidian/sync
+```
+
+**Request body:**
+```json
+{
+  "session_id": "session-uuid"
+}
+```
+
+**Response:** `201` with the created note object.
+
+**Error:** `400` if Obsidian is not configured, `404` if session not found.
+
+---
+
 ## Example: Full workflow
 
 Start a task and poll until it finishes:
