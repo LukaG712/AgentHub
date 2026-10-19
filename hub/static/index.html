@@ -925,7 +925,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function connectSSE(sessionId, runId) {
   disconnectSSE();
-  const url = `${API}/sessions/${sessionId}/stream`;
+  const url = `${API}/sessions/${sessionId}/stream?token=${encodeURIComponent(API_KEY)}`;
   chatSSE = new EventSource(url);
 
   chatSSE.onopen = () => {

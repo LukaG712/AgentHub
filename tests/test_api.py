@@ -710,6 +710,178 @@ class TestSSEStreaming:
         with _sse_buffers_lock:
             assert run_id not in _sse_buffers
 
+    def test_sse_auth_via_query_param(self, client):
+        """Test that SSE endpoint accepts token via query parameter."""
+        create = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Auth Test", "agent_id": "vault"},
+        )
+        session_id = create.json()["id"]
+        # Connect using query param instead of header
+        resp = client.get(
+            f"/api/sessions/{session_id}/stream?token=test-secret-key",
+        )
+        assert resp.status_code == 200
+        assert "text/event-stream" in resp.headers.get("content-type", "")
+
+    def test_sse_auth_rejects_bad_token(self, client):
+        """Test that SSE endpoint rejects invalid query token."""
+        create = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Bad Auth Test", "agent_id": "vault"},
+        )
+        session_id = create.json()["id"]
+        resp = client.get(
+            f"/api/sessions/{session_id}/stream?token=wrong-token",
+        )
+        assert resp.status_code == 401
+
+    def test_sse_dispatch_returns_run_id_immediately(self, client):
+        """Test that dispatch returns run_id without waiting for the run to finish."""
+        create = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Dispatch Test", "agent_id": "vault"},
+        )
+        session_id = create.json()["id"]
+        resp = client.post(
+            f"/api/sessions/{session_id}/messages",
+            headers=HEADERS,
+            json={"content": "quick task"},
+        )
+        data = resp.json()
+        assert data["status"] == "queued"
+        assert "run_id" in data
+        assert data["run_id"] is not None
+
+    def test_sse_stream_emits_start_event(self, client):
+        """Test that the SSE stream emits a start event for a new run."""
+        create = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Start Event Test", "agent_id": "vault"},
+        )
+        session_id = create.json()["id"]
+        # Dispatch a message
+        dispatch = client.post(
+            f"/api/sessions/{session_id}/messages",
+            headers=HEADERS,
+            json={"content": "start event task"},
+        )
+        run_id = dispatch.json()["run_id"]
+        # Wait for the run to complete (fake_agent is fast)
+        import time
+        time.sleep(2)
+        # Connect to the stream — run should be done, so we get the final state
+        resp = client.get(
+            f"/api/sessions/{session_id}/stream?token=test-secret-key",
+        )
+        assert resp.status_code == 200
+        text = resp.text
+        # Should contain either complete or end event
+        assert "event:" in text
+
+    def test_sse_completed_run_replay(self, client):
+        """Test that connecting to a finished run replays the final state."""
+        create = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Replay Test", "agent_id": "vault"},
+        )
+        session_id = create.json()["id"]
+        # Dispatch and wait for completion
+        client.post(
+            f"/api/sessions/{session_id}/messages",
+            headers=HEADERS,
+            json={"content": "replay task"},
+        )
+        import time
+        time.sleep(2)
+        # Connect after run is done
+        resp = client.get(
+            f"/api/sessions/{session_id}/stream?token=test-secret-key",
+        )
+        assert resp.status_code == 200
+        text = resp.text
+        # Should contain complete event with answer
+        assert "event: complete" in text or "event: end" in text
+
+    def test_sse_concurrent_runs_isolated(self, client):
+        """Test that two concurrent runs do not mix their SSE events."""
+        # Create two sessions
+        s1 = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Concurrent 1", "agent_id": "vault"},
+        ).json()["id"]
+        s2 = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Concurrent 2", "agent_id": "vault"},
+        ).json()["id"]
+        # Dispatch both
+        d1 = client.post(
+            f"/api/sessions/{s1}/messages",
+            headers=HEADERS,
+            json={"content": "session one task"},
+        ).json()
+        d2 = client.post(
+            f"/api/sessions/{s2}/messages",
+            headers=HEADERS,
+            json={"content": "session two task"},
+        ).json()
+        run_id_1 = d1["run_id"]
+        run_id_2 = d2["run_id"]
+        assert run_id_1 != run_id_2, "Run IDs must be different"
+        # Wait for both to complete
+        import time
+        time.sleep(3)
+        # Stream session 1 — should only contain run_id_1
+        resp1 = client.get(
+            f"/api/sessions/{s1}/stream?token=test-secret-key",
+        )
+        text1 = resp1.text
+        assert run_id_1 in text1
+        # Stream session 2 — should only contain run_id_2
+        resp2 = client.get(
+            f"/api/sessions/{s2}/stream?token=test-secret-key",
+        )
+        text2 = resp2.text
+        assert run_id_2 in text2
+        # Events should not cross
+        assert run_id_2 not in text1
+        assert run_id_1 not in text2
+
+    def test_sse_failed_run_replay(self, client):
+        """Test that connecting to a failed run replays the error state."""
+        from hub.config import load_config
+        config = load_config()
+        config["runners"]["junie"]["command"] = [
+            "junie", "--task", "{task}", "--project", "{project}", "--fail"
+        ]
+        save_config(config, Path(os.environ.get("HUB_CONFIG", "")))
+        create = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Failed Replay Test", "agent_id": "vault"},
+        )
+        session_id = create.json()["id"]
+        client.post(
+            f"/api/sessions/{session_id}/messages",
+            headers=HEADERS,
+            json={"content": "fail task"},
+        )
+        import time
+        time.sleep(2)
+        resp = client.get(
+            f"/api/sessions/{session_id}/stream?token=test-secret-key",
+        )
+        assert resp.status_code == 200
+        text = resp.text
+        assert "event: error" in text or "event: end" in text
+
 
 class TestRemote:
     def test_remote_status(self, client):

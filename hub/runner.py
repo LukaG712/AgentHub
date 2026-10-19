@@ -374,6 +374,7 @@ def run_agent(
     timeout: Optional[int] = None,
     session_id: Optional[str] = None,
     output_callback: Optional[Callable[[str, str], None]] = None,
+    run_id: Optional[str] = None,
 ) -> Run:
     """Run an agent task with file locking, queue, retry, and timeout.
 
@@ -494,7 +495,8 @@ def run_agent(
     is_remote = isinstance(provider, SSHProvider)
 
     # Create run
-    run_id = str(uuid.uuid4())
+    if run_id is None:
+        run_id = str(uuid.uuid4())
     run = Run(
         id=run_id,
         agent=agent_name,

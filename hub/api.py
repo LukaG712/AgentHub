@@ -80,6 +80,25 @@ def _verify_token(
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
+def _verify_token_or_query(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    token: Optional[str] = None,
+) -> None:
+    """Verify token from Authorization header or query parameter.
+
+    Used for SSE endpoints where EventSource cannot send custom headers.
+    """
+    expected = _get_api_key()
+    # Try Authorization header first
+    if credentials is not None:
+        if credentials.credentials == expected:
+            return
+    # Fall back to query parameter
+    if token is not None and token == expected:
+        return
+    raise HTTPException(status_code=401, detail="Invalid API key")
+
+
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup and shutdown event handler."""
@@ -481,31 +500,33 @@ async def api_dispatch_message(
         content=content,
     )
 
-    # Create SSE buffer before starting the run
-    run_id_placeholder = []
-    buffer_created = threading.Event()
+    # Pre-create a run ID and SSE buffer BEFORE starting the run.
+    # This ensures output_callback has a buffer to write to from the very first line.
+    pre_run_id = str(uuid.uuid4())
+    _sse_buffer_for_run(pre_run_id)
 
     def _output_callback(line_type: str, text: str) -> None:
         """Called for each line of agent output during execution."""
-        # Wait briefly for run_id to be set (it's set early in run_agent)
-        if not buffer_created.wait(timeout=5):
-            return
-        rid = run_id_placeholder[0] if run_id_placeholder else None
-        if rid:
-            clean = text.rstrip()
-            if clean:
-                _sse_send_event(rid, "output", json.dumps({
-                    "run_id": rid,
-                    "type": line_type,
-                    "text": clean,
-                }))
+        clean = text.rstrip()
+        if clean:
+            _sse_send_event(pre_run_id, "output", json.dumps({
+                "run_id": pre_run_id,
+                "type": line_type,
+                "text": clean,
+            }))
 
     def _run():
-        result = run_agent(agent_id, refined_content, session_id=session_id, output_callback=_output_callback)
-        run_id_placeholder.append(result.id)
-        buffer_created.set()
-        # Send SSE events
-        _sse_send_event(result.id, "start", json.dumps({"run_id": result.id, "state": "working"}))
+        # Send start event immediately, before the agent begins
+        _sse_send_event(pre_run_id, "start", json.dumps({"run_id": pre_run_id, "state": "working"}))
+
+        result = run_agent(
+            agent_id, refined_content,
+            session_id=session_id,
+            output_callback=_output_callback,
+            run_id=pre_run_id,
+        )
+
+        # Send terminal event
         if result.state == "done":
             _sse_send_event(result.id, "complete", json.dumps({
                 "run_id": result.id,
@@ -532,16 +553,12 @@ async def api_dispatch_message(
     t = threading.Thread(target=_run, daemon=True)
     t.start()
 
-    # Return immediately; client should connect to SSE stream
-    # We need to wait a moment for the run to get its ID
-    time.sleep(0.2)
-    actual_run_id = run_id_placeholder[0] if run_id_placeholder else None
-
+    # Return immediately with the run ID; client connects to SSE stream
     return {
         "status": "queued",
         "session_id": session_id,
         "agent": agent_id,
-        "run_id": actual_run_id,
+        "run_id": pre_run_id,
     }
 
 
@@ -551,11 +568,13 @@ async def api_dispatch_message(
 @app.get("/api/sessions/{session_id}/stream")
 async def api_stream_session(
     session_id: str,
-    _auth: None = Depends(_verify_token),
+    _auth: None = Depends(_verify_token_or_query),
 ):
     """SSE endpoint for live run output.
-    
+
     Finds the latest run for this session and streams its events.
+    If the run is already finished, replays the final state so the client
+    does not hang indefinitely.
     """
     session = memory.get_session(session_id)
     if session is None:
@@ -568,17 +587,22 @@ async def api_stream_session(
     latest_run = session_runs[0] if session_runs else None
 
     async def event_generator():
-        if latest_run and latest_run.state == "working":
-            run_id = latest_run.id
-            buf = _sse_buffer_for_run(run_id)
-            # Send any buffered events first
+        if latest_run is None:
+            # No runs at all — send idle and close
+            yield "event: idle\ndata: no active run\n\n"
+            return
+
+        run_id = latest_run.id
+        buf = _sse_buffer_for_run(run_id)
+
+        if latest_run.state == "working":
+            # Run is in progress — stream buffered events, then wait for new ones
             while not buf.empty():
                 try:
                     event = buf.get_nowait()
                     yield event
                 except queue.Empty:
                     break
-            # Wait for new events
             while True:
                 try:
                     event = await asyncio.wait_for(
@@ -592,11 +616,22 @@ async def api_stream_session(
                     yield "event: timeout\ndata: stream timeout\n\n"
                     break
         else:
-            # No active run; send idle event
-            if latest_run:
-                yield f"event: idle\ndata: {json.dumps({'run_id': latest_run.id, 'state': latest_run.state})}\n\n"
+            # Run already finished — replay any remaining buffered events,
+            # then send the final state so the client doesn't hang.
+            while not buf.empty():
+                try:
+                    event = buf.get_nowait()
+                    yield event
+                except queue.Empty:
+                    break
+            # Replay the final state
+            if latest_run.state == "done":
+                yield f"event: complete\ndata: {json.dumps({'run_id': run_id, 'state': 'done', 'answer': latest_run.answer})}\n\n"
+            elif latest_run.state == "failed":
+                yield f"event: error\ndata: {json.dumps({'run_id': run_id, 'state': 'failed', 'reason': latest_run.fail_reason})}\n\n"
             else:
-                yield "event: idle\ndata: no active run\n\n"
+                yield f"event: complete\ndata: {json.dumps({'run_id': run_id, 'state': latest_run.state})}\n\n"
+            yield "event: end\n\n"
 
     return StreamingResponse(
         event_generator(),
