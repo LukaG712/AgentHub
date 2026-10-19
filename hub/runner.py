@@ -152,10 +152,19 @@ def _is_process_alive(pid: Optional[int]) -> bool:
     if pid is None:
         return False
     try:
-        os.kill(pid, 0)
-        return True
-    except (OSError, ProcessLookupError):
-        return False
+        import psutil
+        return psutil.pid_exists(pid)
+    except ImportError:
+        # Fallback: use subprocess to check process existence
+        try:
+            subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], 
+                          capture_output=True, check=True)
+            return False
+        except subprocess.CalledProcessError:
+            # Process doesn't exist or can't be killed
+            return False
+        except Exception:
+            return False
 
 
 def recover_stale_runs() -> List[Run]:

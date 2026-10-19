@@ -168,6 +168,11 @@ class JunieProvider(AgentProvider):
                 if sys.platform == "win32" and junie_bin.endswith(".py"):
                     return [sys.executable, junie_bin]
                 return [junie_bin]
+            # On Windows, resolve to full path so .bat/.cmd files work with subprocess
+            if sys.platform == "win32":
+                resolved = shutil.which("junie")
+                if resolved:
+                    return [resolved]
         return [binary_name]
 
     def build_command(
