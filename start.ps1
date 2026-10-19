@@ -1,4 +1,4 @@
-# start.ps1 — Start the Agent Hub server (Windows)
+# start.ps1 - Start the Agent Hub server (Windows)
 # On first run, automatically sets up the environment (venv, dependencies, config, API key).
 # Usage: .\start.ps1
 
@@ -7,10 +7,10 @@ $ErrorActionPreference = 'Stop'
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Definition
 Set-Location $SCRIPT_DIR
 
-# ── Colours ──────────────────────────────────────────────────────────
+# -- Colours -----------------------------------------------------------
 $GREEN = 'Green'; $YELLOW = 'Yellow'; $RED = 'Red'
 
-# ── Auto-setup if needed ─────────────────────────────────────────────
+# -- Auto-setup if needed -----------------------------------------------
 $needsSetup = $false
 $VENV_PYTHON = Join-Path $SCRIPT_DIR '.venv' 'Scripts' 'python.exe'
 $ENV_FILE = Join-Path $SCRIPT_DIR '.env'
@@ -25,14 +25,14 @@ if (-not (Test-Path $ENV_FILE)) {
 if ($needsSetup) {
     Write-Host ""
     Write-Host "=========================================" -ForegroundColor $GREEN
-    Write-Host "  Agent Hub — First-time setup" -ForegroundColor $GREEN
+    Write-Host "  Agent Hub - First-time setup" -ForegroundColor $GREEN
     Write-Host "=========================================" -ForegroundColor $GREEN
     Write-Host ""
 
-    # ── 1. Check Python 3.11+ ────────────────────────────────────────
+    # -- 1. Check Python 3.11+ ------------------------------------------
     $python = Get-Command python -ErrorAction SilentlyContinue
     if (-not $python) {
-        Write-Host "✗ Python is not installed. Install it from https://www.python.org/downloads/" -ForegroundColor $RED
+        Write-Host "X Python is not installed. Install it from https://www.python.org/downloads/" -ForegroundColor $RED
         Write-Host "   Make sure to check 'Add Python to PATH' during installation." -ForegroundColor $RED
         exit 1
     }
@@ -42,66 +42,66 @@ if ($needsSetup) {
     $pyMinor = (python -c "import sys; print(sys.version_info.minor)").Trim()
 
     if ([int]$pyMajor -lt 3 -or ([int]$pyMajor -eq 3 -and [int]$pyMinor -lt 11)) {
-        Write-Host "✗ Python $pyVer is too old. Agent Hub needs Python 3.11 or newer." -ForegroundColor $RED
+        Write-Host "X Python $pyVer is too old. Agent Hub needs Python 3.11 or newer." -ForegroundColor $RED
         exit 1
     }
 
-    Write-Host "✓ Python $pyVer — good." -ForegroundColor $GREEN
+    Write-Host "V Python $pyVer - good." -ForegroundColor $GREEN
 
-    # ── 2. Check Junie CLI (non-blocking warning) ────────────────────
+    # -- 2. Check Junie CLI (non-blocking warning) ----------------------
     $junie = Get-Command junie -ErrorAction SilentlyContinue
     if (-not $junie) {
         Write-Host ""
-        Write-Host "⚠ Junie CLI not found on PATH — agents won't run until it's installed." -ForegroundColor $YELLOW
+        Write-Host "! Junie CLI not found on PATH - agents won't run until it's installed." -ForegroundColor $YELLOW
         Write-Host "   Install from https://junie.jetbrains.com" -ForegroundColor $YELLOW
     } else {
         $junieVer = junie --version 2>&1 | Select-Object -First 1
-        Write-Host "✓ Junie CLI found ($junieVer)." -ForegroundColor $GREEN
+        Write-Host "V Junie CLI found ($junieVer)." -ForegroundColor $GREEN
     }
 
     Write-Host ""
 
-    # ── 3. Create virtual environment ────────────────────────────────
+    # -- 3. Create virtual environment ----------------------------------
     $venvPath = Join-Path $SCRIPT_DIR '.venv'
     if (-not (Test-Path $venvPath)) {
-        Write-Host "Creating virtual environment (.venv) …"
+        Write-Host "Creating virtual environment (.venv)..."
         python -m venv .venv
-        Write-Host "✓ Virtual environment created." -ForegroundColor $GREEN
+        Write-Host "V Virtual environment created." -ForegroundColor $GREEN
     } else {
-        Write-Host "✓ Virtual environment already exists." -ForegroundColor $GREEN
+        Write-Host "V Virtual environment already exists." -ForegroundColor $GREEN
     }
 
-    # ── 4. Install Python dependencies ───────────────────────────────
-    Write-Host "Installing Python packages …"
+    # -- 4. Install Python dependencies ---------------------------------
+    Write-Host "Installing Python packages..."
     & (Join-Path $venvPath 'Scripts\python.exe') -m pip install --upgrade pip -q
     & (Join-Path $venvPath 'Scripts\python.exe') -m pip install -r requirements.txt -q
-    Write-Host "✓ Packages installed." -ForegroundColor $GREEN
+    Write-Host "V Packages installed." -ForegroundColor $GREEN
 
     Write-Host ""
 
-    # ── 5. Copy hub.example.yaml → hub.yaml (never overwrite) ────────
+    # -- 5. Copy hub.example.yaml => hub.yaml (never overwrite) ---------
     $hubYaml = Join-Path $SCRIPT_DIR 'hub.yaml'
     if (-not (Test-Path $hubYaml)) {
         Copy-Item hub.example.yaml hub.yaml
-        Write-Host "✓ Created hub.yaml from hub.example.yaml." -ForegroundColor $GREEN
+        Write-Host "V Created hub.yaml from hub.example.yaml." -ForegroundColor $GREEN
     } else {
-        Write-Host "✓ hub.yaml already exists." -ForegroundColor $GREEN
+        Write-Host "V hub.yaml already exists." -ForegroundColor $GREEN
     }
 
     Write-Host ""
 
-    # ── 6. Generate API key & .env file ──────────────────────────────
+    # -- 6. Generate API key & .env file --------------------------------
     if (-not (Test-Path $ENV_FILE)) {
         $apiKey = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 43 | ForEach-Object {[char]$_})
         "HUB_API_KEY=$apiKey" | Set-Content -Path .env -Encoding UTF8
-        Write-Host "✓ Generated API key and saved it in .env." -ForegroundColor $GREEN
+        Write-Host "V Generated API key and saved it in .env." -ForegroundColor $GREEN
         Write-Host ""
-        Write-Host "  ┌──────────────────────────────────────────────────────────┐"
-        Write-Host "  │  Your API key (save it somewhere safe!):                 │"
-        Write-Host "  │  $apiKey"
-        Write-Host "  └──────────────────────────────────────────────────────────┘"
+        Write-Host "  +----------------------------------------------------------+"
+        Write-Host "  |  Your API key (save it somewhere safe!):                 |"
+        Write-Host "  |  $apiKey"
+        Write-Host "  +----------------------------------------------------------+"
     } else {
-        Write-Host "✓ .env file already exists." -ForegroundColor $GREEN
+        Write-Host "V .env file already exists." -ForegroundColor $GREEN
     }
 
     Write-Host ""
@@ -111,7 +111,7 @@ if ($needsSetup) {
     Write-Host ""
 }
 
-# ── Load environment variables from .env ─────────────────────────────
+# -- Load environment variables from .env -------------------------------
 if (Test-Path $ENV_FILE) {
     Write-Host "Loading .env file..." -ForegroundColor Green
     Get-Content $ENV_FILE | ForEach-Object {
@@ -131,16 +131,16 @@ if (Test-Path $ENV_FILE) {
     exit 1
 }
 
-# ── Check for required environment variables ─────────────────────────
+# -- Check for required environment variables ---------------------------
 if (-not $env:HUB_API_KEY) {
     Write-Host "Error: HUB_API_KEY not set in .env." -ForegroundColor Red
     exit 1
 }
 
-# ── Get port from environment or default to 8080 ─────────────────────
+# -- Get port from environment or default to 8080 -----------------------
 $port = if ($env:HUB_PORT) { [int]$env:HUB_PORT } else { 8080 }
 
-# ── What's next (first run only) ─────────────────────────────────────
+# -- What's next (first run only) ---------------------------------------
 if ($needsSetup) {
     Write-Host "  Next: edit hub.yaml to configure your agents, then restart."
     Write-Host ""
@@ -152,8 +152,8 @@ Write-Host "Dashboard: http://localhost:$port" -ForegroundColor Green
 Write-Host "Press Ctrl+C to stop." -ForegroundColor Green
 Write-Host ""
 
-# ── Auto-open browser ────────────────────────────────────────────────
+# -- Auto-open browser --------------------------------------------------
 Start-Process "http://localhost:$port"
 
-# ── Start uvicorn ────────────────────────────────────────────────────
+# -- Start uvicorn ------------------------------------------------------
 & $VENV_PYTHON -m uvicorn hub.api:app --host 0.0.0.0 --port $port --reload
