@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/Version-1.0.0-green.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.0.1-green.svg)](CHANGELOG.md)
 
 A self-hosted dashboard that lets you manage AI coding agents (JetBrains Junie CLI), share skills between them, and control everything from a web browser.  Runs entirely on your machine — no cloud, no paid APIs, no internet connection needed once it's set up.
 
@@ -43,16 +43,33 @@ Make sure these are in place **before** running the setup:
 4. **Project directories ready** — if your agent works on an Obsidian vault, mount it at the path you'll put in `hub.yaml`.  For other agents, create the project folders first.
 5. **Use a scratch copy first** — when testing, point agents at a copy of your data, not the real thing.
 
+## Quick Start
+
+The fastest way to get started — **one command** clones, sets up, and launches the dashboard:
+
+### Linux / macOS
+
+```bash
+git clone https://github.com/LukaG712/AgentHub.git && cd AgentHub && ./start.sh
+```
+
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/LukaG712/AgentHub.git; cd AgentHub; .\start.ps1
+```
+
+The start script automatically handles first-time setup (virtual environment, dependencies, API key generation, config file). Your browser will open to **http://localhost:8080** — enter the displayed API key when prompted.
+
 ## Installation
 
 ### Option 1: Windows .exe (no Python required)
 
 Download `agent-hub.exe` from the [latest release](https://github.com/LukaG712/AgentHub/releases/latest), then:
 
-1. Generate an API key: open PowerShell and run `python -c "import secrets; print(secrets.token_urlsafe(32))"` (or use any random string generator).
-2. Copy `hub.example.yaml` to `hub.yaml` next to the .exe and edit it to configure your agents.
-3. Create a `.env` file next to the .exe with `HUB_API_KEY=your-key-here`.
-4. Run `agent-hub.exe serve` to start the server.
+1. Copy `hub.example.yaml` to `hub.yaml` next to the .exe and edit it to configure your agents.
+2. Create a `.env` file next to the .exe with `HUB_API_KEY=your-random-key-here`.
+3. Run `agent-hub.exe serve` to start the server.
 
 Open **http://localhost:8080** in your browser and enter the API key.
 
@@ -75,39 +92,20 @@ agent-hub serve
 ```bash
 git clone https://github.com/LukaG712/AgentHub.git
 cd AgentHub
-./setup.sh
 ./start.sh
 ```
 
-Then open **http://localhost:8080** in your browser and enter the API key that `setup.sh` printed.
+The `start.sh` script runs setup automatically on first launch, then starts the server and opens your browser.
 
 #### Windows
 
 ```powershell
 git clone https://github.com/LukaG712/AgentHub.git
 cd AgentHub
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -e .
-```
-
-Create a `.env` file with your API key:
-
-```
-HUB_API_KEY=your-generated-key-here
-```
-
-Generate a key with: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
-
-Copy the example config: `copy hub.example.yaml hub.yaml`, then edit `hub.yaml` to configure your agents.
-
-Start the server:
-
-```powershell
 .\start.ps1
 ```
 
-Then open **http://localhost:8080** in your browser and enter the API key.
+The `start.ps1` script runs setup automatically on first launch, then starts the server and opens your browser.
 
 That's it.  The dashboard lets you edit agents, create skills, send tasks, chat with agents, and manage memories.
 
@@ -131,7 +129,7 @@ sudo systemctl stop agent-hub    # stop
 
 ### hub.yaml
 
-The main config file.  `setup.sh` creates it from `hub.example.yaml`.  Edit it to change agents:
+The main config file.  The start script creates it from `hub.example.yaml` on first launch.  Edit it to change agents:
 
 ```yaml
 runners:
@@ -433,7 +431,9 @@ Tests use a fake agent script — no real `junie` binary needed.  POSIX-only tes
 
 ## Manual Setup (Advanced)
 
-If you prefer not to use `setup.sh`, do these steps manually:
+If you prefer not to use the setup scripts, do these steps manually:
+
+### Linux
 
 ```bash
 python3 -m venv .venv
@@ -443,4 +443,16 @@ cp hub.example.yaml hub.yaml
 # Edit hub.yaml
 export HUB_API_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
 uvicorn hub.api:app --host 0.0.0.0 --port 8080
+```
+
+### Windows (PowerShell)
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+copy hub.example.yaml hub.yaml
+# Edit hub.yaml
+$env:HUB_API_KEY = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 43 | ForEach-Object {[char]$_})
+python -m uvicorn hub.api:app --host 0.0.0.0 --port 8080
 ```

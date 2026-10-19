@@ -1,14 +1,41 @@
-# AgentHub Windows Startup Script
+# start.ps1 — Start the Agent Hub server (Windows)
+# Auto-runs setup.ps1 if this is the first time.
 # Usage: .\start.ps1
-# Prerequisites: Python 3.10+, .venv created (see setup instructions)
 
 $ErrorActionPreference = 'Stop'
 
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Definition
 Set-Location $SCRIPT_DIR
 
-# Load environment variables from .env file if it exists
+# ── Auto-setup if needed ─────────────────────────────────────────────
+$needsSetup = $false
+$VENV_PYTHON = Join-Path $SCRIPT_DIR '.venv' 'Scripts' 'python.exe'
 $ENV_FILE = Join-Path $SCRIPT_DIR '.env'
+
+if (-not (Test-Path $VENV_PYTHON)) {
+    $needsSetup = $true
+}
+if (-not (Test-Path $ENV_FILE)) {
+    $needsSetup = $true
+}
+
+if ($needsSetup) {
+    Write-Host ""
+    Write-Host "First time running Agent Hub? Running setup..." -ForegroundColor Yellow
+    Write-Host ""
+    $setupScript = Join-Path $SCRIPT_DIR 'setup.ps1'
+    if (Test-Path $setupScript) {
+        & $setupScript
+    } else {
+        Write-Host "Error: setup.ps1 not found. Run setup manually." -ForegroundColor Red
+        exit 1
+    }
+    Write-Host ""
+    Write-Host "Setup complete. Starting server..." -ForegroundColor Green
+    Write-Host ""
+}
+
+# ── Load environment variables from .env ─────────────────────────────
 if (Test-Path $ENV_FILE) {
     Write-Host "Loading .env file..." -ForegroundColor Green
     Get-Content $ENV_FILE | ForEach-Object {
@@ -25,31 +52,27 @@ if (Test-Path $ENV_FILE) {
     }
     Write-Host "Environment variables loaded." -ForegroundColor Green
 } else {
-    Write-Host "No .env file found. Using current environment." -ForegroundColor Yellow
+    Write-Host "Error: .env file not found. Run .\setup.ps1 first." -ForegroundColor Red
+    exit 1
 }
 
-# Activate virtual environment
-$VENV_PYTHON = Join-Path $SCRIPT_DIR '.venv' 'Scripts' 'python.exe'
-if (Test-Path $VENV_PYTHON) {
-    Write-Host "Using virtual environment: .venv" -ForegroundColor Green
-} else {
-    Write-Host "WARNING: Virtual environment not found at .venv" -ForegroundColor Yellow
-    Write-Host "Create it first: python -m venv .venv && .\.venv\Scripts\activate && pip install -r requirements.txt" -ForegroundColor Yellow
-}
-
-# Check for required environment variables
+# ── Check for required environment variables ─────────────────────────
 if (-not $env:HUB_API_KEY) {
-    Write-Host "WARNING: HUB_API_KEY not set. Set it in .env or your environment." -ForegroundColor Yellow
-    Write-Host "Generate one: python -c ""import secrets; print(secrets.token_urlsafe(32))""" -ForegroundColor Yellow
+    Write-Host "Error: HUB_API_KEY not set in .env." -ForegroundColor Red
+    exit 1
 }
 
-# Get port from environment or default to 8080
-$port = $env:HUB_PORT if ($env:HUB_PORT) else 8080
+# ── Get port from environment or default to 8080 ─────────────────────
+$port = if ($env:HUB_PORT) { [int]$env:HUB_PORT } else { 8080 }
 
-Write-Host "Starting AgentHub on port $port..." -ForegroundColor Green
+Write-Host ""
+Write-Host "Starting Agent Hub on port $port..." -ForegroundColor Green
+Write-Host "Dashboard: http://localhost:$port" -ForegroundColor Green
 Write-Host "Press Ctrl+C to stop." -ForegroundColor Green
 Write-Host ""
 
-# Start uvicorn
-$python = if (Test-Path $VENV_PYTHON) { $VENV_PYTHON } else { 'python' }
-& $python -m uvicorn hub.api:app --host 0.0.0.0 --port $port --reload
+# ── Auto-open browser ────────────────────────────────────────────────
+Start-Process "http://localhost:$port"
+
+# ── Start uvicorn ────────────────────────────────────────────────────
+& $VENV_PYTHON -m uvicorn hub.api:app --host 0.0.0.0 --port $port --reload

@@ -2,6 +2,17 @@
 
 All notable changes to Agent Hub will be documented in this file.
 
+## [1.0.1] - 2026-10-19
+
+### Installation improvements
+- **One-command start** — `start.sh` and `start.ps1` now auto-run setup on first launch (venv, dependencies, API key, config file)
+- **Windows setup script** — new `setup.ps1` mirrors Linux `setup.sh` for consistent cross-platform setup
+- **Auto-open browser** — start scripts automatically open the dashboard in your default browser
+- **Simplified README** — added Quick Start section with single-command install for both platforms
+
+### Bug fixes
+- **Configurable port** — start scripts respect `HUB_PORT` environment variable
+
 ## [1.0.0] - 2026-10-19
 
 ### Features
