@@ -8,6 +8,7 @@ import queue
 import shutil
 import threading
 import time
+import uuid
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
@@ -25,6 +26,7 @@ from hub.runner import (
     agent_status,
     recover_stale_runs,
 )
+from hub import coordinator
 
 security = HTTPBearer(auto_error=False)
 
@@ -34,13 +36,15 @@ _STATIC_DIR = Path(__file__).resolve().parent / "static"
 # SSE event buffers: maps run_id -> queue.Queue of event strings
 _sse_buffers: Dict[str, queue.Queue] = {}
 _sse_buffers_lock = threading.Lock()
+# Max events per buffer to prevent unbounded memory growth
+_SSE_MAX_EVENTS = 1000
 
 
 def _sse_buffer_for_run(run_id: str) -> queue.Queue:
     """Get or create an SSE event buffer for a run."""
     with _sse_buffers_lock:
         if run_id not in _sse_buffers:
-            _sse_buffers[run_id] = queue.Queue()
+            _sse_buffers[run_id] = queue.Queue(maxsize=_SSE_MAX_EVENTS)
         return _sse_buffers[run_id]
 
 
@@ -51,9 +55,12 @@ def _sse_remove_buffer(run_id: str) -> None:
 
 
 def _sse_send_event(run_id: str, event: str, data: str) -> None:
-    """Send an SSE event to the buffer for a run."""
+    """Send an SSE event to the buffer for a run. Drops events if buffer is full."""
     buf = _sse_buffer_for_run(run_id)
-    buf.put(f"event: {event}\ndata: {data}\n\n")
+    try:
+        buf.put_nowait(f"event: {event}\ndata: {data}\n\n")
+    except queue.Full:
+        pass  # Drop oldest event silently
 
 
 def _get_api_key() -> str:
@@ -476,10 +483,27 @@ async def api_dispatch_message(
 
     # Create SSE buffer before starting the run
     run_id_placeholder = []
+    buffer_created = threading.Event()
+
+    def _output_callback(line_type: str, text: str) -> None:
+        """Called for each line of agent output during execution."""
+        # Wait briefly for run_id to be set (it's set early in run_agent)
+        if not buffer_created.wait(timeout=5):
+            return
+        rid = run_id_placeholder[0] if run_id_placeholder else None
+        if rid:
+            clean = text.rstrip()
+            if clean:
+                _sse_send_event(rid, "output", json.dumps({
+                    "run_id": rid,
+                    "type": line_type,
+                    "text": clean,
+                }))
 
     def _run():
-        result = run_agent(agent_id, refined_content, session_id=session_id)
+        result = run_agent(agent_id, refined_content, session_id=session_id, output_callback=_output_callback)
         run_id_placeholder.append(result.id)
+        buffer_created.set()
         # Send SSE events
         _sse_send_event(result.id, "start", json.dumps({"run_id": result.id, "state": "working"}))
         if result.state == "done":
@@ -501,8 +525,8 @@ async def api_dispatch_message(
             }))
         # Signal completion
         _sse_send_event(result.id, "end", "")
-        # Clean up buffer after a delay
-        time.sleep(5)
+        # Clean up buffer after a delay to allow reconnecting clients
+        time.sleep(30)
         _sse_remove_buffer(result.id)
 
     t = threading.Thread(target=_run, daemon=True)
@@ -920,6 +944,190 @@ async def api_remote_status(_auth: None = Depends(_verify_token)):
         "ssh_available": shutil.which("ssh") is not None,
         "targets": targets,
     }
+
+
+# --- Git Status ---
+
+
+@app.get("/api/git/status")
+async def api_git_status(
+    project: str,
+    _auth: None = Depends(_verify_token),
+):
+    """Get Git status for a project directory."""
+    from hub import git_service
+    status = git_service.get_git_status(project)
+    return status.to_dict()
+
+
+@app.get("/api/git/worktrees")
+async def api_git_worktrees(
+    project: str,
+    _auth: None = Depends(_verify_token),
+):
+    """List worktrees for a Git repository."""
+    from hub import git_service
+    worktrees = git_service.list_worktrees(project)
+    return {"worktrees": [wt.to_dict() for wt in worktrees]}
+
+
+# --- Multi-Agent Coordinator ---
+
+
+@app.post("/api/coordinator", status_code=201)
+async def api_create_coordinator(
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    """Create a new task coordinator for a project."""
+    coordinator_id = body.get("coordinator_id") or str(uuid.uuid4())[:8]
+    project_dir = body.get("project_dir")
+    if not project_dir:
+        raise HTTPException(status_code=400, detail="project_dir is required")
+
+    max_concurrency = body.get("max_concurrency", 3)
+    worktree_base = body.get("worktree_base")
+
+    coord = coordinator.create_coordinator(
+        coordinator_id=coordinator_id,
+        project_dir=project_dir,
+        max_concurrency=max_concurrency,
+        worktree_base=worktree_base,
+    )
+    return coord.get_summary()
+
+
+@app.get("/api/coordinator")
+async def api_list_coordinators(
+    _auth: None = Depends(_verify_token),
+):
+    """List all active coordinators."""
+    return coordinator.list_coordinators()
+
+
+@app.get("/api/coordinator/{coordinator_id}")
+async def api_get_coordinator(
+    coordinator_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    """Get a coordinator's current status."""
+    coord = coordinator.get_coordinator(coordinator_id)
+    if coord is None:
+        raise HTTPException(status_code=404, detail=f"Coordinator '{coordinator_id}' not found")
+    return coord.get_summary()
+
+
+@app.delete("/api/coordinator/{coordinator_id}")
+async def api_delete_coordinator(
+    coordinator_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    """Remove a coordinator and clean up its worktrees."""
+    removed = coordinator.remove_coordinator(coordinator_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail=f"Coordinator '{coordinator_id}' not found")
+    return {"deleted": coordinator_id}
+
+
+@app.post("/api/coordinator/{coordinator_id}/tasks", status_code=201)
+async def api_add_coordinator_task(
+    coordinator_id: str,
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    """Add a task to a coordinator's plan."""
+    coord = coordinator.get_coordinator(coordinator_id)
+    if coord is None:
+        raise HTTPException(status_code=404, detail=f"Coordinator '{coordinator_id}' not found")
+
+    name = body.get("name")
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+
+    description = body.get("description", "")
+    agent = body.get("agent", "vault")
+    dependencies = body.get("dependencies", [])
+
+    task_id = coord.add_task(name, description, agent, dependencies)
+    task = coord.get_task(task_id)
+    return task.to_dict() if task else {"id": task_id}
+
+
+@app.delete("/api/coordinator/{coordinator_id}/tasks/{task_id}")
+async def api_remove_coordinator_task(
+    coordinator_id: str,
+    task_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    """Remove a pending task from a coordinator's plan."""
+    coord = coordinator.get_coordinator(coordinator_id)
+    if coord is None:
+        raise HTTPException(status_code=404, detail=f"Coordinator '{coordinator_id}' not found")
+
+    removed = coord.remove_task(task_id)
+    if not removed:
+        raise HTTPException(status_code=400, detail=f"Task '{task_id}' not found or cannot be removed")
+    return {"deleted": task_id}
+
+
+@app.post("/api/coordinator/{coordinator_id}/execute")
+async def api_execute_coordinator(
+    coordinator_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    """Start executing a coordinator's task plan."""
+    coord = coordinator.get_coordinator(coordinator_id)
+    if coord is None:
+        raise HTTPException(status_code=404, detail=f"Coordinator '{coordinator_id}' not found")
+    coord.execute()
+    return {"status": "executing", "coordinator_id": coordinator_id}
+
+
+@app.post("/api/coordinator/{coordinator_id}/cancel")
+async def api_cancel_coordinator(
+    coordinator_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    """Cancel all tasks in a coordinator."""
+    coord = coordinator.get_coordinator(coordinator_id)
+    if coord is None:
+        raise HTTPException(status_code=404, detail=f"Coordinator '{coordinator_id}' not found")
+    coord.cancel_all()
+    return {"status": "cancelled", "coordinator_id": coordinator_id}
+
+
+@app.post("/api/coordinator/{coordinator_id}/tasks/{task_id}/approve")
+async def api_approve_task(
+    coordinator_id: str,
+    task_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    """Approve a task's changes, marking it as completed."""
+    coord = coordinator.get_coordinator(coordinator_id)
+    if coord is None:
+        raise HTTPException(status_code=404, detail=f"Coordinator '{coordinator_id}' not found")
+
+    approved = coord.approve_task(task_id)
+    if not approved:
+        raise HTTPException(status_code=400, detail=f"Task '{task_id}' not in needs_approval state")
+    return {"approved": task_id}
+
+
+@app.post("/api/coordinator/{coordinator_id}/tasks/{task_id}/reject")
+async def api_reject_task(
+    coordinator_id: str,
+    task_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    """Reject a task's changes, marking it as failed and cleaning up its worktree."""
+    coord = coordinator.get_coordinator(coordinator_id)
+    if coord is None:
+        raise HTTPException(status_code=404, detail=f"Coordinator '{coordinator_id}' not found")
+
+    rejected = coord.reject_task(task_id)
+    if not rejected:
+        raise HTTPException(status_code=400, detail=f"Task '{task_id}' not in needs_approval state")
+    return {"rejected": task_id}
 
 
 # --- Static files ---

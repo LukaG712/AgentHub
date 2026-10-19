@@ -444,3 +444,98 @@ class TestHUBTimeout:
         # Already set to 10 in hub_env fixture
         # The timeout test above uses this
         pass
+
+
+class TestStreamingOutput:
+    def test_output_callback_receives_lines(self, hub_env):
+        """Test that output_callback is called for each line of output."""
+        tmp_path, config_path = hub_env
+        from hub.config import load_config
+        config = load_config(config_path)
+        config["runners"]["junie"]["command"] = [
+            "junie", "--task", "{task}", "--project", "{project}"
+        ]
+        save_config(config, config_path)
+
+        received_lines = []
+        lock = threading.Lock()
+
+        def callback(line_type, text):
+            with lock:
+                received_lines.append((line_type, text))
+
+        run = run_agent("vault", "test task", output_callback=callback)
+        assert run.state == "done"
+        with lock:
+            assert len(received_lines) > 0, "Callback should receive at least one line"
+            # All lines should be stdout (fake_agent writes to stdout)
+            for lt, txt in received_lines:
+                assert lt == "stdout"
+                assert "Completed task" in txt or "Agent processed" in txt
+
+    def test_output_callback_before_completion(self, hub_env):
+        """Test that output_callback fires before the run completes."""
+        tmp_path, config_path = hub_env
+        from hub.config import load_config
+        config = load_config(config_path)
+        config["runners"]["junie"]["command"] = [
+            "junie", "--task", "{task}", "--project", "{project}", "--delay", "0.5"
+        ]
+        save_config(config, config_path)
+
+        callback_fired = threading.Event()
+        run_finished = threading.Event()
+
+        def callback(line_type, text):
+            callback_fired.set()
+
+        def do_run():
+            run_agent("vault", "delayed task", output_callback=callback)
+            run_finished.set()
+
+        t = threading.Thread(target=do_run, daemon=True)
+        t.start()
+
+        # Wait for callback to fire (should happen before run finishes)
+        fired = callback_fired.wait(timeout=5)
+        assert fired, "Callback should fire during execution"
+
+        t.join(timeout=10)
+        assert run_finished.is_set(), "Run should complete"
+
+    def test_output_callback_empty_output(self, hub_env):
+        """Test that callback handles empty output gracefully."""
+        tmp_path, config_path = hub_env
+        from hub.config import load_config
+        config = load_config(config_path)
+        config["runners"]["junie"]["command"] = [
+            "junie", "--task", "{task}", "--project", "{project}"
+        ]
+        save_config(config, config_path)
+
+        received = []
+
+        def callback(line_type, text):
+            received.append(text)
+
+        run = run_agent("vault", "test", output_callback=callback)
+        assert run.state == "done"
+        # Callback should have been called at least once
+        assert len(received) > 0
+
+    def test_output_callback_error_handling(self, hub_env):
+        """Test that callback exceptions don't break the run."""
+        tmp_path, config_path = hub_env
+        from hub.config import load_config
+        config = load_config(config_path)
+        config["runners"]["junie"]["command"] = [
+            "junie", "--task", "{task}", "--project", "{project}"
+        ]
+        save_config(config, config_path)
+
+        def bad_callback(line_type, text):
+            raise RuntimeError("Callback error!")
+
+        # Should not raise
+        run = run_agent("vault", "test", output_callback=bad_callback)
+        assert run.state == "done"

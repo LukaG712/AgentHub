@@ -322,8 +322,18 @@ def _stream_output(
     log_path: Path,
     output_accumulator: list,
     lock: threading.Lock,
+    output_callback: Optional[Callable[[str, str], None]] = None,
 ) -> None:
-    """Reader thread: stream stdout/stderr to log file and accumulator."""
+    """Reader thread: stream stdout/stderr to log file, accumulator, and optional callback.
+    
+    Args:
+        process: The running subprocess.
+        log_path: Path to the log file.
+        output_accumulator: Thread-safe list for collecting output.
+        lock: Lock for protecting the accumulator.
+        output_callback: Optional callback(line_type, text) called for each line.
+            line_type is 'stdout' or 'stderr'. Called from the reader thread.
+    """
     with open(log_path, "w", encoding="utf-8") as log_f:
         # Read stdout
         try:
@@ -333,6 +343,11 @@ def _stream_output(
                 log_f.flush()
                 with lock:
                     output_accumulator.append(text)
+                if output_callback is not None:
+                    try:
+                        output_callback("stdout", text)
+                    except Exception:
+                        pass  # Don't let callback failures break streaming
         except ValueError:
             pass  # Stream closed
         # Read stderr
@@ -343,6 +358,11 @@ def _stream_output(
                 log_f.flush()
                 with lock:
                     output_accumulator.append(text)
+                if output_callback is not None:
+                    try:
+                        output_callback("stderr", text)
+                    except Exception:
+                        pass  # Don't let callback failures break streaming
         except ValueError:
             pass  # Stream closed
 
@@ -353,6 +373,7 @@ def run_agent(
     no_wait: bool = False,
     timeout: Optional[int] = None,
     session_id: Optional[str] = None,
+    output_callback: Optional[Callable[[str, str], None]] = None,
 ) -> Run:
     """Run an agent task with file locking, queue, retry, and timeout.
 
@@ -398,6 +419,26 @@ def run_agent(
 
     project_dir = agent_cfg.get("project_dir", "")
     guidelines = agent_cfg.get("guidelines", "")
+
+    # Validate project path exists and is accessible
+    if project_dir:
+        project_path = Path(project_dir).expanduser().resolve()
+        if not project_path.exists():
+            # Warn but don't fail — project may be created later
+            pass
+        # Security: ensure project is not the hub data dir
+        if str(project_path).startswith(str(_DATA_DIR.resolve())):
+            run = Run(
+                id=str(uuid.uuid4()),
+                agent=agent_name,
+                task=task,
+                state="failed",
+                fail_reason="Project directory cannot be inside the hub data directory",
+                owner_pid=os.getpid(),
+                finished=datetime.now(timezone.utc).isoformat(),
+            )
+            _save_run(run)
+            return run
 
     # Assemble context from session history, memories, and project files
     if session_id:
@@ -511,7 +552,8 @@ def run_agent(
             _save_run(run)
         else:
             # Local subprocess provider — build command and run via subprocess
-            cmd = provider.build_command(task, project_dir, permissions)
+            command_template = runner_cfg.get("command")
+            cmd = provider.build_command(task, project_dir, permissions, command_template=command_template)
 
             # Retry logic
             retry_delays = [30, 60, 90]
@@ -532,7 +574,14 @@ def run_agent(
                 if sys.platform != "win32":
                     popen_kwargs["start_new_session"] = True
 
-                process = subprocess.Popen(cmd, **popen_kwargs)
+                try:
+                    process = subprocess.Popen(cmd, **popen_kwargs)
+                except FileNotFoundError:
+                    run.state = "failed"
+                    run.fail_reason = f"Binary not found: {cmd[0]}"
+                    run.finished = datetime.now(timezone.utc).isoformat()
+                    _save_run(run)
+                    return run
                 run.pid = process.pid
                 try:
                     run.pgid = os.getpgid(process.pid)
@@ -543,7 +592,7 @@ def run_agent(
                 # Start output streaming thread
                 stream_thread = threading.Thread(
                     target=_stream_output,
-                    args=(process, log_path, output_parts, output_lock),
+                    args=(process, log_path, output_parts, output_lock, output_callback),
                     daemon=True,
                 )
                 stream_thread.start()

@@ -674,6 +674,43 @@ class TestObsidian:
         assert resp.status_code in (400, 404)
 
 
+class TestSSEStreaming:
+    def test_sse_buffer_bounded(self, client):
+        """Test that SSE buffer has bounded size."""
+        from hub.api import _SSE_MAX_EVENTS
+        assert _SSE_MAX_EVENTS == 1000
+
+    def test_sse_send_event_drops_when_full(self, client):
+        """Test that _sse_send_event handles full buffer gracefully."""
+        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS
+        import queue
+        run_id = "test-full-buffer"
+        # Create a small buffer for testing
+        from hub.api import _sse_buffers, _sse_buffers_lock
+        with _sse_buffers_lock:
+            _sse_buffers[run_id] = queue.Queue(maxsize=2)
+        try:
+            # Fill the buffer
+            _sse_send_event(run_id, "output", '{"text": "line1"}')
+            _sse_send_event(run_id, "output", '{"text": "line2"}')
+            # This should not raise — it should drop silently
+            _sse_send_event(run_id, "output", '{"text": "line3"}')
+        finally:
+            _sse_remove_buffer(run_id)
+
+    def test_sse_buffer_cleanup(self, client):
+        """Test that SSE buffer is cleaned up after run ends."""
+        from hub.api import _sse_buffers, _sse_buffers_lock, _sse_remove_buffer
+        run_id = "test-cleanup"
+        from hub.api import _sse_buffer_for_run
+        buf = _sse_buffer_for_run(run_id)
+        with _sse_buffers_lock:
+            assert run_id in _sse_buffers
+        _sse_remove_buffer(run_id)
+        with _sse_buffers_lock:
+            assert run_id not in _sse_buffers
+
+
 class TestRemote:
     def test_remote_status(self, client):
         """Remote status should return SSH availability and targets."""

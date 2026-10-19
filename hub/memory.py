@@ -450,30 +450,37 @@ def assemble_context(
     """Assemble context for an agent run from session history, memories, and project files.
 
     Returns a formatted context string to prepend to the task prompt.
+    The most recent user message is excluded since it is the current task.
+    Messages are ordered chronologically (created_at ASC).
+    Memories are deduplicated by ID.
     """
     parts: List[str] = []
+    sources: List[str] = []  # Track which sources were included
 
-    # 1. Recent session messages (last N user/assistant pairs)
+    # 1. Recent session messages (last N, excluding the most recent user message)
     messages = get_session_messages(session_id)
     if messages:
-        # Take the last max_messages messages, excluding the most recent user message
-        # (which is the current task being dispatched)
+        # Exclude the most recent message if it's a user message (the current task)
+        if messages and messages[-1].get("role") == "user":
+            messages = messages[:-1]
+        # Take the last max_messages messages (already in created_at ASC order)
         recent = messages[-max_messages:]
-        conv_lines = []
-        for msg in recent:
-            role = msg["role"]
-            content = msg["content"]
-            if role == "user":
-                conv_lines.append(f"User: {content}")
-            elif role == "assistant":
-                conv_lines.append(f"Assistant: {content}")
-            elif role == "system":
-                conv_lines.append(f"(System: {content})")
-        if conv_lines:
-            parts.append("## Conversation History\n\n" + "\n\n".join(conv_lines))
+        if recent:
+            conv_lines = []
+            for msg in recent:
+                role = msg["role"]
+                content = msg["content"]
+                if role == "user":
+                    conv_lines.append(f"User: {content}")
+                elif role == "assistant":
+                    conv_lines.append(f"Assistant: {content}")
+                elif role == "system":
+                    conv_lines.append(f"(System: {content})")
+            if conv_lines:
+                parts.append("## Conversation History\n\n" + "\n\n".join(conv_lines))
+                sources.append(f"session:{session_id} ({len(recent)} messages)")
 
-    # 2. Relevant memories for the agent/project
-    # Search by agent_id first, then by project_path, combining results
+    # 2. Relevant memories for the agent/project (deduplicated by ID)
     if agent_id or project_path:
         found_memories: List[Dict[str, Any]] = []
         seen_ids: set = set()
@@ -491,41 +498,56 @@ def assemble_context(
                     seen_ids.add(mem["id"])
                     if len(found_memories) >= max_memories:
                         break
-        memories = found_memories
-        if memories:
+        if found_memories:
             mem_lines = []
-            for mem in memories:
+            for mem in found_memories:
                 content = mem["content"]
                 tags = mem.get("tags", "")
                 tag_str = f" [{tags}]" if tags else ""
                 mem_lines.append(f"- {content}{tag_str}")
             parts.append("## Relevant Memories\n\n" + "\n".join(mem_lines))
+            sources.append(f"memories ({len(found_memories)} items)")
 
     # 3. Project guidelines from agent config
     if guidelines:
         parts.append("## Agent Guidelines\n\n" + guidelines)
+        sources.append("agent_guidelines")
 
-    # 4. AGENTS.md files found in the project directory
+    # 4. Project files (AGENTS.md, README.md) — avoid duplicates
+    included_files: set = set()
     if project_path:
-        agents_md_path = Path(project_path) / ".junie" / "AGENTS.md"
-        if agents_md_path.exists():
+        project_root = Path(project_path)
+        # Check .junie/AGENTS.md first (highest priority)
+        agents_md_path = project_root / ".junie" / "AGENTS.md"
+        if agents_md_path.exists() and ".junie/AGENTS.md" not in included_files:
             try:
                 content = agents_md_path.read_text(encoding="utf-8")
-                parts.append("## Project Instructions (AGENTS.md)\n\n" + content)
+                parts.append("## Project Instructions (.junie/AGENTS.md)\n\n" + content)
+                sources.append(".junie/AGENTS.md")
+                included_files.add(".junie/AGENTS.md")
             except (OSError, PermissionError):
                 pass
-        # Also check for project-level instructions
-        for filename in ("AGENTS.md", ".junie/AGENTS.md", "README.md"):
-            filepath = Path(project_path) / filename
-            if filepath.exists() and filepath != agents_md_path:
-                try:
-                    content = filepath.read_text(encoding="utf-8")
-                    # Truncate README to avoid huge context
-                    if filename == "README.md" and len(content) > 4000:
-                        content = content[:4000] + "\n... (truncated)"
-                    parts.append(f"## Project File ({filename})\n\n" + content)
-                except (OSError, PermissionError):
-                    pass
+        # Check project-level AGENTS.md
+        root_agents_md = project_root / "AGENTS.md"
+        if root_agents_md.exists() and "AGENTS.md" not in included_files:
+            try:
+                content = root_agents_md.read_text(encoding="utf-8")
+                parts.append("## Project Instructions (AGENTS.md)\n\n" + content)
+                sources.append("AGENTS.md")
+                included_files.add("AGENTS.md")
+            except (OSError, PermissionError):
+                pass
+        # Check README.md (truncated)
+        readme_path = project_root / "README.md"
+        if readme_path.exists():
+            try:
+                content = readme_path.read_text(encoding="utf-8")
+                if len(content) > 4000:
+                    content = content[:4000] + "\n... (truncated)"
+                parts.append("## Project File (README.md)\n\n" + content)
+                sources.append("README.md")
+            except (OSError, PermissionError):
+                pass
 
     if not parts:
         return ""
@@ -534,10 +556,16 @@ def assemble_context(
     header = "## Context from Previous Sessions\n\n"
     full = header + "\n\n---\n\n".join(parts)
 
-    # Truncate if too long, keeping the header
+    # Truncate if too long — drop least important sections first
     if len(full) > max_context_chars:
-        truncated = full[:max_context_chars - 100]
-        truncated += "\n\n... (context truncated due to length)"
-        full = truncated
+        # Remove conversation history first (least critical)
+        if len(parts) > 1:
+            parts = parts[:-1]  # Remove last part (conversation history)
+            full = header + "\n\n---\n\n".join(parts)
+        # If still too long, hard truncate
+        if len(full) > max_context_chars:
+            truncated = full[:max_context_chars - 100]
+            truncated += "\n\n... (context truncated due to length)"
+            full = truncated
 
     return full

@@ -157,26 +157,60 @@ class JunieProvider(AgentProvider):
             return shutil.which(junie_bin) is not None or os.path.isfile(junie_bin)
         return shutil.which("junie") is not None
 
+    def _resolve_binary(self, binary_name: str) -> List[str]:
+        """Resolve a binary name to executable path(s).
+        
+        Returns a list of one or two strings (e.g., ["python", "fake_agent.py"] or ["junie"]).
+        """
+        if binary_name == "junie":
+            junie_bin = os.environ.get("JUNIE_BIN")
+            if junie_bin:
+                if sys.platform == "win32" and junie_bin.endswith(".py"):
+                    return [sys.executable, junie_bin]
+                return [junie_bin]
+        return [binary_name]
+
     def build_command(
         self,
         task: str,
         project_dir: str,
         permissions: AgentPermissions,
         extra_args: Optional[List[str]] = None,
+        command_template: Optional[List[str]] = None,
     ) -> List[str]:
-        """Build the Junie CLI command."""
+        """Build the Junie CLI command.
+        
+        Args:
+            task: The task prompt for the agent.
+            project_dir: The project directory path.
+            permissions: Tool permissions for this run.
+            extra_args: Additional command-line arguments.
+            command_template: Optional command template from runner config.
+                If provided, uses the template's binary and arguments, substituting
+                {task}, {project}, and {permissions} placeholders.
+        """
         cmd_parts: List[str] = []
 
+        if command_template:
+            # Use the config's command template
+            for i, part in enumerate(command_template):
+                if part == "{task}":
+                    cmd_parts.append(task)
+                elif part == "{project}":
+                    cmd_parts.append(project_dir)
+                elif part == "{permissions}":
+                    cmd_parts.extend(permissions.permission_flags())
+                elif i == 0:
+                    # First element is the binary — resolve it
+                    cmd_parts.extend(self._resolve_binary(part))
+                else:
+                    cmd_parts.append(part)
+            if extra_args:
+                cmd_parts.extend(extra_args)
+            return cmd_parts
+
         # Determine the binary
-        junie_bin = os.environ.get("JUNIE_BIN")
-        if junie_bin:
-            if sys.platform == "win32" and junie_bin.endswith(".py"):
-                cmd_parts.append(sys.executable)
-                cmd_parts.append(junie_bin)
-            else:
-                cmd_parts.append(junie_bin)
-        else:
-            cmd_parts.append("junie")
+        cmd_parts.extend(self._resolve_binary("junie"))
 
         # Core arguments
         cmd_parts.extend(["--task", task, "--project", project_dir, "--output-format", "json"])

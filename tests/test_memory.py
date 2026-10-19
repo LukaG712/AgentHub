@@ -416,9 +416,11 @@ class TestContextAssembly:
     def test_context_truncation(self, temp_db):
         """Context is truncated when too long."""
         session = memory.create_session(title="Test", agent_id="vault")
-        # Add a very long message
+        # Add a long assistant message (not excluded as current task)
         long_content = "x" * 50000
-        memory.add_message(session["id"], "user", long_content)
+        memory.add_message(session["id"], "assistant", long_content)
+        # Add current user message (will be excluded)
+        memory.add_message(session["id"], "user", "Current task")
 
         context = memory.assemble_context(
             session_id=session["id"],
@@ -486,3 +488,93 @@ class TestContextAssembly:
         assert "Important decision" in context
         assert "Agent guidelines" in context
         assert "Project guidelines here." in context
+
+    def test_excludes_current_user_message(self, temp_db):
+        """The most recent user message (current task) is excluded from context."""
+        session = memory.create_session(title="Test", agent_id="vault")
+        memory.add_message(session["id"], "user", "Previous question")
+        memory.add_message(session["id"], "assistant", "Previous answer")
+        # This is the current task — should be excluded
+        memory.add_message(session["id"], "user", "Current task")
+
+        context = memory.assemble_context(session_id=session["id"])
+        assert "Previous question" in context
+        assert "Previous answer" in context
+        assert "Current task" not in context
+
+    def test_no_session_returns_empty(self, temp_db):
+        """Empty session returns empty context."""
+        session = memory.create_session(title="Test", agent_id="vault")
+        context = memory.assemble_context(session_id=session["id"])
+        assert context == ""
+
+    def test_memory_deduplication(self, temp_db):
+        """Memories matching both agent and project are not duplicated."""
+        session = memory.create_session(title="Test", agent_id="vault")
+        memory.create_memory(
+            content="Shared memory",
+            agent_id="vault",
+            project_path="/tmp/project",
+        )
+        memory.add_message(session["id"], "user", "Hello")
+
+        context = memory.assemble_context(
+            session_id=session["id"],
+            agent_id="vault",
+            project_path="/tmp/project",
+        )
+        # Should appear only once
+        assert context.count("Shared memory") == 1
+
+    def test_missing_project_files_handled(self, temp_db):
+        """Missing project files don't break context assembly."""
+        session = memory.create_session(title="Test", agent_id="vault")
+        memory.add_message(session["id"], "user", "Previous question")
+        memory.add_message(session["id"], "assistant", "Previous answer")
+        # Current task — will be excluded
+        memory.add_message(session["id"], "user", "Current task")
+
+        context = memory.assemble_context(
+            session_id=session["id"],
+            project_path="/nonexistent/path",
+        )
+        # Should not crash — just no project files included
+        assert "Conversation History" in context
+
+    def test_messages_ordered_chronologically(self, temp_db):
+        """Messages in context are in chronological order."""
+        session = memory.create_session(title="Test", agent_id="vault")
+        memory.add_message(session["id"], "user", "First")
+        memory.add_message(session["id"], "assistant", "Reply first")
+        memory.add_message(session["id"], "user", "Second")
+        memory.add_message(session["id"], "assistant", "Reply second")
+        # Current task — excluded
+        memory.add_message(session["id"], "user", "Current")
+
+        context = memory.assemble_context(session_id=session["id"])
+        # First should appear before Second
+        first_pos = context.index("First")
+        second_pos = context.index("Second")
+        assert first_pos < second_pos
+
+    def test_no_duplicate_project_files(self, temp_db, tmp_path):
+        """AGENTS.md is not included twice when both root and .junie versions exist."""
+        project = tmp_path / "my-project"
+        project.mkdir()
+        junie_dir = project / ".junie"
+        junie_dir.mkdir()
+        (junie_dir / "AGENTS.md").write_text("Junie guidelines")
+        (project / "AGENTS.md").write_text("Root guidelines")
+
+        session = memory.create_session(title="Test", agent_id="vault")
+        memory.add_message(session["id"], "user", "Hello")
+
+        context = memory.assemble_context(
+            session_id=session["id"],
+            project_path=str(project),
+        )
+        assert "Junie guidelines" in context
+        assert "Root guidelines" in context
+        # Each should appear once
+        assert context.count("Junie guidelines") == 1
+        assert context.count("Root guidelines") == 1

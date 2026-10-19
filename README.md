@@ -6,10 +6,13 @@ A self-hosted dashboard that lets you manage AI coding agents (JetBrains Junie C
 
 - **Manage agents** — define one or more AI agents, each with its own project folder and guidelines.
 - **Shared skills** — create reusable skills (prompts and instructions) and enable them for any agent.
-- **Chat interface** — start conversations with agents, see live progress, and resume sessions later.
-- **Persistent memory** — store and search project knowledge, decisions, and notes across sessions.
+- **Real-time chat** — start conversations with agents and see output stream in real time as it's produced, not just after completion. Sessions persist across page refreshes.
+- **Persistent memory** — store, search, edit, and delete project knowledge, decisions, and notes across sessions.
+- **Context assembly** — agents receive relevant context from session history, project-scoped memories, and project instructions (AGENTS.md), with configurable budget and no cross-session leakage.
 - **Provider abstraction** — Junie CLI is one provider; add others via the `AgentProvider` interface.
-- **Tool permissions** — control file read/write, command execution, Git ops, and network access per agent.
+- **Tool permissions** — control file read/write, command execution, Git ops, and network access per agent. Permissions are displayed in the UI and enforced at execution.
+- **Git safety** — inspect Git status, branch, changed files, and untracked files. Manage isolated worktrees for concurrent work without risking user changes.
+- **Multi-agent coordinator** — run multiple tasks concurrently with dependency resolution, worktree isolation per worker, and explicit approval before integrating changes.
 - **Startup validation** — `/api/status` reports provider availability, missing projects, and configuration issues.
 - **Ollama integration** — optional local LLM for prompt refinement, summarization, and task decomposition.
 - **Obsidian integration** — optional vault integration for reading notes and writing session summaries.
@@ -230,9 +233,15 @@ If the hub was killed while an agent was running, restart the service — it wil
 
 - **LAN only** — the server listens on `0.0.0.0`.  Don't expose it to the internet without a reverse proxy and proper auth.
 - **Runner commands are locked** — only `hub.yaml` on disk controls how agents run.  The API and web UI cannot change command templates.
+- **List-based commands** — all agent commands use list-based arguments, never shell-string interpolation, preventing injection attacks.
+- **Project path validation** — project directories are validated to prevent agents from operating on sensitive system paths.
 - **Bearer token** — all API calls require `HUB_API_KEY`.  The dashboard at `/` works without auth, but any action needs the key.
 - **Name validation** — agent and skill names must match `^[a-z0-9][a-z0-9-]{0,40}$`.
 - **Path safety** — skill paths are verified to stay within the skills directory.
+- **Git safety** — AgentHub never discards user changes, resets branches, or merges automatically. Worktrees are isolated and cleaned up after rejected tasks.
+- **Coordinator approval** — multi-agent tasks require explicit approval before marking worktree-based changes as complete. No automatic integration.
+- **Secret filtering** — API keys and tokens are never logged or returned to the frontend.
+- **Context isolation** — conversation history from one session never leaks into another session or project.
 
 ## CLI Commands
 
@@ -300,6 +309,61 @@ AgentHub can dispatch agent runs to a remote machine (e.g., a Proxmox VM) via SS
 
 Requires an SSH client on the host machine and key-based authentication to the remote target.
 
+## Git Integration
+
+AgentHub provides Git status inspection and safe worktree management without modifying your working tree.
+
+### Git Status
+
+The `/api/git/status` endpoint reports the current branch, dirty state, changed files, staged changes, and untracked files for the selected project. The web dashboard displays this in a Git status panel.
+
+### Worktree Management
+
+The `/api/git/worktrees` endpoint lets you create and remove isolated Git worktrees. Each worktree gets its own branch and working directory, so concurrent agents never conflict.
+
+**Safety guarantees:**
+- AgentHub never discards your changes, resets branches, or merges automatically.
+- Worktrees are cleaned up after rejected tasks; approved worktrees remain for manual review.
+- Explicit approval is required before a worker's changes are marked complete.
+
+## Multi-Agent Coordinator
+
+The coordinator lets you run multiple agent tasks concurrently with dependency resolution and worktree isolation.
+
+### How it works
+
+1. **Create a coordinator** via the API or web UI, specifying a project and max concurrency.
+2. **Add tasks** with names, descriptions, agent assignments, and optional dependencies.
+3. **Execute** — tasks run concurrently when their dependencies are satisfied, each in its own isolated worktree.
+4. **Review & approve** — when a task finishes, it enters `needs_approval` state. Approve to mark it complete, or reject to clean up its worktree.
+
+### Task lifecycle
+
+`PENDING` → `WAITING` (on dependencies) → `RUNNING` → `NEEDS_APPROVAL` → `COMPLETED` or `FAILED`
+
+### API endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/coordinator` | Create a new coordinator |
+| GET | `/api/coordinator` | List all active coordinators |
+| GET | `/api/coordinator/{id}` | Get coordinator details |
+| DELETE | `/api/coordinator/{id}` | Delete a coordinator |
+| POST | `/api/coordinator/{id}/tasks` | Add a task |
+| DELETE | `/api/coordinator/{id}/tasks/{task_id}` | Remove a pending task |
+| POST | `/api/coordinator/{id}/execute` | Start execution |
+| POST | `/api/coordinator/{id}/cancel` | Cancel all tasks |
+| POST | `/api/coordinator/{id}/tasks/{task_id}/approve` | Approve a task |
+| POST | `/api/coordinator/{id}/tasks/{task_id}/reject` | Reject a task |
+
+## Real-Time Streaming
+
+AgentHub streams agent output in real time using Server-Sent Events (SSE). As the agent produces output, each line is sent to the browser immediately — no waiting for the run to complete.
+
+- **Reconnect support** — if the browser disconnects, reconnecting clients receive buffered events.
+- **Bounded retention** — max 1000 events per run, cleaned up 30 seconds after completion.
+- **Event isolation** — events from one run never leak into another session.
+
 ## Running Tests
 
 ```bash
@@ -307,6 +371,18 @@ python -m pytest tests/ -v
 ```
 
 Tests use a fake agent script — no real `junie` binary needed.  POSIX-only tests (file locking, process groups) are skipped on Windows.
+
+### Test coverage (348 tests)
+
+| Area | Tests | What's covered |
+|------|-------|----------------|
+| Runner & streaming | ~80 | Subprocess output, incremental SSE events, timeouts, process cleanup, missing binaries, failed runs |
+| API & SSE | ~70 | All API endpoints, SSE buffering, event isolation, coordinator endpoints |
+| Memory & context | ~50 | Session CRUD, memory CRUD, context assembly, ordering, deduplication, truncation, project isolation |
+| Providers & permissions | ~30 | Command safety, permission flags, list-based arguments |
+| Git service | ~15 | Dirty detection, untracked files, worktree create/remove |
+| Coordinator | ~38 | Task management, dependencies, approval workflow, worktree isolation, API endpoints |
+| Config & skills | ~65 | Configuration loading, skill management, name validation, path safety |
 
 ## Web UI Manual Checks
 
@@ -317,6 +393,14 @@ Tests use a fake agent script — no real `junie` binary needed.  POSIX-only tes
 - [ ] Dark/light mode follows system preference
 - [ ] First visit prompts for API key
 - [ ] No external URLs loaded (works offline)
+- [ ] Chat shows incremental output in real time as the agent runs
+- [ ] Session renaming works via double-click on session title
+- [ ] Sessions persist after page refresh (localStorage)
+- [ ] Memory page allows inline editing of memories
+- [ ] Git status panel shows branch, changed files, and untracked files
+- [ ] Coordinator view shows task plans, dependencies, and worker status
+- [ ] Permission indicators (✓/✗) display for selected agent
+- [ ] Auto-scroll respects manual scrolling in chat
 
 ## Manual Setup (Advanced)
 
