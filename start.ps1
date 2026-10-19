@@ -50,12 +50,40 @@ if ($needsSetup) {
 
     # -- 2. Check Junie CLI (non-blocking warning) ----------------------
     $junie = Get-Command junie -ErrorAction SilentlyContinue
+
+    # Fallback: search JetBrains installation directories for Junie CLI
+    if (-not $junie) {
+        $jetbrainsPaths = @(
+            Join-Path $env:LOCALAPPDATA 'JetBrains'
+            'C:\Program Files\JetBrains'
+        )
+        foreach ($baseDir in $jetbrainsPaths) {
+            if (Test-Path $baseDir) {
+                $junieBat = Get-ChildItem -Path $baseDir -Recurse -Depth 4 -Filter 'junie.bat' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+                if ($junieBat) {
+                    $junie = $junieBat
+                    break
+                }
+            }
+        }
+    }
+
     if (-not $junie) {
         Write-Host ""
         Write-Host "! Junie CLI not found on PATH - agents won't run until it's installed." -ForegroundColor $YELLOW
         Write-Host "   Install from https://junie.jetbrains.com" -ForegroundColor $YELLOW
     } else {
-        $junieVer = junie --version 2>&1 | Select-Object -First 1
+        # Determine the path to execute: Get-Command returns .Source, Get-ChildItem returns .FullName
+        $juniePath = if ($junie.Source) { $junie.Source } elseif ($junie.FullName) { $junie.FullName } else { $junie }
+        $junieVer = $null
+        $oldErrorAction = $ErrorActionPreference
+        $ErrorActionPreference = 'SilentlyContinue'
+        $result = cmd /c "$juniePath --version 2>nul"
+        $ErrorActionPreference = $oldErrorAction
+        if ($result) {
+            $junieVer = ($result | Where-Object { $_ -match 'Junie' } | Select-Object -First 1).ToString().Trim()
+        }
+        if (-not $junieVer) { $junieVer = '(version unknown)' }
         Write-Host "V Junie CLI found ($junieVer)." -ForegroundColor $GREEN
     }
 
