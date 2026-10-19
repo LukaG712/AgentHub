@@ -122,7 +122,6 @@ if (Test-Path $ENV_FILE) {
             $value = $value.Trim().Trim('"').Trim("'")
             if ($key) {
                 [Environment]::SetEnvironmentVariable($key, $value, 'Process')
-                $env:$key = $value
             }
         }
     }
