@@ -2,6 +2,12 @@
 
 All notable changes to Agent Hub will be documented in this file.
 
+## [1.0.2] - 2026-10-19
+
+### Bug fixes
+- **Windows compatibility** — replaced `os.kill(pid, 0)` with `psutil.pid_exists()` for reliable process checking on Windows
+- **Windows .bat execution** — resolve `junie` binary to full path on Windows so `.bat` files execute correctly via subprocess
+
 ## [1.0.1] - 2026-10-19
 
 ### Installation improvements
