@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-hub"
+version = "1.0.0"
+description = "Self-hosted dashboard for managing AI coding agents (JetBrains Junie CLI)"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+authors = [
+    {name = "LukaG712"},
+]
+keywords = ["ai", "agent", "junie", "dashboard", "coding-assistant"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "fastapi==0.115.0",
+    "uvicorn==0.32.0",
+    "pyyaml==6.0.2",
+    "httpx==0.27.0",
+    "requests==2.31.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/LukaG712/AgentHub"
+Repository = "https://github.com/LukaG712/AgentHub"
+Changelog = "https://github.com/LukaG712/AgentHub/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.0",
+]
+
+[project.scripts]
+agent-hub = "hub.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["hub*"]
+
+[tool.setuptools.package-data]
+"hub" = ["static/**/*"]

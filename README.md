@@ -1,5 +1,9 @@
 # Agent Hub
 
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/Version-1.0.0-green.svg)](CHANGELOG.md)
+
 A self-hosted dashboard that lets you manage AI coding agents (JetBrains Junie CLI), share skills between them, and control everything from a web browser.  Runs entirely on your machine — no cloud, no paid APIs, no internet connection needed once it's set up.
 
 ## What it does
@@ -33,15 +37,40 @@ Together they give you a full pipeline: chat → prompt improvement → agent ex
 
 Make sure these are in place **before** running the setup:
 
-1. **Python 3.10+** — Agent Hub runs on Linux and Windows.
+1. **Python 3.11+** — Agent Hub runs on Linux and Windows.
 2. **Junie installed** — install the [Junie CLI](https://junie.jetbrains.com) and make sure `junie` is on your PATH.
 3. **Junie logged in** — log in to Junie (`junie --auth=...`) as the **same user** that will run the hub.  The agents reuse this login.
 4. **Project directories ready** — if your agent works on an Obsidian vault, mount it at the path you'll put in `hub.yaml`.  For other agents, create the project folders first.
 5. **Use a scratch copy first** — when testing, point agents at a copy of your data, not the real thing.
 
-## Quick Start
+## Installation
 
-### Linux
+### Option 1: Windows .exe (no Python required)
+
+Download `agent-hub.exe` from the [latest release](https://github.com/LukaG712/AgentHub/releases/latest), then:
+
+1. Generate an API key: open PowerShell and run `python -c "import secrets; print(secrets.token_urlsafe(32))"` (or use any random string generator).
+2. Copy `hub.example.yaml` to `hub.yaml` next to the .exe and edit it to configure your agents.
+3. Create a `.env` file next to the .exe with `HUB_API_KEY=your-key-here`.
+4. Run `agent-hub.exe serve` to start the server.
+
+Open **http://localhost:8080** in your browser and enter the API key.
+
+### Option 2: Install via pip
+
+```bash
+pip install agent-hub
+```
+
+Then configure `hub.yaml` and set the `HUB_API_KEY` environment variable, and start the server:
+
+```bash
+agent-hub serve
+```
+
+### Option 3: Clone and run (recommended for development)
+
+#### Linux
 
 ```bash
 git clone https://github.com/LukaG712/AgentHub.git
@@ -52,14 +81,14 @@ cd AgentHub
 
 Then open **http://localhost:8080** in your browser and enter the API key that `setup.sh` printed.
 
-### Windows
+#### Windows
 
 ```powershell
 git clone https://github.com/LukaG712/AgentHub.git
 cd AgentHub
 python -m venv .venv
 .\.venv\Scripts\activate
-pip install -r requirements.txt
+pip install -e .
 ```
 
 Create a `.env` file with your API key:

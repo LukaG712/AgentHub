@@ -148,6 +148,15 @@ def cmd_sync(args):
         print("All agents synced.")
 
 
+def cmd_serve(args):
+    """Start the web server."""
+    import uvicorn
+    port = args.port
+    host = args.host
+    print(f"Starting Agent Hub on {host}:{port} ...")
+    uvicorn.run("hub.api:app", host=host, port=port, reload=args.reload)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="hub",
@@ -198,6 +207,13 @@ def main(argv=None):
     p_sync = subparsers.add_parser("sync", help="Sync agent skills and guidelines")
     p_sync.add_argument("agent", nargs="?", help="Agent name (sync all if omitted)")
     p_sync.set_defaults(func=cmd_sync)
+
+    # hub serve
+    p_serve = subparsers.add_parser("serve", help="Start the web server")
+    p_serve.add_argument("--host", default="0.0.0.0", help="Bind address (default: 0.0.0.0)")
+    p_serve.add_argument("--port", type=int, default=8080, help="Port (default: 8080)")
+    p_serve.add_argument("--reload", action="store_true", help="Enable auto-reload on code changes")
+    p_serve.set_defaults(func=cmd_serve)
 
     args = parser.parse_args(argv)
     if args.command is None:
