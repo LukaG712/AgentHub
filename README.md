@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/Version-1.0.1-green.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.0.3-green.svg)](CHANGELOG.md)
 
 A self-hosted dashboard that lets you manage AI coding agents (JetBrains Junie CLI), share skills between them, and control everything from a web browser.  Runs entirely on your machine — no cloud, no paid APIs, no internet connection needed once it's set up.
 
@@ -33,19 +33,9 @@ Agent Hub pairs well with [JunieOrchestrator](https://github.com/LukaG712/JunieO
 
 Together they give you a full pipeline: chat → prompt improvement → agent execution → results.  You can use Agent Hub on its own too — the web dashboard lets you send tasks directly.
 
-## Before you start
-
-Make sure these are in place **before** running the setup:
-
-1. **Python 3.11+** — Agent Hub runs on Linux and Windows.
-2. **Junie installed** — install the [Junie CLI](https://junie.jetbrains.com) and make sure `junie` is on your PATH.
-3. **Junie logged in** — log in to Junie (`junie --auth=...`) as the **same user** that will run the hub.  The agents reuse this login.
-4. **Project directories ready** — if your agent works on an Obsidian vault, mount it at the path you'll put in `hub.yaml`.  For other agents, create the project folders first.
-5. **Use a scratch copy first** — when testing, point agents at a copy of your data, not the real thing.
-
 ## Quick Start
 
-The fastest way to get started — **one command** clones, sets up, and launches the dashboard:
+**One command** clones, sets up, and launches the dashboard:
 
 ### Linux / macOS
 
@@ -59,51 +49,32 @@ git clone https://github.com/LukaG712/AgentHub.git && cd AgentHub && ./start.sh
 git clone https://github.com/LukaG712/AgentHub.git; cd AgentHub; .\start.ps1
 ```
 
-The start script automatically handles first-time setup (virtual environment, dependencies, API key generation, config file). Your browser will open to **http://localhost:8080** — enter the displayed API key when prompted.
+That's it. The script handles everything automatically on first run:
 
-> **Note:** [Junie CLI](https://junie.jetbrains.com) must be installed and on your PATH before running the start script.
+- Checks Python 3.11+ is installed
+- Creates a virtual environment and installs dependencies
+- Generates a config file (`hub.yaml`) and API key
+- Starts the server and opens your browser to **http://localhost:8080**
 
-## Installation
+Enter the displayed API key when prompted, then edit `hub.yaml` to configure your agents.
 
-### Option 1: Windows .exe (no Python required)
+> **Tip:** [Junie CLI](https://junie.jetbrains.com) is needed for agents to run, but you can explore the dashboard first and install it later.
 
-> **Note:** You still need [Junie CLI](https://junie.jetbrains.com) installed and on your PATH for agents to work.
+### Windows .exe (no Python required)
 
-Download `agent-hub.exe` from the [latest release](https://github.com/LukaG712/AgentHub/releases/latest), then:
+Download `agent-hub.exe` from the [latest release](https://github.com/LukaG712/AgentHub/releases/latest), then run `agent-hub.exe serve`.  Copy `hub.example.yaml` to `hub.yaml` and create a `.env` with `HUB_API_KEY=your-key` before starting.
 
-1. Copy `hub.example.yaml` to `hub.yaml` next to the .exe and edit it to configure your agents.
-2. Create a `.env` file next to the .exe with `HUB_API_KEY=your-random-key-here`.
-3. Run `agent-hub.exe serve` to start the server.
+> **Note:** You still need [Junie CLI](https://junie.jetbrains.com) on your PATH for agents to work.
 
-Open **http://localhost:8080** in your browser and enter the API key.
+### Before you run agents
 
-### Option 2: Clone and run
-
-#### Linux
-
-```bash
-git clone https://github.com/LukaG712/AgentHub.git
-cd AgentHub
-./start.sh
-```
-
-The `start.sh` script runs setup automatically on first launch, then starts the server and opens your browser.
-
-#### Windows
-
-```powershell
-git clone https://github.com/LukaG712/AgentHub.git
-cd AgentHub
-.\start.ps1
-```
-
-The `start.ps1` script runs setup automatically on first launch, then starts the server and opens your browser.
-
-That's it.  The dashboard lets you edit agents, create skills, send tasks, chat with agents, and manage memories.
+1. **Install Junie CLI** — get it from [junie.jetbrains.com](https://junie.jetbrains.com) and log in (`junie --auth=...`) as the same user that runs the hub.
+2. **Configure agents** — edit `hub.yaml` to set `project_dir` for each agent.
+3. **Use a scratch copy** — when testing, point agents at a copy of your data, not the real thing.
 
 ## Running in the background
 
-To keep Agent Hub running after you log out, install it as a systemd service:
+To keep Agent Hub running after you log out, install it as a systemd service (Linux):
 
 ```bash
 sudo ./install_service.sh
@@ -116,6 +87,8 @@ systemctl status agent-hub       # check status
 journalctl -u agent-hub -f       # live logs
 sudo systemctl stop agent-hub    # stop
 ```
+
+On Windows, run `.\start.ps1` in a console or Task Scheduler to keep it running.
 
 ## Configuration
 
@@ -427,7 +400,7 @@ Tests use a fake agent script — no real `junie` binary needed.  POSIX-only tes
 
 ## Manual Setup (Advanced)
 
-If you prefer not to use the setup scripts, do these steps manually:
+If you prefer not to use the start scripts, do these steps manually:
 
 ### Linux
 
@@ -437,7 +410,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 cp hub.example.yaml hub.yaml
 # Edit hub.yaml
-export HUB_API_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+echo "HUB_API_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')" > .env
 uvicorn hub.api:app --host 0.0.0.0 --port 8080
 ```
 
