@@ -317,6 +317,44 @@ def _kill_process_group(run: Run) -> bool:
         return False
 
 
+def _read_stream(
+    stream,
+    stream_name: str,
+    log_path: Path,
+    output_accumulator: list,
+    lock: threading.Lock,
+    output_callback: Optional[Callable[[str, str], None]] = None,
+) -> None:
+    """Read a single stream (stdout or stderr) and forward to log, accumulator, and callback.
+
+    Args:
+        stream: The file-like stream to read (process.stdout or process.stderr).
+        stream_name: 'stdout' or 'stderr' for labeling.
+        log_path: Path to the log file.
+        output_accumulator: Thread-safe list for collecting output.
+        lock: Lock for protecting the accumulator.
+        output_callback: Optional callback(line_type, text) called for each line.
+    """
+    if stream is None:
+        return
+    # Open log file in append mode so both threads can write concurrently
+    with open(log_path, "a", encoding="utf-8") as log_f:
+        try:
+            for line in stream:
+                text = line if isinstance(line, str) else line.decode("utf-8", errors="replace")
+                log_f.write(f"[{stream_name}]{text}")
+                log_f.flush()
+                with lock:
+                    output_accumulator.append(text)
+                if output_callback is not None:
+                    try:
+                        output_callback(stream_name, text)
+                    except Exception:
+                        pass  # Don't let callback failures break streaming
+        except ValueError:
+            pass  # Stream closed
+
+
 def _stream_output(
     process: subprocess.Popen,
     log_path: Path,
@@ -324,8 +362,11 @@ def _stream_output(
     lock: threading.Lock,
     output_callback: Optional[Callable[[str, str], None]] = None,
 ) -> None:
-    """Reader thread: stream stdout/stderr to log file, accumulator, and optional callback.
-    
+    """Reader thread: stream stdout/stderr concurrently to log file, accumulator, and callback.
+
+    Reads stdout and stderr in separate threads to prevent deadlock when one pipe's
+    buffer fills up while the other is still open.
+
     Args:
         process: The running subprocess.
         log_path: Path to the log file.
@@ -334,37 +375,24 @@ def _stream_output(
         output_callback: Optional callback(line_type, text) called for each line.
             line_type is 'stdout' or 'stderr'. Called from the reader thread.
     """
-    with open(log_path, "w", encoding="utf-8") as log_f:
-        # Read stdout
-        try:
-            for line in process.stdout:
-                text = line if isinstance(line, str) else line.decode("utf-8", errors="replace")
-                log_f.write(f"[stdout]{text}")
-                log_f.flush()
-                with lock:
-                    output_accumulator.append(text)
-                if output_callback is not None:
-                    try:
-                        output_callback("stdout", text)
-                    except Exception:
-                        pass  # Don't let callback failures break streaming
-        except ValueError:
-            pass  # Stream closed
-        # Read stderr
-        try:
-            for line in process.stderr:
-                text = line if isinstance(line, str) else line.decode("utf-8", errors="replace")
-                log_f.write(f"[stderr]{text}")
-                log_f.flush()
-                with lock:
-                    output_accumulator.append(text)
-                if output_callback is not None:
-                    try:
-                        output_callback("stderr", text)
-                    except Exception:
-                        pass  # Don't let callback failures break streaming
-        except ValueError:
-            pass  # Stream closed
+    # Create the log file (truncate) before reader threads open it in append mode
+    with open(log_path, "w", encoding="utf-8") as f:
+        pass
+
+    stdout_thread = threading.Thread(
+        target=_read_stream,
+        args=(process.stdout, "stdout", log_path, output_accumulator, lock, output_callback),
+        daemon=True,
+    )
+    stderr_thread = threading.Thread(
+        target=_read_stream,
+        args=(process.stderr, "stderr", log_path, output_accumulator, lock, output_callback),
+        daemon=True,
+    )
+    stdout_thread.start()
+    stderr_thread.start()
+    stdout_thread.join()
+    stderr_thread.join()
 
 
 def run_agent(

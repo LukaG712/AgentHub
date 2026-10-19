@@ -680,35 +680,92 @@ class TestSSEStreaming:
         from hub.api import _SSE_MAX_EVENTS
         assert _SSE_MAX_EVENTS == 1000
 
-    def test_sse_send_event_drops_when_full(self, client):
-        """Test that _sse_send_event handles full buffer gracefully."""
-        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS
-        import queue
+    def test_sse_send_event_bounded_retention(self, client):
+        """Test that _sse_send_event evicts oldest events when buffer is full."""
+        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
+            _sse_event_store, _sse_event_store_lock
         run_id = "test-full-buffer"
-        # Create a small buffer for testing
-        from hub.api import _sse_buffers, _sse_buffers_lock
-        with _sse_buffers_lock:
-            _sse_buffers[run_id] = queue.Queue(maxsize=2)
+        # Temporarily lower the max for testing
+        old_max = _SSE_MAX_EVENTS
+        import hub.api as api_mod
+        api_mod._SSE_MAX_EVENTS = 3
         try:
-            # Fill the buffer
             _sse_send_event(run_id, "output", '{"text": "line1"}')
             _sse_send_event(run_id, "output", '{"text": "line2"}')
-            # This should not raise — it should drop silently
             _sse_send_event(run_id, "output", '{"text": "line3"}')
+            # Buffer is full — next event should evict the oldest
+            _sse_send_event(run_id, "output", '{"text": "line4"}')
+            with _sse_event_store_lock:
+                store = _sse_event_store.get(run_id, [])
+            assert len(store) == 3
+            # Oldest event should be evicted
+            assert "line1" not in store[0]
         finally:
+            api_mod._SSE_MAX_EVENTS = old_max
+            _sse_remove_buffer(run_id)
+
+    def test_sse_terminal_event_never_dropped(self, client):
+        """Test that terminal events (complete, error, end) are never silently dropped."""
+        from hub.api import _sse_send_event, _sse_remove_buffer, \
+            _sse_event_store, _sse_event_store_lock
+        import hub.api as api_mod
+        run_id = "test-terminal"
+        old_max = api_mod._SSE_MAX_EVENTS
+        api_mod._SSE_MAX_EVENTS = 3
+        try:
+            # Fill the buffer with non-terminal events
+            _sse_send_event(run_id, "output", '{"text": "line1"}')
+            _sse_send_event(run_id, "output", '{"text": "line2"}')
+            _sse_send_event(run_id, "output", '{"text": "line3"}')
+            # Terminal event must be delivered even though buffer is full
+            _sse_send_event(run_id, "complete", '{"state": "done"}')
+            with _sse_event_store_lock:
+                store = _sse_event_store.get(run_id, [])
+            # The complete event must be present
+            found_complete = any("event: complete" in ev for ev in store)
+            assert found_complete, "Terminal event was silently dropped"
+        finally:
+            api_mod._SSE_MAX_EVENTS = old_max
             _sse_remove_buffer(run_id)
 
     def test_sse_buffer_cleanup(self, client):
         """Test that SSE buffer is cleaned up after run ends."""
-        from hub.api import _sse_buffers, _sse_buffers_lock, _sse_remove_buffer
+        from hub.api import _sse_event_store, _sse_event_store_lock, _sse_remove_buffer
         run_id = "test-cleanup"
         from hub.api import _sse_buffer_for_run
         buf = _sse_buffer_for_run(run_id)
-        with _sse_buffers_lock:
-            assert run_id in _sse_buffers
+        with _sse_event_store_lock:
+            assert run_id in _sse_event_store
         _sse_remove_buffer(run_id)
-        with _sse_buffers_lock:
-            assert run_id not in _sse_buffers
+        with _sse_event_store_lock:
+            assert run_id not in _sse_event_store
+
+    def test_sse_multi_client_independent(self, client):
+        """Test that multiple SSE clients each receive the full event stream."""
+        from hub.api import _sse_send_event, _sse_remove_buffer, \
+            _sse_event_store, _sse_event_store_lock
+        run_id = "test-multi-client"
+        try:
+            # Simulate events being sent
+            _sse_send_event(run_id, "start", '{"state": "working"}')
+            _sse_send_event(run_id, "output", '{"text": "line1"}')
+            _sse_send_event(run_id, "output", '{"text": "line2"}')
+            _sse_send_event(run_id, "complete", '{"state": "done"}')
+            _sse_send_event(run_id, "end", "")
+            # Both "clients" read the full store independently
+            with _sse_event_store_lock:
+                store = list(_sse_event_store.get(run_id, []))
+            # Client 1 reads all events
+            assert len(store) == 5
+            assert "event: start" in store[0]
+            assert "event: complete" in store[3]
+            assert "event: end" in store[4]
+            # Client 2 reads the same full list (not consumed by client 1)
+            with _sse_event_store_lock:
+                store2 = list(_sse_event_store.get(run_id, []))
+            assert len(store2) == 5
+        finally:
+            _sse_remove_buffer(run_id)
 
     def test_sse_auth_via_query_param(self, client):
         """Test that SSE endpoint accepts token via query parameter."""
@@ -881,6 +938,90 @@ class TestSSEStreaming:
         assert resp.status_code == 200
         text = resp.text
         assert "event: error" in text or "event: end" in text
+
+    def test_sse_stream_specific_run_id(self, client):
+        """Test streaming a specific run_id via query parameter."""
+        create = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Run ID Test", "agent_id": "vault"},
+        )
+        session_id = create.json()["id"]
+        # Dispatch and get run_id
+        dispatch = client.post(
+            f"/api/sessions/{session_id}/messages",
+            headers=HEADERS,
+            json={"content": "specific run task"},
+        )
+        run_id = dispatch.json()["run_id"]
+        import time
+        time.sleep(2)
+        # Stream using specific run_id
+        resp = client.get(
+            f"/api/sessions/{session_id}/stream?token=test-secret-key&run_id={run_id}",
+        )
+        assert resp.status_code == 200
+        text = resp.text
+        assert run_id in text
+
+    def test_sse_stream_invalid_run_id(self, client):
+        """Test streaming a non-existent run_id returns 404."""
+        create = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Invalid Run Test", "agent_id": "vault"},
+        )
+        session_id = create.json()["id"]
+        resp = client.get(
+            f"/api/sessions/{session_id}/stream?token=test-secret-key&run_id=nonexistent-run-id",
+        )
+        assert resp.status_code == 404
+
+    def test_sse_overlapping_runs_same_session(self, client):
+        """Test that two runs in the same session keep their events separate."""
+        create = client.post(
+            "/api/sessions",
+            headers=HEADERS,
+            json={"title": "Overlapping Test", "agent_id": "vault"},
+        )
+        session_id = create.json()["id"]
+        # First run
+        d1 = client.post(
+            f"/api/sessions/{session_id}/messages",
+            headers=HEADERS,
+            json={"content": "first overlapping task"},
+        ).json()
+        run_id_1 = d1["run_id"]
+        import time
+        time.sleep(2)
+        # Second run in the same session
+        d2 = client.post(
+            f"/api/sessions/{session_id}/messages",
+            headers=HEADERS,
+            json={"content": "second overlapping task"},
+        ).json()
+        run_id_2 = d2["run_id"]
+        time.sleep(2)
+        # Stream run 1 specifically
+        resp1 = client.get(
+            f"/api/sessions/{session_id}/stream?token=test-secret-key&run_id={run_id_1}",
+        )
+        text1 = resp1.text
+        assert run_id_1 in text1
+        assert run_id_2 not in text1
+        # Stream run 2 specifically
+        resp2 = client.get(
+            f"/api/sessions/{session_id}/stream?token=test-secret-key&run_id={run_id_2}",
+        )
+        text2 = resp2.text
+        assert run_id_2 in text2
+        assert run_id_1 not in text2
+        # Default stream (no run_id) should return the latest run
+        resp_default = client.get(
+            f"/api/sessions/{session_id}/stream?token=test-secret-key",
+        )
+        text_default = resp_default.text
+        assert run_id_2 in text_default
 
 
 class TestRemote:

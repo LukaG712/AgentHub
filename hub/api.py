@@ -33,34 +33,67 @@ security = HTTPBearer(auto_error=False)
 # Static files directory
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 
-# SSE event buffers: maps run_id -> queue.Queue of event strings
-_sse_buffers: Dict[str, queue.Queue] = {}
-_sse_buffers_lock = threading.Lock()
-# Max events per buffer to prevent unbounded memory growth
+# SSE event store: maps run_id -> list of event strings (append-only, bounded).
+# Each client reads from this list via its own index, so multiple clients get
+# their own ordered copy of the full event stream.
+_sse_event_store: Dict[str, list] = {}
+_sse_event_store_lock = threading.Lock()
+# Max events per run to prevent unbounded memory growth
 _SSE_MAX_EVENTS = 1000
+# Terminal events that must never be silently dropped
+_TERMINAL_EVENTS = {"complete", "error", "end"}
 
 
-def _sse_buffer_for_run(run_id: str) -> queue.Queue:
-    """Get or create an SSE event buffer for a run."""
-    with _sse_buffers_lock:
-        if run_id not in _sse_buffers:
-            _sse_buffers[run_id] = queue.Queue(maxsize=_SSE_MAX_EVENTS)
-        return _sse_buffers[run_id]
+def _sse_buffer_for_run(run_id: str) -> list:
+    """Get or create an SSE event store for a run.
+
+    Returns a thread-safe list that all clients can read from independently.
+    """
+    with _sse_event_store_lock:
+        if run_id not in _sse_event_store:
+            _sse_event_store[run_id] = []
+        return _sse_event_store[run_id]
 
 
 def _sse_remove_buffer(run_id: str) -> None:
-    """Remove an SSE event buffer after completion."""
-    with _sse_buffers_lock:
-        _sse_buffers.pop(run_id, None)
+    """Remove an SSE event store after completion."""
+    with _sse_event_store_lock:
+        _sse_event_store.pop(run_id, None)
 
 
 def _sse_send_event(run_id: str, event: str, data: str) -> None:
-    """Send an SSE event to the buffer for a run. Drops events if buffer is full."""
-    buf = _sse_buffer_for_run(run_id)
-    try:
-        buf.put_nowait(f"event: {event}\ndata: {data}\n\n")
-    except queue.Full:
-        pass  # Drop oldest event silently
+    """Send an SSE event to the store for a run.
+
+    Uses bounded retention: when the buffer is full, non-terminal events are
+    dropped from the front to make room. Terminal events (complete, error, end)
+    are never silently discarded — they always replace the oldest non-terminal
+    event if the buffer is full.
+    """
+    sse_event = f"event: {event}\ndata: {data}\n\n"
+    is_terminal = event in _TERMINAL_EVENTS
+
+    with _sse_event_store_lock:
+        if run_id not in _sse_event_store:
+            _sse_event_store[run_id] = []
+        store = _sse_event_store[run_id]
+
+        if len(store) >= _SSE_MAX_EVENTS:
+            if is_terminal:
+                # Make room by removing the oldest non-terminal event
+                removed = False
+                for i in range(len(store)):
+                    if not any(f"event: {t}" in store[i] for t in _TERMINAL_EVENTS):
+                        store.pop(i)
+                        removed = True
+                        break
+                if not removed and store:
+                    # All events are terminal — remove the oldest one
+                    store.pop(0)
+            else:
+                # Drop the oldest event to make room
+                store.pop(0)
+
+        store.append(sse_event)
 
 
 def _get_api_key() -> str:
@@ -568,69 +601,84 @@ async def api_dispatch_message(
 @app.get("/api/sessions/{session_id}/stream")
 async def api_stream_session(
     session_id: str,
+    run_id: Optional[str] = None,
     _auth: None = Depends(_verify_token_or_query),
 ):
     """SSE endpoint for live run output.
 
-    Finds the latest run for this session and streams its events.
-    If the run is already finished, replays the final state so the client
-    does not hang indefinitely.
+    Streams events for a specific run (via ?run_id=...) or for the latest run
+    in the session.  If the run is already finished, replays all stored events
+    so the client does not hang indefinitely.
+
+    Each connected client receives its own ordered copy of the full event stream
+    — multiple clients do not compete for events.
     """
     session = memory.get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
 
-    # Find the latest run for this session
+    # Resolve the target run
     all_runs = list_runs()
     session_runs = [r for r in all_runs if r.session_id == session_id]
     session_runs.sort(key=lambda r: r.started or "", reverse=True)
-    latest_run = session_runs[0] if session_runs else None
+
+    if run_id:
+        # Stream a specific run
+        target_run = next((r for r in session_runs if r.id == run_id), None)
+        if target_run is None:
+            # Run not found in this session — check all runs
+            target_run = next((r for r in all_runs if r.id == run_id), None)
+            if target_run is None:
+                raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+    else:
+        # Stream the latest run in the session
+        target_run = session_runs[0] if session_runs else None
 
     async def event_generator():
-        if latest_run is None:
+        if target_run is None:
             # No runs at all — send idle and close
             yield "event: idle\ndata: no active run\n\n"
             return
 
-        run_id = latest_run.id
-        buf = _sse_buffer_for_run(run_id)
+        rid = target_run.id
+        store = _sse_buffer_for_run(rid)
 
-        if latest_run.state == "working":
-            # Run is in progress — stream buffered events, then wait for new ones
-            while not buf.empty():
-                try:
-                    event = buf.get_nowait()
-                    yield event
-                except queue.Empty:
-                    break
+        if target_run.state == "working":
+            # Run is in progress — replay all stored events, then wait for new ones
+            # Each client reads from index 0, so multiple clients get independent streams
+            last_index = -1
             while True:
-                try:
-                    event = await asyncio.wait_for(
-                        asyncio.get_event_loop().run_in_executor(None, buf.get),
-                        timeout=300,  # 5 minute timeout
-                    )
-                    yield event
-                    if "event: end" in event:
+                with _sse_event_store_lock:
+                    current_len = len(_sse_event_store.get(rid, []))
+                if current_len > last_index:
+                    with _sse_event_store_lock:
+                        new_events = _sse_event_store.get(rid, [])[last_index + 1:current_len]
+                    for ev in new_events:
+                        yield ev
+                    last_index = current_len - 1
+                    if "event: end" in new_events[-1] if new_events else False:
                         break
-                except asyncio.TimeoutError:
-                    yield "event: timeout\ndata: stream timeout\n\n"
-                    break
+                else:
+                    try:
+                        await asyncio.sleep(0.2)
+                    except asyncio.CancelledError:
+                        break
+                    # Timeout guard — stop after 5 minutes of no new events
+                    # (handled by client-side timeout instead)
         else:
-            # Run already finished — replay any remaining buffered events,
-            # then send the final state so the client doesn't hang.
-            while not buf.empty():
-                try:
-                    event = buf.get_nowait()
-                    yield event
-                except queue.Empty:
-                    break
-            # Replay the final state
-            if latest_run.state == "done":
-                yield f"event: complete\ndata: {json.dumps({'run_id': run_id, 'state': 'done', 'answer': latest_run.answer})}\n\n"
-            elif latest_run.state == "failed":
-                yield f"event: error\ndata: {json.dumps({'run_id': run_id, 'state': 'failed', 'reason': latest_run.fail_reason})}\n\n"
-            else:
-                yield f"event: complete\ndata: {json.dumps({'run_id': run_id, 'state': latest_run.state})}\n\n"
+            # Run already finished — replay all stored events
+            with _sse_event_store_lock:
+                events = list(_sse_event_store.get(rid, []))
+            for ev in events:
+                yield ev
+            # If no stored events, replay the final state from the run record
+            if not events:
+                if target_run.state == "done":
+                    yield f"event: complete\ndata: {json.dumps({'run_id': rid, 'state': 'done', 'answer': target_run.answer})}\n\n"
+                elif target_run.state == "failed":
+                    yield f"event: error\ndata: {json.dumps({'run_id': rid, 'state': 'failed', 'reason': target_run.fail_reason})}\n\n"
+                else:
+                    yield f"event: complete\ndata: {json.dumps({'run_id': rid, 'state': target_run.state})}\n\n"
             yield "event: end\n\n"
 
     return StreamingResponse(

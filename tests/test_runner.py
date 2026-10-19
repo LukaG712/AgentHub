@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+import threading
 import time
 from pathlib import Path
 from unittest.mock import patch
@@ -539,3 +540,56 @@ class TestStreamingOutput:
         # Should not raise
         run = run_agent("vault", "test", output_callback=bad_callback)
         assert run.state == "done"
+
+    def test_concurrent_stdout_stderr(self, hub_env):
+        """Test that stdout and stderr are read concurrently (no deadlock).
+
+        Uses a script that writes to both stdout and stderr simultaneously.
+        With sequential reading, a large stderr output could block while
+        stdout is still open, causing a deadlock.
+        """
+        tmp_path, config_path = hub_env
+        # Create a script that writes to both stdout and stderr
+        script = tmp_path / "dual_output.py"
+        script.write_text(
+            "#!/usr/bin/env python3\n"
+            "import sys, time\n"
+            "# Write to stderr first (large output)\n"
+            "for i in range(100):\n"
+            "    sys.stderr.write(f'stderr line {i}\\n')\n"
+            "    sys.stderr.flush()\n"
+            "# Write to stdout\n"
+            "for i in range(100):\n"
+            "    sys.stdout.write(f'stdout line {i}\\n')\n"
+            "    sys.stdout.flush()\n"
+            "sys.stdout.write('done\\n')\n"
+            "sys.stderr.write('stderr done\\n')\n"
+        )
+        from hub.config import load_config
+        config = load_config(config_path)
+        python = sys.executable
+        config["runners"]["junie"]["command"] = [
+            python, str(script), "--task", "{task}", "--project", "{project}"
+        ]
+        save_config(config, config_path)
+
+        received = []
+        lock = threading.Lock()
+
+        def callback(line_type, text):
+            with lock:
+                received.append((line_type, text.strip()))
+
+        run = run_agent("vault", "dual output test", output_callback=callback)
+        assert run.state == "done"
+        with lock:
+            stdout_lines = [t for lt, t in received if lt == "stdout"]
+            stderr_lines = [t for lt, t in received if lt == "stderr"]
+        # Both streams should have been read — no deadlock
+        assert len(stdout_lines) > 0, "stdout should have output"
+        assert len(stderr_lines) > 0, "stderr should have output"
+        # Verify we got the final markers
+        stdout_texts = " ".join(stdout_lines)
+        stderr_texts = " ".join(stderr_lines)
+        assert "done" in stdout_texts, "stdout final marker missing"
+        assert "stderr done" in stderr_texts, "stderr final marker missing"
