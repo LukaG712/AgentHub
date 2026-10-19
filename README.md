@@ -61,9 +61,13 @@ git clone https://github.com/LukaG712/AgentHub.git; cd AgentHub; .\start.ps1
 
 The start script automatically handles first-time setup (virtual environment, dependencies, API key generation, config file). Your browser will open to **http://localhost:8080** — enter the displayed API key when prompted.
 
+> **Note:** [Junie CLI](https://junie.jetbrains.com) must be installed and on your PATH before running the start script.
+
 ## Installation
 
 ### Option 1: Windows .exe (no Python required)
+
+> **Note:** You still need [Junie CLI](https://junie.jetbrains.com) installed and on your PATH for agents to work.
 
 Download `agent-hub.exe` from the [latest release](https://github.com/LukaG712/AgentHub/releases/latest), then:
 
@@ -73,19 +77,7 @@ Download `agent-hub.exe` from the [latest release](https://github.com/LukaG712/A
 
 Open **http://localhost:8080** in your browser and enter the API key.
 
-### Option 2: Install via pip
-
-```bash
-pip install agent-hub
-```
-
-Then configure `hub.yaml` and set the `HUB_API_KEY` environment variable, and start the server:
-
-```bash
-agent-hub serve
-```
-
-### Option 3: Clone and run (recommended for development)
+### Option 2: Clone and run
 
 #### Linux
 
@@ -173,6 +165,7 @@ agents:
 | `HUB_CONFIG` | `./hub.yaml` | Path to config file |
 | `HUB_API_KEY` | *(required)* | Bearer token for API auth (stored in `.env`) |
 | `HUB_TIMEOUT` | `1800` | Max seconds per agent run |
+| `HUB_PORT` | `8080` | Server port (used by start scripts) |
 | `JUNIE_BIN` | — | Override the `junie` binary path |
 
 ### Ollama Integration (Optional)
@@ -251,7 +244,7 @@ chown $USER:$USER /path/to/project
 If an agent shows as Working but isn't doing anything, stop its current run from the dashboard or via:
 
 ```bash
-python -m hub.cli stop <run-id>
+agent-hub stop <run-id>
 ```
 
 If the hub was killed while an agent was running, restart the service — it will clean up stale runs automatically.
@@ -273,15 +266,18 @@ If the hub was killed while an agent was running, restart the service — it wil
 ## CLI Commands
 
 ```bash
-python -m hub.cli agents                    # List agents
-python -m hub.cli run vault "..."           # Run a task (waits for result)
-python -m hub.cli run vault "..." --no-wait # Fail immediately if busy
-python -m hub.cli runs [agent]              # List runs
-python -m hub.cli stop <run-id>             # Stop a running agent
-python -m hub.cli skills                    # List skills
-python -m hub.cli skill-enable vault skill  # Enable a skill
-python -m hub.cli skill-disable vault skill # Disable a skill
-python -m hub.cli sync [agent]              # Sync skills and guidelines
+agent-hub agents                    # List agents
+agent-hub run vault "..."           # Run a task (waits for result)
+agent-hub run vault "..." --no-wait # Fail immediately if busy
+agent-hub runs [agent]              # List runs
+agent-hub stop <run-id>             # Stop a running agent
+agent-hub skills                    # List skills
+agent-hub skill-enable vault skill  # Enable a skill
+agent-hub skill-disable vault skill # Disable a skill
+agent-hub sync [agent]              # Sync skills and guidelines
+agent-hub serve                     # Start the web server
+agent-hub serve --port 9000         # Start on a custom port
+agent-hub serve --reload            # Start with auto-reload
 ```
 
 ## How to Add Another Provider
