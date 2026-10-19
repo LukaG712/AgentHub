@@ -2,6 +2,13 @@
 
 All notable changes to Agent Hub will be documented in this file.
 
+## [1.0.3] - 2026-10-19
+
+### Installation simplification
+- **Merged setup into start scripts** — `start.sh` and `start.ps1` now contain all setup logic inline; standalone `setup.sh` and `setup.ps1` removed
+- **Non-blocking Junie CLI check** — missing Junie CLI shows a warning but no longer blocks installation, so you can explore the dashboard first
+- **Streamlined README** — Quick Start reduced to a single command with bullet-point summary of what happens automatically
+
 ## [1.0.2] - 2026-10-19
 
 ### Bug fixes
@@ -45,3 +52,11 @@ All notable changes to Agent Hub will be documented in this file.
 - Installable via `pip install .` with optional dev dependencies (`pip install .[dev]`)
 - Console script entry point: `agent-hub`
 - **Windows .exe** — standalone executable built with PyInstaller; no Python installation required (`build_exe.bat`)
+
+---
+
+### Links
+[1.0.3]: https://github.com/LukaG712/AgentHub/compare/v1.0.2...v1.0.3
+[1.0.2]: https://github.com/LukaG712/AgentHub/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/LukaG712/AgentHub/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/LukaG712/AgentHub/releases/tag/v1.0.0

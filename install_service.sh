@@ -34,13 +34,13 @@ fi
 
 ENV_FILE="$SCRIPT_DIR/.env"
 if [ ! -f "$ENV_FILE" ]; then
-  echo "Error: .env file not found.  Run ./setup.sh first."
+  echo "Error: .env file not found.  Run ./start.sh first."
   exit 1
 fi
 
 VENV_PYTHON="$SCRIPT_DIR/.venv/bin/python"
 if [ ! -f "$VENV_PYTHON" ]; then
-  echo "Error: Virtual environment not found.  Run ./setup.sh first."
+  echo "Error: Virtual environment not found.  Run ./start.sh first."
   exit 1
 fi
 

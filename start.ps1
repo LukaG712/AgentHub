@@ -1,11 +1,14 @@
 # start.ps1 — Start the Agent Hub server (Windows)
-# Auto-runs setup.ps1 if this is the first time.
+# On first run, automatically sets up the environment (venv, dependencies, config, API key).
 # Usage: .\start.ps1
 
 $ErrorActionPreference = 'Stop'
 
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Definition
 Set-Location $SCRIPT_DIR
+
+# ── Colours ──────────────────────────────────────────────────────────
+$GREEN = 'Green'; $YELLOW = 'Yellow'; $RED = 'Red'
 
 # ── Auto-setup if needed ─────────────────────────────────────────────
 $needsSetup = $false
@@ -21,17 +24,90 @@ if (-not (Test-Path $ENV_FILE)) {
 
 if ($needsSetup) {
     Write-Host ""
-    Write-Host "First time running Agent Hub? Running setup..." -ForegroundColor Yellow
+    Write-Host "=========================================" -ForegroundColor $GREEN
+    Write-Host "  Agent Hub — First-time setup" -ForegroundColor $GREEN
+    Write-Host "=========================================" -ForegroundColor $GREEN
     Write-Host ""
-    $setupScript = Join-Path $SCRIPT_DIR 'setup.ps1'
-    if (Test-Path $setupScript) {
-        & $setupScript
-    } else {
-        Write-Host "Error: setup.ps1 not found. Run setup manually." -ForegroundColor Red
+
+    # ── 1. Check Python 3.11+ ────────────────────────────────────────
+    $python = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $python) {
+        Write-Host "✗ Python is not installed. Install it from https://www.python.org/downloads/" -ForegroundColor $RED
+        Write-Host "   Make sure to check 'Add Python to PATH' during installation." -ForegroundColor $RED
         exit 1
     }
+
+    $pyVer = python --version 2>&1
+    $pyMajor = (python -c "import sys; print(sys.version_info.major)").Trim()
+    $pyMinor = (python -c "import sys; print(sys.version_info.minor)").Trim()
+
+    if ([int]$pyMajor -lt 3 -or ([int]$pyMajor -eq 3 -and [int]$pyMinor -lt 11)) {
+        Write-Host "✗ Python $pyVer is too old. Agent Hub needs Python 3.11 or newer." -ForegroundColor $RED
+        exit 1
+    }
+
+    Write-Host "✓ Python $pyVer — good." -ForegroundColor $GREEN
+
+    # ── 2. Check Junie CLI (non-blocking warning) ────────────────────
+    $junie = Get-Command junie -ErrorAction SilentlyContinue
+    if (-not $junie) {
+        Write-Host ""
+        Write-Host "⚠ Junie CLI not found on PATH — agents won't run until it's installed." -ForegroundColor $YELLOW
+        Write-Host "   Install from https://junie.jetbrains.com" -ForegroundColor $YELLOW
+    } else {
+        $junieVer = junie --version 2>&1 | Select-Object -First 1
+        Write-Host "✓ Junie CLI found ($junieVer)." -ForegroundColor $GREEN
+    }
+
     Write-Host ""
-    Write-Host "Setup complete. Starting server..." -ForegroundColor Green
+
+    # ── 3. Create virtual environment ────────────────────────────────
+    $venvPath = Join-Path $SCRIPT_DIR '.venv'
+    if (-not (Test-Path $venvPath)) {
+        Write-Host "Creating virtual environment (.venv) …"
+        python -m venv .venv
+        Write-Host "✓ Virtual environment created." -ForegroundColor $GREEN
+    } else {
+        Write-Host "✓ Virtual environment already exists." -ForegroundColor $GREEN
+    }
+
+    # ── 4. Install Python dependencies ───────────────────────────────
+    Write-Host "Installing Python packages …"
+    & (Join-Path $venvPath 'Scripts\python.exe') -m pip install --upgrade pip -q
+    & (Join-Path $venvPath 'Scripts\python.exe') -m pip install -r requirements.txt -q
+    Write-Host "✓ Packages installed." -ForegroundColor $GREEN
+
+    Write-Host ""
+
+    # ── 5. Copy hub.example.yaml → hub.yaml (never overwrite) ────────
+    $hubYaml = Join-Path $SCRIPT_DIR 'hub.yaml'
+    if (-not (Test-Path $hubYaml)) {
+        Copy-Item hub.example.yaml hub.yaml
+        Write-Host "✓ Created hub.yaml from hub.example.yaml." -ForegroundColor $GREEN
+    } else {
+        Write-Host "✓ hub.yaml already exists." -ForegroundColor $GREEN
+    }
+
+    Write-Host ""
+
+    # ── 6. Generate API key & .env file ──────────────────────────────
+    if (-not (Test-Path $ENV_FILE)) {
+        $apiKey = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 43 | ForEach-Object {[char]$_})
+        "HUB_API_KEY=$apiKey" | Set-Content -Path .env -Encoding UTF8
+        Write-Host "✓ Generated API key and saved it in .env." -ForegroundColor $GREEN
+        Write-Host ""
+        Write-Host "  ┌──────────────────────────────────────────────────────────┐"
+        Write-Host "  │  Your API key (save it somewhere safe!):                 │"
+        Write-Host "  │  $apiKey"
+        Write-Host "  └──────────────────────────────────────────────────────────┘"
+    } else {
+        Write-Host "✓ .env file already exists." -ForegroundColor $GREEN
+    }
+
+    Write-Host ""
+    Write-Host "=========================================" -ForegroundColor $GREEN
+    Write-Host "  Setup complete!" -ForegroundColor $GREEN
+    Write-Host "=========================================" -ForegroundColor $GREEN
     Write-Host ""
 }
 
@@ -52,7 +128,7 @@ if (Test-Path $ENV_FILE) {
     }
     Write-Host "Environment variables loaded." -ForegroundColor Green
 } else {
-    Write-Host "Error: .env file not found. Run .\setup.ps1 first." -ForegroundColor Red
+    Write-Host "Error: .env file not found. Something went wrong during setup." -ForegroundColor Red
     exit 1
 }
 
@@ -64,6 +140,12 @@ if (-not $env:HUB_API_KEY) {
 
 # ── Get port from environment or default to 8080 ─────────────────────
 $port = if ($env:HUB_PORT) { [int]$env:HUB_PORT } else { 8080 }
+
+# ── What's next (first run only) ─────────────────────────────────────
+if ($needsSetup) {
+    Write-Host "  Next: edit hub.yaml to configure your agents, then restart."
+    Write-Host ""
+}
 
 Write-Host ""
 Write-Host "Starting Agent Hub on port $port..." -ForegroundColor Green
