@@ -37,6 +37,8 @@ Everything you need to manage AI coding agents from one place:
 | ↩️ **Memory Undo** | Revert changes | Click "Undo" on any memory update system message to restore the previous memory content |
 | 🔀 **Group Threads** | Multi-Bot threads | A thread can contain multiple Bots; hand off work between Bots with "Send to another Bot" button |
 | 🤝 **Handoffs** | Bot-to-Bot delegation | Hand off tasks between Bots within the same thread; system messages show colored dots for each Bot; loop prevention limits max hops |
+| ⚠️ **Approvals** | Human-in-the-loop | When auto-review detects sensitive actions, an inline Approve/Deny card appears in the chat; amber badge on the Bot's avatar shows pending approvals |
+| 🔍 **Auto Review** | Sensitive action detection | Configurable pattern matching (git push, rm -rf, etc.) automatically flags sensitive actions for approval; toggle in the right panel |
 | 📦 **Context** | Smart context assembly | Agents get relevant history, memories, and instructions automatically |
 | 🔌 **Providers** | Extensible backends | Junie CLI is the default; add more via the `AgentProvider` interface |
 | 🔒 **Permissions** | Per-agent controls | Toggle file read/write, command execution, Git ops, and network access |
@@ -543,6 +545,13 @@ Quality checklist for the messenger-style web UI:
 - [ ] Handoff reply appears as a card showing the responding Bot's name and content
 - [ ] Group thread header shows participant avatars when session has multiple Bots
 - [ ] Handoff loop prevention rejects handoffs after max hops (default 5)
+- [ ] Auto-review detects sensitive actions in run output and creates approval requests
+- [ ] Approval requests appear as inline cards with Approve and Deny buttons in the chat
+- [ ] Clicking Approve/Deny resolves the approval and shows a resolution system message
+- [ ] Amber badge appears on the Bot's avatar in the sidebar when approvals are pending
+- [ ] "Auto Review" section in the right panel has a toggle to enable/disable auto-review
+- [ ] Pending approvals are listed in the right panel with Approve/Deny buttons
+- [ ] Approval resolved messages show green (approved) or red (denied) styling
 
 ### Chat Thread
 - [ ] Selecting a Bot loads its chat session (auto-creates session if none exists)

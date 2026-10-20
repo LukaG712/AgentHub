@@ -757,6 +757,37 @@ def run_agent(
                 _save_run(run)
                 break
 
+        # Auto-review: check output for sensitive actions and create approval if needed
+        try:
+            from hub import auto_review
+            if auto_review.is_enabled() and run.raw_output:
+                match = auto_review.check_action(run.raw_output)
+                if match:
+                    pattern, matched_text = match
+                    from hub import memory as memory_module
+                    approval = memory_module.create_approval(
+                        run_id=run.id,
+                        session_id=run.session_id,
+                        bot_id=run.agent,
+                        action_type="command",
+                        description=f"Detected sensitive action: {matched_text}",
+                        pattern_matched=pattern,
+                    )
+                    # Add approval_requested system message to session
+                    if run.session_id:
+                        memory_module.add_message(
+                            session_id=run.session_id,
+                            role="system",
+                            content=f"Approval needed: {matched_text}",
+                            run_id=run.id,
+                            bot_id=run.agent,
+                            msg_type="approval_requested",
+                            metadata=json.dumps({"approval_id": approval["id"], "pattern": pattern, "matched": matched_text}),
+                        )
+        except Exception:
+            # Don't let auto-review failures break the run
+            pass
+
         # Persist session messages if session_id is set
         if session_id:
             _persist_run_to_session(run)

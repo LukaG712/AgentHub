@@ -1,5 +1,6 @@
 """SQLite-based persistence for conversations, sessions, and memories."""
 
+import json
 import os
 import sqlite3
 import threading
@@ -828,7 +829,23 @@ def update_approval_status(approval_id: str, status: str) -> Optional[Dict[str, 
     row = conn.execute("SELECT * FROM approvals WHERE id = ?", (approval_id,)).fetchone()
     if row is None:
         return None
-    return _approval_to_dict(row)
+    result = _approval_to_dict(row)
+    # Add approval_resolved system message to session
+    if status in ("approved", "denied") and result.get("session_id"):
+        try:
+            decision_text = "Approved" if status == "approved" else "Denied"
+            add_message(
+                session_id=result["session_id"],
+                role="system",
+                content=f"Approval {decision_text.lower()}: {result.get('description', '')}",
+                run_id=result.get("run_id"),
+                bot_id=result.get("bot_id"),
+                msg_type="approval_resolved",
+                metadata=json.dumps({"approval_id": approval_id, "decision": status}),
+            )
+        except Exception:
+            pass
+    return result
 
 
 def _approval_to_dict(row: sqlite3.Row) -> Dict[str, Any]:

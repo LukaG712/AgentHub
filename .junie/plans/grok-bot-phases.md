@@ -104,7 +104,22 @@ All 32 Grok feature tests pass. The backend API endpoints exist for all features
 8. **README updated**: Added Group Threads and Handoffs to features table and UI checklist
 
 ## Phase 6: Approvals + Auto Review
-(Not in scope for this session)
+(COMPLETED)
+
+**Goal:** Human-in-the-loop approvals with auto-review pattern detection, inline Approve/Deny cards in chat, amber badge for pending approvals, and auto-review toggle in the right panel.
+
+### What was done
+1. **Backend auto-review wiring**: Added auto-review check in runner.py after each run — when enabled, checks run output against sensitive action patterns and creates approval records
+2. **Backend approval_resolved messages**: Updated memory.py update_approval_status() to add approval_resolved system messages when approvals are approved or denied
+3. **Backend pending approvals in /api/status**: Added pending_approvals count per bot so the sidebar can show amber badges
+4. **Backend auto-review settings API**: Added GET/PUT /api/auto-review/settings endpoints for reading and toggling auto-review configuration
+5. **UI approval cards**: Messages with msg_type=approval_requested render as styled cards with warning icon, description, and Approve/Deny buttons
+6. **UI approval resolved cards**: Messages with msg_type=approval_resolved render as styled system messages with green (approved) or red (denied) styling
+7. **UI amber badge**: Sidebar bot items show an amber dot badge when the bot has pending approvals
+8. **UI auto-review panel**: Added "Auto Review" section in the right panel with toggle switch and pending approvals list
+9. **UI JavaScript**: Added approveAction(), denyAction(), loadAutoReviewSettings(), toggleAutoReview(), and loadPendingApprovals() functions
+10. **CSS styling**: Added .approval-card, .approval-resolved-card, .approval-badge, .btn-approve, .btn-deny, and auto-review panel styles
+11. **README updated**: Added Approvals and Auto Review to features table and UI checklist
 
 ## Phase 7: Plugins, Marketplace, New Bot from Sentence
 (Not in scope for this session)

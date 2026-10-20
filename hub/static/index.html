@@ -421,8 +421,116 @@ input, textarea, select { font-family: inherit; }
 .handoff-dialog .bot-list-item .bot-dot {
   width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
 }
-.handoff-dialog .dialog-actions {
+ .handoff-dialog .dialog-actions {
   display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end;
+}
+/* Approval card */
+.approval-card {
+  align-self: flex-start; background: var(--main-bg);
+  border: 1px solid var(--warning); border-radius: var(--radius-card);
+  padding: 0.8rem 1rem; max-width: 500px; width: 100%;
+  display: flex; gap: 0.7rem; align-items: flex-start;
+}
+.approval-icon {
+  font-size: 1.2rem; flex-shrink: 0;
+}
+.approval-content {
+  flex: 1; min-width: 0;
+}
+.approval-title {
+  font-size: 0.85rem; font-weight: 600; color: var(--warning);
+  margin-bottom: 0.25rem;
+}
+.approval-description {
+  font-size: 0.85rem; color: var(--fg); line-height: 1.4;
+}
+.approval-pattern {
+  font-size: 0.75rem; color: var(--fg-secondary); margin-top: 0.25rem;
+  font-family: monospace;
+}
+.approval-actions {
+  display: flex; gap: 0.4rem; flex-shrink: 0; margin-top: 0.3rem;
+}
+.btn-approve {
+  padding: 0.3rem 0.7rem; background: var(--success); color: white;
+  border: none; border-radius: var(--radius-pill);
+  font-size: 0.75rem; font-weight: 500; cursor: pointer;
+}
+.btn-approve:hover { opacity: 0.85; }
+.btn-deny {
+  padding: 0.3rem 0.7rem; background: transparent; color: var(--danger);
+  border: 1px solid var(--danger); border-radius: var(--radius-pill);
+  font-size: 0.75rem; font-weight: 500; cursor: pointer;
+}
+.btn-deny:hover { background: var(--danger); color: white; }
+/* Approval resolved card */
+.approval-resolved-card {
+  align-self: center; background: var(--sidebar-bg);
+  border: 1px solid var(--hairline); border-radius: var(--radius-card);
+  padding: 0.4rem 0.8rem; max-width: 400px; width: 100%;
+  font-size: 0.8rem; color: var(--fg-secondary);
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.approval-resolved-card.approved {
+  border-color: var(--success); color: var(--success);
+}
+.approval-resolved-card.denied {
+  border-color: var(--danger); color: var(--danger);
+}
+.approval-resolved-text {
+  flex: 1; font-style: italic;
+}
+.approval-resolved-time {
+  font-size: 0.7rem; opacity: 0.5; flex-shrink: 0;
+}
+/* Pending approval badge (amber dot) */
+.approval-badge {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--warning); flex-shrink: 0;
+  position: absolute; bottom: -1px; right: -1px;
+  border: 2px solid var(--main-bg);
+}
+/* Auto Review panel */
+.panel-auto-review-toggle {
+  display: flex; flex-direction: column; gap: 0.4rem;
+}
+.toggle-label {
+  display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.85rem;
+}
+.toggle-label input[type="checkbox"] {
+  appearance: none; width: 36px; height: 20px; background: var(--hairline);
+  border-radius: 10px; position: relative; cursor: pointer; flex-shrink: 0;
+  transition: background 0.2s;
+}
+.toggle-label input[type="checkbox"]::before {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; background: white; border-radius: 50%;
+  transition: transform 0.2s;
+}
+.toggle-label input[type="checkbox"]:checked {
+  background: var(--success);
+}
+.toggle-label input[type="checkbox"]:checked::before {
+  transform: translateX(16px);
+}
+.toggle-text {
+  font-weight: 500;
+}
+.auto-review-description {
+  font-size: 0.75rem; color: var(--fg-secondary); line-height: 1.4;
+}
+.pending-approval-item {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.4rem 0.5rem; background: var(--sidebar-bg);
+  border: 1px solid var(--hairline); border-radius: var(--radius-input);
+  font-size: 0.8rem; margin-bottom: 0.3rem;
+}
+.pending-approval-item .pending-approval-text {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pending-approval-item .btn-approve,
+.pending-approval-item .btn-deny {
+  padding: 0.2rem 0.5rem; font-size: 0.7rem;
 }
 .msg-time { font-size: 0.7rem; opacity: 0.6; margin-top: 0.25rem; }
 
@@ -1174,6 +1282,20 @@ input, textarea, select { font-family: inherit; }
             <div id="panel-plugins-list"></div>
           </div>
         </div>
+        <div class="panel-section">
+          <h3>Auto Review</h3>
+          <div class="panel-auto-review" id="panel-auto-review">
+            <div class="panel-auto-review-toggle">
+              <label class="toggle-label">
+                <input type="checkbox" id="auto-review-enabled" onchange="toggleAutoReview()">
+                <span class="toggle-slider"></span>
+                <span class="toggle-text">Enable Auto Review</span>
+              </label>
+              <div class="auto-review-description">Automatically detect sensitive actions (git push, rm -rf, etc.) and request approval before execution.</div>
+            </div>
+            <div id="panel-pending-approvals" style="margin-top:0.5rem;"></div>
+          </div>
+        </div>
       </div>
     </aside>
   </div>
@@ -1646,11 +1768,19 @@ function buildBotItem(a, isWorking) {
   const unreadCount = (a.unread_count || 0);
   const showUnread = unreadCount > 0 && currentBot !== a.name;
 
+  // Pending approvals badge
+  const pendingApprovals = (a.pending_approvals || 0);
+  const showApprovalBadge = pendingApprovals > 0;
+
   let avatarHTML = renderAvatarSVG(a.name, 44);
-  // Wrap avatar with status badge
+  // Wrap avatar with status badge and optional approval badge
+  let badges = `<div class="bot-status-badge ${statusClass}" title="${statusLabel}"></div>`;
+  if (showApprovalBadge) {
+    badges += `<div class="approval-badge" title="${pendingApprovals} pending approval(s)"></div>`;
+  }
   avatarHTML = `<div style="position:relative;flex-shrink:0;">
     ${avatarHTML}
-    <div class="bot-status-badge ${statusClass}" title="${statusLabel}"></div>
+    ${badges}
   </div>`;
 
   let previewLine = '';
@@ -1883,6 +2013,39 @@ async function loadChatMessages(sessionId) {
           </div>
           <div class="handoff-reply-content">${esc(m.content)}</div>
           ${time ? `<div class="msg-time">${esc(time)}</div>` : ''}
+        </div>`;
+      } else if (m.msg_type === 'approval_requested') {
+        // Render approval card with Approve/Deny buttons
+        let approvalId = '', pattern = '', matched = '';
+        try {
+          const meta = JSON.parse(m.metadata || '{}');
+          approvalId = meta.approval_id || '';
+          pattern = meta.pattern || '';
+          matched = meta.matched || '';
+        } catch(e) { /* ignore */ }
+        html += `<div class="approval-card">
+          <div class="approval-icon">⚠️</div>
+          <div class="approval-content">
+            <div class="approval-title">Approval Needed</div>
+            <div class="approval-description">${esc(m.content)}</div>
+            ${matched ? `<div class="approval-pattern">Pattern: ${esc(matched)}</div>` : ''}
+          </div>
+          <div class="approval-actions">
+            <button class="btn-approve" onclick="approveAction('${esc(approvalId)}')">Approve</button>
+            <button class="btn-deny" onclick="denyAction('${esc(approvalId)}')">Deny</button>
+          </div>
+        </div>`;
+      } else if (m.msg_type === 'approval_resolved') {
+        // Render approval resolved system message
+        let decision = '';
+        try {
+          const meta = JSON.parse(m.metadata || '{}');
+          decision = meta.decision || '';
+        } catch(e) { /* ignore */ }
+        const resolvedClass = decision === 'approved' ? 'approved' : 'denied';
+        html += `<div class="approval-resolved-card ${resolvedClass}">
+          <span class="approval-resolved-text">${esc(m.content)}</span>
+          ${time ? `<span class="approval-resolved-time">${esc(time)}</span>` : ''}
         </div>`;
       } else {
         html += `<div class="chat-message system">${esc(m.content)}${time ? `<div class="msg-time">${esc(time)}</div>` : ''}</div>`;
@@ -2260,6 +2423,10 @@ function updateRightPanel(botName) {
 
   // Plugins
   loadPanelPlugins(botName);
+
+  // Auto Review
+  loadAutoReviewSettings();
+  loadPendingApprovals();
 }
 
 async function toggleCurrentBotPause() {
@@ -2516,6 +2683,86 @@ async function executeHandoff(toBot, runId) {
   } catch(e) {
     console.error('Failed to hand off:', e);
     alert('Failed to hand off: ' + (typeof e === 'string' ? e : 'Unknown error'));
+  }
+}
+
+// ===================== Auto Review =====================
+
+async function loadAutoReviewSettings() {
+  try {
+    const data = await api('/auto-review/settings');
+    const enabled = data.enabled || false;
+    const checkbox = document.getElementById('auto-review-enabled');
+    if (checkbox) checkbox.checked = enabled;
+  } catch(e) {
+    // Auto-review endpoint may not exist yet
+    const checkbox = document.getElementById('auto-review-enabled');
+    if (checkbox) checkbox.checked = false;
+  }
+}
+
+async function toggleAutoReview() {
+  const checkbox = document.getElementById('auto-review-enabled');
+  const enabled = checkbox.checked;
+  try {
+    await api('/auto-review/settings', {
+      method: 'PUT',
+      body: { enabled }
+    });
+  } catch(e) {
+    console.error('Failed to toggle auto-review:', e);
+    checkbox.checked = !enabled;
+  }
+}
+
+async function loadPendingApprovals() {
+  try {
+    const data = await api('/approvals?status=pending');
+    const approvals = data.approvals || [];
+    const container = document.getElementById('panel-pending-approvals');
+    if (!approvals.length) {
+      container.innerHTML = '<div style="font-size:0.75rem;color:var(--fg-secondary)">No pending approvals.</div>';
+      return;
+    }
+    let html = `<div style="font-size:0.75rem;font-weight:600;margin-bottom:0.3rem;">${approvals.length} pending</div>`;
+    approvals.forEach(a => {
+      html += `<div class="pending-approval-item">
+        <span class="pending-approval-text" title="${esc(a.description || '')}">${esc(a.description || 'Sensitive action detected')}</span>
+        <button class="btn-approve" onclick="approveAction('${esc(a.id)}')">✓</button>
+        <button class="btn-deny" onclick="denyAction('${esc(a.id)}')">✗</button>
+      </div>`;
+    });
+    container.innerHTML = html;
+  } catch(e) {
+    console.error('Failed to load pending approvals:', e);
+  }
+}
+
+// ===================== Approvals =====================
+
+async function approveAction(approvalId) {
+  if (!approvalId) return;
+  try {
+    await api('/approvals/' + encodeURIComponent(approvalId) + '/approve', { method: 'POST' });
+    // Reload chat to show resolved message
+    if (currentSessionId) loadChatMessages(currentSessionId);
+    // Refresh status to update sidebar badges
+    pollStatus();
+  } catch(e) {
+    console.error('Failed to approve:', e);
+  }
+}
+
+async function denyAction(approvalId) {
+  if (!approvalId) return;
+  try {
+    await api('/approvals/' + encodeURIComponent(approvalId) + '/deny', { method: 'POST' });
+    // Reload chat to show resolved message
+    if (currentSessionId) loadChatMessages(currentSessionId);
+    // Refresh status to update sidebar badges
+    pollStatus();
+  } catch(e) {
+    console.error('Failed to deny:', e);
   }
 }
 
