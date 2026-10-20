@@ -42,6 +42,13 @@ try:
 except ImportError:
     _HAS_FLOCK = False
 
+# M1: Windows file locking via msvcrt
+try:
+    import msvcrt
+    _HAS_MSVCRT = True
+except ImportError:
+    _HAS_MSVCRT = False
+
 # Project root
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _DATA_DIR = _PROJECT_ROOT / "data"
@@ -108,22 +115,57 @@ def _save_run(run: Run) -> Path:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
         raise
+    # H4: Update the run index
+    with _run_index_lock:
+        _run_index[run.id] = filepath
     return filepath
 
 
+# H4: In-memory index for fast run_id lookups
+_run_index: Dict[str, Path] = {}
+_run_index_lock = threading.Lock()
+
+
+def _build_run_index() -> None:
+    """Build the run_id → filepath index (H4 fix)."""
+    with _run_index_lock:
+        _run_index.clear()
+        if not _RUNS_DIR.exists():
+            return
+        for json_file in _RUNS_DIR.rglob("*.json"):
+            try:
+                with open(json_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                rid = data.get("id")
+                if rid:
+                    _run_index[rid] = json_file
+            except (json.JSONDecodeError, KeyError):
+                continue
+
+
 def _load_run(run_id: str) -> Optional[Run]:
-    """Search all run files for a given run ID."""
-    if not _RUNS_DIR.exists():
+    """Load a run by ID using the index (H4 fix)."""
+    with _run_index_lock:
+        filepath = _run_index.get(run_id)
+    if filepath is None:
+        # Fallback: scan all files (should be rare)
+        if not _RUNS_DIR.exists():
+            return None
+        for json_file in _RUNS_DIR.rglob("*.json"):
+            try:
+                with open(json_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if data.get("id") == run_id:
+                    return Run.from_dict(data)
+            except (json.JSONDecodeError, KeyError):
+                continue
         return None
-    for json_file in _RUNS_DIR.rglob("*.json"):
-        try:
-            with open(json_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if data.get("id") == run_id:
-                return Run.from_dict(data)
-        except (json.JSONDecodeError, KeyError):
-            continue
-    return None
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return Run.from_dict(data)
+    except (json.JSONDecodeError, KeyError, FileNotFoundError):
+        return None
 
 
 def _list_runs(agent: Optional[str] = None, state: Optional[str] = None) -> List[Run]:
@@ -155,16 +197,35 @@ def _is_process_alive(pid: Optional[int]) -> bool:
         import psutil
         return psutil.pid_exists(pid)
     except ImportError:
-        # Fallback: use subprocess to check process existence
-        try:
-            subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], 
-                          capture_output=True, check=True)
-            return False
-        except subprocess.CalledProcessError:
-            # Process doesn't exist or can't be killed
-            return False
-        except Exception:
-            return False
+        # Fallback: check process existence without killing it
+        if sys.platform == 'win32':
+            return _is_process_alive_windows(pid)
+        else:
+            # POSIX: os.kill(pid, 0) checks if process exists without sending a signal
+            try:
+                os.kill(pid, 0)
+                return True
+            except ProcessLookupError:
+                return False
+            except PermissionError:
+                # Process exists but we don't have permission to signal it
+                return True
+            except OSError:
+                return False
+
+
+def _is_process_alive_windows(pid: int) -> bool:
+    """Check if a Windows process exists using OpenProcess API."""
+    import ctypes
+    PROCESS_QUERY_INFORMATION = 0x0400
+    INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
+
+    kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+    handle = kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
+    if handle is None or handle == INVALID_HANDLE_VALUE:
+        return False
+    kernel32.CloseHandle(handle)
+    return True
 
 
 def recover_stale_runs() -> List[Run]:
@@ -195,7 +256,7 @@ def _get_agent_thread_lock(agent: str) -> threading.Lock:
 
 
 class _FileLock:
-    """Cross-process file lock using fcntl.flock + in-process thread lock."""
+    """Cross-process file lock using fcntl.flock (POSIX) or msvcrt.locking (Windows) + in-process thread lock."""
 
     def __init__(self, agent: str):
         self.agent = agent
@@ -205,22 +266,49 @@ class _FileLock:
         self._thread_lock = _get_agent_thread_lock(agent)
         self._thread_locked = False
 
+    def _flock(self) -> bool:
+        """Acquire OS-level file lock."""
+        if _HAS_FLOCK:
+            self._fh = open(self.lock_path, "w")
+            fcntl.flock(self._fh.fileno(), fcntl.LOCK_EX)
+            return True
+        elif _HAS_MSVCRT:
+            self._fh = open(self.lock_path, "r+b" if self.lock_path.exists() else "w+b")
+            self._fh.seek(0, 2)
+            size = self._fh.tell()
+            if size == 0:
+                self._fh.write(b"lock")
+                self._fh.seek(0)
+                size = 4
+            msvcrt.locking(self._fh.fileno(), msvcrt.LK_NBLCK, size)
+            return True
+        return True  # No OS lock available, rely on thread lock
+
+    def _unlock(self) -> None:
+        """Release OS-level file lock."""
+        if self._fh is None:
+            return
+        try:
+            if _HAS_FLOCK:
+                fcntl.flock(self._fh.fileno(), fcntl.LOCK_UN)
+            elif _HAS_MSVCRT:
+                self._fh.seek(0)
+                size = self._fh.seek(0, 2)
+                if size == 0:
+                    size = 4
+                msvcrt.locking(self._fh.fileno(), msvcrt.LK_UNLCK, size)
+        finally:
+            self._fh.close()
+            self._fh = None
+
     def acquire(self) -> bool:
         self._thread_lock.acquire()
         self._thread_locked = True
-        if not _HAS_FLOCK:
-            return True
-        self._fh = open(self.lock_path, "w")
-        fcntl.flock(self._fh.fileno(), fcntl.LOCK_EX)
+        self._flock()
         return True
 
     def release(self):
-        if _HAS_FLOCK and self._fh:
-            try:
-                fcntl.flock(self._fh.fileno(), fcntl.LOCK_UN)
-            finally:
-                self._fh.close()
-                self._fh = None
+        self._unlock()
         if self._thread_locked:
             self._thread_lock.release()
             self._thread_locked = False
@@ -230,18 +318,35 @@ class _FileLock:
         if not self._thread_lock.acquire(blocking=False):
             return False
         self._thread_locked = True
-        if not _HAS_FLOCK:
-            return True
-        self._fh = open(self.lock_path, "w")
-        try:
-            fcntl.flock(self._fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            return True
-        except (IOError, OSError):
-            self._fh.close()
-            self._fh = None
-            self._thread_lock.release()
-            self._thread_locked = False
-            return False
+        if _HAS_FLOCK:
+            self._fh = open(self.lock_path, "w")
+            try:
+                fcntl.flock(self._fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return True
+            except (IOError, OSError):
+                self._fh.close()
+                self._fh = None
+                self._thread_lock.release()
+                self._thread_locked = False
+                return False
+        elif _HAS_MSVCRT:
+            self._fh = open(self.lock_path, "r+b" if self.lock_path.exists() else "w+b")
+            self._fh.seek(0, 2)
+            size = self._fh.tell()
+            if size == 0:
+                self._fh.write(b"lock")
+                self._fh.seek(0)
+                size = 4
+            try:
+                msvcrt.locking(self._fh.fileno(), msvcrt.LK_NBLCK, size)
+                return True
+            except (IOError, OSError):
+                self._fh.close()
+                self._fh = None
+                self._thread_lock.release()
+                self._thread_locked = False
+                return False
+        return True  # No OS lock, rely on thread lock
 
     def __enter__(self):
         self.acquire()

@@ -31,6 +31,40 @@ from hub import routines as routines_engine
 
 security = HTTPBearer(auto_error=False)
 
+# Rate limiting for authentication failures
+_auth_failure_store: Dict[str, List[float]] = {}
+_auth_failure_lock = threading.Lock()
+_AUTH_MAX_FAILURES = 10
+_AUTH_WINDOW_SECONDS = 60
+
+def _check_auth_rate_limit(client_ip: str) -> None:
+    """Rate limit authentication failures per IP address.
+    
+    Raises HTTPException 429 if too many failures in the time window.
+    """
+    now = time.time()
+    with _auth_failure_lock:
+        if client_ip not in _auth_failure_store:
+            _auth_failure_store[client_ip] = []
+        # Remove old entries outside the window
+        failures = _auth_failure_store[client_ip]
+        _auth_failure_store[client_ip] = [t for t in failures if now - t < _AUTH_WINDOW_SECONDS]
+        failures = _auth_failure_store[client_ip]
+        if len(failures) >= _AUTH_MAX_FAILURES:
+            raise HTTPException(
+                status_code=429, 
+                detail="Too many authentication failures. Try again later."
+            )
+
+def _record_auth_failure(client_ip: str) -> None:
+    """Record an authentication failure for rate limiting."""
+    now = time.time()
+    with _auth_failure_lock:
+        if client_ip not in _auth_failure_store:
+            _auth_failure_store[client_ip] = []
+        _auth_failure_store[client_ip].append(now)
+
+
 # Static files directory
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -144,30 +178,41 @@ def _get_api_key() -> str:
 
 def _verify_token(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    request: Request = None,
 ) -> None:
+    client_ip = request.client.host if request else "unknown"
+    _check_auth_rate_limit(client_ip)
     if credentials is None:
+        _record_auth_failure(client_ip)
         raise HTTPException(status_code=401, detail="Authorization header missing")
     expected = _get_api_key()
     if credentials.credentials != expected:
+        _record_auth_failure(client_ip)
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
 def _verify_token_or_query(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    token: Optional[str] = None,
+    request: Request = None,
 ) -> None:
-    """Verify token from Authorization header or query parameter.
+    """Verify token from Authorization header or cookie.
 
     Used for SSE endpoints where EventSource cannot send custom headers.
+    Falls back to cookie-based auth instead of query parameters to avoid
+    logging the API key in server access logs, browser history, and proxy logs.
     """
+    client_ip = request.client.host if request else "unknown"
+    _check_auth_rate_limit(client_ip)
     expected = _get_api_key()
     # Try Authorization header first
     if credentials is not None:
         if credentials.credentials == expected:
             return
-    # Fall back to query parameter
-    if token is not None and token == expected:
+    # Fall back to cookie
+    cookie_token = request.cookies.get("hub_api_key") if request else None
+    if cookie_token is not None and cookie_token == expected:
         return
+    _record_auth_failure(client_ip)
     raise HTTPException(status_code=401, detail="Invalid API key")
 
 
@@ -177,6 +222,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     recover_stale_runs()
     providers.ensure_default_providers()
     routines_engine.start_scheduler()
+    # H1: Recover persisted queue state on startup
+    try:
+        from hub import queue_manager
+        queue_manager.recover_queue()
+    except Exception:
+        pass  # Don't fail startup if queue recovery fails
+    # H4: Build run index for fast lookups
+    try:
+        from hub.runner import _build_run_index
+        _build_run_index()
+    except Exception:
+        pass  # Don't fail startup if index build fails
     yield
     routines_engine.stop_scheduler()
 
@@ -488,6 +545,7 @@ async def api_disable_skill(agent: str, skill: str, _auth: None = Depends(_verif
 
 @app.post("/api/agents/{name}/runs", status_code=201)
 async def api_dispatch_run(name: str, body: Dict[str, Any], _auth: None = Depends(_verify_token)):
+    """Dispatch a run for an agent, respecting per-bot sequential queueing (M5 fix)."""
     task = body.get("task", "")
     if not task:
         raise HTTPException(status_code=400, detail="task is required")
@@ -496,18 +554,10 @@ async def api_dispatch_run(name: str, body: Dict[str, Any], _auth: None = Depend
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Agent '{name}' not found")
 
-    # Run in background thread
-    result = []
-
-    def _run():
-        result.append(run_agent(name, task))
-
-    t = threading.Thread(target=_run, daemon=True)
-    t.start()
-
-    # Return immediately with a placeholder
-    # The run will be saved by run_agent
-    return {"status": "queued", "agent": name, "task": task}
+    # Wire through queue manager instead of bypassing it
+    from hub import queue_manager
+    run = queue_manager.enqueue_task(bot_id=name, task=task)
+    return {"status": "queued", "agent": name, "task": task, "run_id": run.id}
 
 
 @app.get("/api/runs")

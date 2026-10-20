@@ -161,4 +161,6 @@ def stop_scheduler():
             _scheduler_stop_event.set()
             _scheduler_thread.join(timeout=2.0)
             _scheduler_thread = None
+    # H3: Clean up any lingering DB connection from the scheduler thread
+    memory.close_connection()
 

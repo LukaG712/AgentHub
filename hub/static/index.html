@@ -2278,9 +2278,13 @@ function scrollToBottom() {
 // ===================== SSE =====================
 function connectSSE(sessionId, runId) {
   disconnectSSE();
-  let url = `${API}/sessions/${sessionId}/stream?token=${encodeURIComponent(API_KEY)}`;
+  // Set API key as cookie for SSE auth (EventSource cannot send custom headers)
+  if (API_KEY) {
+    document.cookie = `hub_api_key=${encodeURIComponent(API_KEY)}; path=/; SameSite=Lax`;
+  }
+  let url = `${API}/sessions/${sessionId}/stream`;
   if (runId) {
-    url += `&run_id=${encodeURIComponent(runId)}`;
+    url += `?run_id=${encodeURIComponent(runId)}`;
   }
   chatSSE = new EventSource(url);
 

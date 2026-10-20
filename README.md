@@ -323,17 +323,24 @@ Agent Hub is designed to be safe to run on your local machine. Here's how it pro
 
 | Protection | How it works |
 |------------|--------------|
-| 🏠 **LAN only** | Server listens on `0.0.0.0` — don't expose it to the internet without a reverse proxy |
+| 🏠 **Localhost by default** | Server binds to `127.0.0.1` by default — use `--host 0.0.0.0` only for intentional LAN exposure |
 | 🔒 **Locked runner commands** | Only `hub.yaml` on disk controls how agents run — the API and UI can't change them |
 | 🛡️ **List-based commands** | All agent commands use list arguments, never shell strings — prevents injection attacks |
 | 📂 **Path validation** | Project directories are validated to prevent agents from accessing sensitive system paths |
 | 🔑 **Bearer token auth** | All API calls require `HUB_API_KEY` — the dashboard view works without auth, but actions require it |
+| 🚫 **Rate limiting** | Auth failures are rate-limited (10/min per IP) — prevents brute-force attacks on the API key |
+| 🍪 **Cookie-based SSE auth** | SSE streaming uses cookies instead of query parameters — avoids logging API keys in server/proxy logs |
+| 🔐 **SSH host key checking** | SSH connections verify host keys by default — set `strict_host_key_checking: false` in `hub.yaml` to disable |
 | ✅ **Name validation** | Agent and skill names must match `^[a-z0-9][a-z0-9-]{0,40}$` — no special characters |
 | 🛡️ **Path safety** | Skill paths are verified to stay within the skills directory — no escaping |
 | 🌿 **Git safety** | AgentHub never discards your changes, resets branches, or merges automatically |
 | ✅ **Coordinator approval** | Multi-agent tasks require explicit approval before changes are marked complete |
 | 🔇 **Secret filtering** | API keys and tokens are never logged or returned to the frontend |
 | 🧱 **Context isolation** | Conversation history from one session never leaks into another session or project |
+| 🔒 **Config locking** | Concurrent config updates are serialized with a threading lock — prevents lost updates |
+| 💾 **Queue persistence** | Queued tasks survive server restarts — state is persisted to `data/queue_state.json` |
+
+**Permissions note:** Agent permissions (file read/write, command execution, etc.) are passed as CLI flags to the provider. Whether they are enforced depends on the provider implementation — Junie CLI respects these flags, but custom providers may not.
 
 ## 💻 CLI Commands
 
@@ -353,8 +360,9 @@ All commands are available via the `agent-hub` command line tool:
 | `agent-hub skill-disable <agent> <skill>` | ❌ Disable a skill for an agent |
 | `agent-hub sync [agent]` | 🔄 Sync skills and guidelines to agent projects |
 | **Server** | |
-| `agent-hub serve` | 🌐 Start the web server on default port (8080) |
+| `agent-hub serve` | 🌐 Start the web server on localhost:8080 |
 | `agent-hub serve --port 9000` | 🌐 Start on a custom port |
+| `agent-hub serve --host 0.0.0.0` | 🌐 Expose to local network (default is localhost only) |
 | `agent-hub serve --reload` | 🔄 Start with auto-reload for development |
 
 ## 🔌 How to Add Another Provider

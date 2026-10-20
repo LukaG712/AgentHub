@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import sys
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -10,6 +11,9 @@ import yaml
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,40}$")
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "hub.yaml"
+
+# H2: Threading lock to prevent race conditions on concurrent config access
+_config_lock = threading.Lock()
 
 
 def get_config_path() -> Path:
@@ -41,15 +45,27 @@ def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
 
 
 def save_config(config: Dict[str, Any], path: Optional[Path] = None) -> Path:
+    """Save config atomically with lock to prevent race conditions (H2 fix)."""
     p = (path or get_config_path()).resolve()
-    if p.exists():
-        backup = p.with_suffix(".yaml.bak")
-        shutil.copy2(str(p), str(backup))
-    tmp = p.with_suffix(".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
-    os.replace(str(tmp), str(p))
+    with _config_lock:
+        if p.exists():
+            backup = p.with_suffix(".yaml.bak")
+            shutil.copy2(str(p), str(backup))
+        tmp = p.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        os.replace(str(tmp), str(p))
     return p
+
+
+def load_config_locked(path: Optional[Path] = None) -> Dict[str, Any]:
+    """Load config under lock for atomic read-modify-write cycles (H2 fix).
+    
+    Use this instead of load_config() when followed by save_config() to prevent
+    lost updates from concurrent modifications.
+    """
+    with _config_lock:
+        return load_config(path)
 
 
 def resolve_command(

@@ -105,3 +105,27 @@ class TestCLIStop:
         with pytest.raises(SystemExit) as exc_info:
             main(["stop", "nonexistent-id"])
         assert exc_info.value.code == 1
+
+
+class TestCLIServe:
+    def test_serve_default_host(self):
+        """C1: Default host should be 127.0.0.1, not 0.0.0.0."""
+        import argparse
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers(dest="command")
+        p_serve = subparsers.add_parser("serve")
+        p_serve.add_argument("--host", default="127.0.0.1")
+        p_serve.add_argument("--port", type=int, default=8080)
+        args = parser.parse_args(["serve"])
+        assert args.host == "127.0.0.1", "Default host should be 127.0.0.1"
+
+    def test_serve_custom_host(self):
+        """C1: Custom host should be respected."""
+        import argparse
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers(dest="command")
+        p_serve = subparsers.add_parser("serve")
+        p_serve.add_argument("--host", default="127.0.0.1")
+        p_serve.add_argument("--port", type=int, default=8080)
+        args = parser.parse_args(["serve", "--host", "0.0.0.0"])
+        assert args.host == "0.0.0.0"

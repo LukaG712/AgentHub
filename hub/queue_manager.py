@@ -8,6 +8,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from hub.runner import Run, _save_run, _load_run, list_runs, run_agent
@@ -21,6 +22,64 @@ _resume_events: Dict[str, threading.Event] = {}
 _bot_queues: Dict[str, List["QueueItem"]] = {}
 _active_workers: Dict[str, threading.Thread] = {}
 _current_active_runs: Dict[str, Optional[Run]] = {}
+
+# H1: Persist queue state to survive restarts
+_QUEUE_STATE_FILE = Path(__file__).resolve().parent.parent / "data" / "queue_state.json"
+
+
+def _save_queue_state() -> None:
+    """Persist queue state to disk (H1 fix)."""
+    try:
+        state = {
+            "paused_bots": list(_paused_bots),
+            "queues": {},
+        }
+        for bot_id, items in _bot_queues.items():
+            state["queues"][bot_id] = [item.to_dict() for item in items]
+        tmp = _QUEUE_STATE_FILE.with_suffix(".tmp")
+        tmp.parent.mkdir(parents=True, exist_ok=True)
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2)
+        os.replace(str(tmp), str(_QUEUE_STATE_FILE))
+    except Exception:
+        logger.exception("Failed to save queue state")
+
+
+def _load_queue_state() -> None:
+    """Restore queue state from disk on startup (H1 fix)."""
+    if not _QUEUE_STATE_FILE.exists():
+        return
+    try:
+        with open(_QUEUE_STATE_FILE, "r", encoding="utf-8") as f:
+            state = json.load(f)
+        with _lock:
+            _paused_bots.clear()
+            _paused_bots.update(state.get("paused_bots", []))
+            _bot_queues.clear()
+            for bot_id, items in state.get("queues", {}).items():
+                _bot_queues[bot_id] = []
+                for item_data in items:
+                    item = QueueItem(
+                        run_id=item_data["run_id"],
+                        bot_id=item_data["bot_id"],
+                        task=item_data["task"],
+                        session_id=item_data.get("session_id"),
+                        created_at=item_data.get("created_at", ""),
+                    )
+                    _bot_queues[bot_id].append(item)
+            # Re-ensure workers for non-empty queues
+            for bot_id in list(_bot_queues.keys()):
+                if _bot_queues[bot_id] and bot_id not in _paused_bots:
+                    _ensure_worker_locked(bot_id)
+            logger.info(f"Restored queue state: {len(_paused_bots)} paused bots, "
+                       f"{sum(len(v) for v in _bot_queues.values())} queued tasks")
+    except Exception:
+        logger.exception("Failed to load queue state")
+
+
+def recover_queue() -> None:
+    """Recover queue state from disk. Call on server startup."""
+    _load_queue_state()
 
 
 @dataclass
@@ -54,7 +113,8 @@ def pause_bot(bot_id: str) -> bool:
         _paused_bots.add(bot_id)
         if bot_id in _resume_events:
             _resume_events[bot_id].clear()
-        return True
+    _save_queue_state()
+    return True
 
 
 def resume_bot(bot_id: str) -> bool:
@@ -65,7 +125,8 @@ def resume_bot(bot_id: str) -> bool:
         _resume_events[bot_id].set()
         # Ensure worker is running if there are queued tasks
         _ensure_worker_locked(bot_id)
-        return True
+    _save_queue_state()
+    return True
 
 
 def get_bot_queue(bot_id: str) -> List[Dict[str, Any]]:
@@ -130,6 +191,7 @@ def enqueue_task(
             _bot_queues[bot_id] = []
         _bot_queues[bot_id].append(item)
         _ensure_worker_locked(bot_id)
+    _save_queue_state()
 
     return run
 
@@ -162,6 +224,7 @@ def _bot_worker_loop(bot_id: str) -> None:
                 _current_active_runs[bot_id] = None
                 return
             item = queue.pop(0)
+        _save_queue_state()
 
         if item is None:
             return

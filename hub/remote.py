@@ -33,6 +33,7 @@ class RemoteConfig:
     sync_before_run: bool = True
     connection_timeout: int = 30
     command_timeout: int = 1800
+    strict_host_key_checking: bool = True
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> Optional["RemoteConfig"]:
@@ -49,6 +50,7 @@ class RemoteConfig:
             sync_before_run=data.get("sync_before_run", True),
             connection_timeout=data.get("connection_timeout", 30),
             command_timeout=data.get("command_timeout", 1800),
+            strict_host_key_checking=data.get("strict_host_key_checking", True),
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -63,6 +65,7 @@ class RemoteConfig:
             "sync_before_run": self.sync_before_run,
             "connection_timeout": self.connection_timeout,
             "command_timeout": self.command_timeout,
+            "strict_host_key_checking": self.strict_host_key_checking,
         }
 
     @property
@@ -108,12 +111,13 @@ class RemoteTarget:
         """Build base SSH arguments."""
         args = [
             "ssh",
-            "-o", "StrictHostKeyChecking=no",
-            "-o", "UserKnownHostsFile=/dev/null",
+            "-o", f"StrictHostKeyChecking={'yes' if self.config.strict_host_key_checking else 'no'}",
             "-o", "BatchMode=yes",
             "-o", f"ConnectTimeout={self.config.connection_timeout}",
             "-p", str(self.config.port),
         ]
+        if not self.config.strict_host_key_checking:
+            args.extend(["-o", "UserKnownHostsFile=/dev/null"])
         if self.config.key_path:
             key = str(Path(self.config.key_path).expanduser().resolve())
             args.extend(["-i", key])

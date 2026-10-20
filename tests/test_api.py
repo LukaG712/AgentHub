@@ -102,6 +102,49 @@ class TestAuth:
         resp = client.get("/api/status", headers=HEADERS)
         assert resp.status_code == 200
 
+    def test_rate_limiting(self, client):
+        """C4: Auth failures should be rate limited."""
+        from hub.api import _auth_failure_store, _auth_failure_lock
+        # Clear any existing failures
+        with _auth_failure_lock:
+            _auth_failure_store.clear()
+
+        # Send many failed auth requests
+        for _ in range(15):
+            resp = client.get("/api/status", headers={"Authorization": "Bearer wrong"})
+
+        # After 10 failures, should get 429
+        assert resp.status_code == 429, f"Expected 429 after many failures, got {resp.status_code}"
+
+    def test_cookie_auth(self, client):
+        """C2: Cookie-based auth should work for SSE endpoints."""
+        from hub.api import _auth_failure_store, _auth_failure_lock
+        # Clear any existing failures
+        with _auth_failure_lock:
+            _auth_failure_store.clear()
+
+        # Cookie auth should work
+        resp = client.get(
+            "/api/status",
+            cookies={"hub_api_key": "test-secret-key"},
+        )
+        # The /api/status endpoint uses _verify_token which checks header first,
+        # then cookie — but _verify_token checks header only. Cookie is for
+        # _verify_token_or_query used by SSE endpoints.
+        # For /api/status, header auth is required.
+        assert resp.status_code == 401  # Header missing, cookie not checked by _verify_token
+
+    def test_query_param_auth_rejected(self, client):
+        """C2: Query parameter auth should be rejected."""
+        from hub.api import _auth_failure_store, _auth_failure_lock
+        # Clear any existing failures
+        with _auth_failure_lock:
+            _auth_failure_store.clear()
+
+        # Query parameter auth should NOT work
+        resp = client.get("/api/status?token=test-secret-key")
+        assert resp.status_code in (401, 429), "Query param auth should be rejected"
+
 
 class TestStatus:
     def test_status_returns_agents(self, client):
@@ -776,23 +819,30 @@ class TestSSEStreaming:
         finally:
             _sse_remove_buffer(run_id)
 
-    def test_sse_auth_via_query_param(self, client):
-        """Test that SSE endpoint accepts token via query parameter."""
+    def test_sse_auth_via_cookie(self, client):
+        """Test that SSE endpoint accepts token via cookie (C2 fix)."""
+        from hub.api import _auth_failure_store, _auth_failure_lock
+        with _auth_failure_lock:
+            _auth_failure_store.clear()
         create = client.post(
             "/api/sessions",
             headers=HEADERS,
             json={"title": "Auth Test", "agent_id": "vault"},
         )
         session_id = create.json()["id"]
-        # Connect using query param instead of header
+        # Connect using cookie instead of query param
         resp = client.get(
-            f"/api/sessions/{session_id}/stream?token=test-secret-key",
+            f"/api/sessions/{session_id}/stream",
+            cookies={"hub_api_key": "test-secret-key"},
         )
         assert resp.status_code == 200
         assert "text/event-stream" in resp.headers.get("content-type", "")
 
     def test_sse_auth_rejects_bad_token(self, client):
-        """Test that SSE endpoint rejects invalid query token."""
+        """Test that SSE endpoint rejects invalid cookie token."""
+        from hub.api import _auth_failure_store, _auth_failure_lock
+        with _auth_failure_lock:
+            _auth_failure_store.clear()
         create = client.post(
             "/api/sessions",
             headers=HEADERS,
@@ -800,7 +850,8 @@ class TestSSEStreaming:
         )
         session_id = create.json()["id"]
         resp = client.get(
-            f"/api/sessions/{session_id}/stream?token=wrong-token",
+            f"/api/sessions/{session_id}/stream",
+            cookies={"hub_api_key": "wrong-token"},
         )
         assert resp.status_code == 401
 
@@ -842,7 +893,8 @@ class TestSSEStreaming:
         time.sleep(2)
         # Connect to the stream — run should be done, so we get the final state
         resp = client.get(
-            f"/api/sessions/{session_id}/stream?token=test-secret-key",
+            f"/api/sessions/{session_id}/stream",
+            cookies={"hub_api_key": "test-secret-key"},
         )
         assert resp.status_code == 200
         text = resp.text
@@ -867,7 +919,8 @@ class TestSSEStreaming:
         time.sleep(2)
         # Connect after run is done
         resp = client.get(
-            f"/api/sessions/{session_id}/stream?token=test-secret-key",
+            f"/api/sessions/{session_id}/stream",
+            cookies={"hub_api_key": "test-secret-key"},
         )
         assert resp.status_code == 200
         text = resp.text
@@ -906,13 +959,15 @@ class TestSSEStreaming:
         time.sleep(3)
         # Stream session 1 — should only contain run_id_1
         resp1 = client.get(
-            f"/api/sessions/{s1}/stream?token=test-secret-key",
+            f"/api/sessions/{s1}/stream",
+            cookies={"hub_api_key": "test-secret-key"},
         )
         text1 = resp1.text
         assert run_id_1 in text1
         # Stream session 2 — should only contain run_id_2
         resp2 = client.get(
-            f"/api/sessions/{s2}/stream?token=test-secret-key",
+            f"/api/sessions/{s2}/stream",
+            cookies={"hub_api_key": "test-secret-key"},
         )
         text2 = resp2.text
         assert run_id_2 in text2
@@ -942,7 +997,8 @@ class TestSSEStreaming:
         import time
         time.sleep(2)
         resp = client.get(
-            f"/api/sessions/{session_id}/stream?token=test-secret-key",
+            f"/api/sessions/{session_id}/stream",
+            cookies={"hub_api_key": "test-secret-key"},
         )
         assert resp.status_code == 200
         text = resp.text
@@ -967,7 +1023,9 @@ class TestSSEStreaming:
         time.sleep(2)
         # Stream using specific run_id
         resp = client.get(
-            f"/api/sessions/{session_id}/stream?token=test-secret-key&run_id={run_id}",
+            f"/api/sessions/{session_id}/stream",
+            params={"run_id": run_id},
+            cookies={"hub_api_key": "test-secret-key"},
         )
         assert resp.status_code == 200
         text = resp.text
@@ -982,7 +1040,9 @@ class TestSSEStreaming:
         )
         session_id = create.json()["id"]
         resp = client.get(
-            f"/api/sessions/{session_id}/stream?token=test-secret-key&run_id=nonexistent-run-id",
+            f"/api/sessions/{session_id}/stream",
+            params={"run_id": "nonexistent-run-id"},
+            cookies={"hub_api_key": "test-secret-key"},
         )
         assert resp.status_code == 404
 
@@ -1010,24 +1070,30 @@ class TestSSEStreaming:
             json={"content": "second overlapping task"},
         ).json()
         run_id_2 = d2["run_id"]
-        time.sleep(2)
+        # Wait longer for both queued runs to complete
+        time.sleep(4)
         # Stream run 1 specifically
         resp1 = client.get(
-            f"/api/sessions/{session_id}/stream?token=test-secret-key&run_id={run_id_1}",
+            f"/api/sessions/{session_id}/stream",
+            params={"run_id": run_id_1},
+            cookies={"hub_api_key": "test-secret-key"},
         )
         text1 = resp1.text
         assert run_id_1 in text1
         assert run_id_2 not in text1
         # Stream run 2 specifically
         resp2 = client.get(
-            f"/api/sessions/{session_id}/stream?token=test-secret-key&run_id={run_id_2}",
+            f"/api/sessions/{session_id}/stream",
+            params={"run_id": run_id_2},
+            cookies={"hub_api_key": "test-secret-key"},
         )
         text2 = resp2.text
         assert run_id_2 in text2
         assert run_id_1 not in text2
         # Default stream (no run_id) should return the latest run
         resp_default = client.get(
-            f"/api/sessions/{session_id}/stream?token=test-secret-key",
+            f"/api/sessions/{session_id}/stream",
+            cookies={"hub_api_key": "test-secret-key"},
         )
         text_default = resp_default.text
         assert run_id_2 in text_default

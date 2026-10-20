@@ -593,3 +593,67 @@ class TestStreamingOutput:
         stderr_texts = " ".join(stderr_lines)
         assert "done" in stdout_texts, "stdout final marker missing"
         assert "stderr done" in stderr_texts, "stderr final marker missing"
+
+
+class TestProcessCheck:
+    """Regression tests for C3: _is_process_alive must not kill processes."""
+
+    def test_is_process_alive_none(self):
+        """None PID should return False."""
+        from hub.runner import _is_process_alive
+        assert _is_process_alive(None) is False
+
+    def test_is_process_alive_current_process(self):
+        """Current process PID should return True."""
+        from hub.runner import _is_process_alive
+        assert _is_process_alive(os.getpid()) is True
+
+    def test_is_process_alive_nonexistent(self):
+        """Non-existent PID should return False."""
+        from hub.runner import _is_process_alive
+        # PID 99999999 is very unlikely to exist
+        assert _is_process_alive(99999999) is False
+
+    def test_is_process_alive_does_not_kill(self, hub_env):
+        """_is_process_alive must NOT kill the process it checks.
+        
+        Regression test for C3: the old fallback used taskkill /F which
+        force-killed the process instead of checking if it was alive.
+        """
+        from hub.runner import _is_process_alive
+        pid = os.getpid()
+        # Call it multiple times — should always return True and never kill
+        for _ in range(5):
+            assert _is_process_alive(pid) is True
+
+
+class TestFileLock:
+    """Regression tests for M1: file lock on Windows."""
+
+    def test_file_lock_acquire_release(self, hub_env):
+        """File lock should acquire and release correctly."""
+        from hub.runner import _FileLock
+        lock = _FileLock("test-agent")
+        lock.acquire()
+        lock.release()
+
+    def test_file_lock_context_manager(self, hub_env):
+        """File lock should work as context manager."""
+        from hub.runner import _FileLock
+        with _FileLock("test-agent"):
+            pass  # Should not raise
+
+    def test_file_lock_try_acquire(self, hub_env):
+        """try_acquire should return True when available."""
+        from hub.runner import _FileLock
+        lock = _FileLock("test-agent")
+        assert lock.try_acquire() is True
+        lock.release()
+
+    def test_file_lock_try_acquire_busy(self, hub_env):
+        """try_acquire should return False when already held."""
+        from hub.runner import _FileLock
+        lock = _FileLock("test-agent")
+        lock.acquire()
+        assert lock.try_acquire() is False
+        lock.release()

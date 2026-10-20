@@ -123,12 +123,12 @@ class TestRemoteTarget:
             assert target.is_available() is True
 
     def test_ssh_args_basic(self):
-        """SSH args should include security options."""
+        """SSH args should include security options. Default is strict host key checking."""
         target = RemoteTarget(self._make_config())
         args = target._ssh_args()
         assert "ssh" in args
         assert "-o" in args
-        assert "StrictHostKeyChecking=no" in args
+        assert "StrictHostKeyChecking=yes" in args  # C5 fix: default to strict checking
         assert "-p" in args
         assert "22" in args
 
@@ -312,3 +312,57 @@ class TestRemoteConfigHelpers:
         """Returns None for unknown agent."""
         config = {"agents": {}}
         assert get_agent_remote_config(config, "unknown") is None
+
+
+class TestSSHSecurity:
+    """Regression tests for C5: SSH host key checking."""
+
+    def test_strict_host_key_checking_default(self):
+        """C5: Strict host key checking should be enabled by default."""
+        cfg = RemoteConfig.from_dict({"host": "test.com"})
+        assert cfg.strict_host_key_checking is True
+
+    def test_strict_host_key_checking_disabled(self):
+        """C5: Strict host key checking can be disabled via config."""
+        cfg = RemoteConfig.from_dict({
+            "host": "test.com",
+            "strict_host_key_checking": False,
+        })
+        assert cfg.strict_host_key_checking is False
+
+    def test_ssh_args_strict_enabled(self):
+        """C5: SSH args should use StrictHostKeyChecking=yes by default."""
+        cfg = RemoteConfig(host="test.com")
+        target = RemoteTarget(cfg)
+        args = target._ssh_args()
+        assert "-o" in args
+        strict_idx = args.index("-o")
+        assert args[strict_idx + 1] == "StrictHostKeyChecking=yes"
+
+    def test_ssh_args_strict_disabled(self):
+        """C5: SSH args should use StrictHostKeyChecking=no when disabled."""
+        cfg = RemoteConfig(host="test.com", strict_host_key_checking=False)
+        target = RemoteTarget(cfg)
+        args = target._ssh_args()
+        strict_idx = args.index("-o")
+        assert args[strict_idx + 1] == "StrictHostKeyChecking=no"
+
+    def test_ssh_args_user_known_hosts(self):
+        """C5: UserKnownHostsFile should only be set when strict is disabled."""
+        cfg_strict = RemoteConfig(host="test.com", strict_host_key_checking=True)
+        target_strict = RemoteTarget(cfg_strict)
+        args_strict = target_strict._ssh_args()
+        assert "UserKnownHostsFile=/dev/null" not in args_strict
+
+        cfg_no_strict = RemoteConfig(host="test.com", strict_host_key_checking=False)
+        target_no_strict = RemoteTarget(cfg_no_strict)
+        args_no_strict = target_no_strict._ssh_args()
+        assert "UserKnownHostsFile=/dev/null" in args_no_strict
+
+    def test_strict_host_key_checking_serialization(self):
+        """C5: strict_host_key_checking should round-trip in to_dict."""
+        cfg = RemoteConfig(host="test.com", strict_host_key_checking=False)
+        d = cfg.to_dict()
+        assert d["strict_host_key_checking"] is False
+        cfg2 = RemoteConfig.from_dict(d)
+        assert cfg2.strict_host_key_checking is False

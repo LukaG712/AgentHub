@@ -210,7 +210,7 @@ def main(argv=None):
 
     # hub serve
     p_serve = subparsers.add_parser("serve", help="Start the web server")
-    p_serve.add_argument("--host", default="0.0.0.0", help="Bind address (default: 0.0.0.0)")
+    p_serve.add_argument("--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1; use 0.0.0.0 for LAN exposure)")
     p_serve.add_argument("--port", type=int, default=8080, help="Port (default: 8080)")
     p_serve.add_argument("--reload", action="store_true", help="Enable auto-reload on code changes")
     p_serve.set_defaults(func=cmd_serve)

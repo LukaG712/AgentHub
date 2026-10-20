@@ -334,6 +334,10 @@ class TaskCoordinator:
         finally:
             with self._lock:
                 self._running_count -= 1
+                # M6: Clean up worktree on failure
+                if task.status == TaskStatus.FAILED and task.worktree_path:
+                    self._remove_worktree(task.worktree_path)
+                    task.worktree_path = None
 
     def approve_task(self, task_id: str) -> bool:
         """Approve a task's changes, marking it as completed.
