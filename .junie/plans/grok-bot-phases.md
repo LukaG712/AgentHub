@@ -75,7 +75,18 @@ All 32 Grok feature tests pass. The backend API endpoints exist for all features
 6. **README updated**: Added Routines, Teach a task, Sidebar grouping to features table and UI checklist
 
 ## Phase 4: Memory
-(Not in scope for this session)
+(COMPLETED)
+
+**Goal:** Per-Bot memory with editable notes, memory update proposals shown in chat, and Undo capability.
+
+### What was done
+1. **Backend memory functions**: Added `propose_memory_update()` and `undo_memory_update()` in `hub/memory.py` — these save previous content, write new content, and add system messages with metadata for undo
+2. **Backend API endpoints**: Added `POST /api/bots/{bot_id}/memory/propose` and `POST /api/bots/{bot_id}/memory/undo` in `hub/api.py`
+3. **UI Memory section**: Added "Propose update" button next to Save in the right panel Memory section
+4. **UI memory update cards**: System messages with `msg_type=memory_updated` render as styled cards with "Updated memory for <Bot>" text and an Undo button
+5. **UI undo function**: `undoMemoryUpdate()` restores previous content and reloads the chat to show the undo system message
+6. **CSS styling**: Added `.memory-update-card` styles for the proposal cards
+7. **README updated**: Added Bot Memory and Memory Undo to features table and UI checklist
 
 ## Phase 5: Group Threads and Handoffs
 (Not in scope for this session)

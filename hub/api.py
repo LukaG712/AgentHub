@@ -1699,6 +1699,62 @@ async def api_update_bot_memory(
     return {"content": content}
 
 
+@app.post("/api/bots/{bot_id}/memory/propose")
+async def api_propose_memory_update(
+    bot_id: str,
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    """Propose a memory update for a bot.
+
+    Saves the previous content for undo, writes the new content,
+    and adds a system message to the session.
+    Expects: content (required), session_id (required), optional run_id.
+    """
+    config = load_config()
+    agents_cfg = config.get("agents", {})
+    if bot_id not in agents_cfg:
+        raise HTTPException(status_code=404, detail=f"Bot '{bot_id}' not found")
+    content = body.get("content", "")
+    session_id = body.get("session_id", "")
+    run_id = body.get("run_id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    msg = memory.propose_memory_update(
+        bot_id=bot_id,
+        session_id=session_id,
+        new_content=content,
+        run_id=run_id,
+    )
+    return {"message": msg, "content": content}
+
+
+@app.post("/api/bots/{bot_id}/memory/undo")
+async def api_undo_memory_update(
+    bot_id: str,
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    """Undo a previous memory update by restoring the old content.
+
+    Expects: session_id (required), previous_content (required).
+    """
+    config = load_config()
+    agents_cfg = config.get("agents", {})
+    if bot_id not in agents_cfg:
+        raise HTTPException(status_code=404, detail=f"Bot '{bot_id}' not found")
+    session_id = body.get("session_id", "")
+    previous_content = body.get("previous_content", "")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    msg = memory.undo_memory_update(
+        bot_id=bot_id,
+        session_id=session_id,
+        previous_content=previous_content,
+    )
+    return {"message": msg, "content": previous_content}
+
+
 # --- Static files ---
 
 

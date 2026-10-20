@@ -310,7 +310,29 @@ input, textarea, select { font-family: inherit; }
 .chat-message.system {
   align-self: center; background: none;
   color: var(--fg-secondary); font-size: 0.8rem; font-style: normal;
-  padding: 0.3rem 0.8rem;
+}
+/* Memory update proposal card */
+.memory-update-card {
+  align-self: center; background: var(--sidebar-bg);
+  border: 1px solid var(--hairline); border-radius: var(--radius-card);
+  padding: 0.6rem 0.8rem; max-width: 500px; width: 100%;
+  font-size: 0.8rem; color: var(--fg-secondary);
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+}
+.memory-update-card .memory-update-text {
+  flex: 1; font-style: italic;
+}
+.memory-update-card .memory-update-actions {
+  display: flex; gap: 0.3rem; flex-shrink: 0;
+}
+.memory-update-card .btn-undo {
+  padding: 0.2rem 0.5rem; font-size: 0.75rem;
+  background: transparent; border: 1px solid var(--hairline);
+  border-radius: var(--radius-input); color: var(--fg-secondary);
+  cursor: pointer;
+}
+.memory-update-card .btn-undo:hover {
+  background: var(--selected-row); color: var(--fg);
 }
 .msg-time { font-size: 0.7rem; opacity: 0.6; margin-top: 0.25rem; }
 
@@ -1036,6 +1058,7 @@ input, textarea, select { font-family: inherit; }
             <textarea id="panel-memory-text" placeholder="Bot memory..." rows="4"></textarea>
             <div class="field-actions">
               <button class="btn-save-field" onclick="saveBotMemory()">Save</button>
+              <button class="btn-save-field" onclick="proposeMemoryUpdate()" title="Propose this as a memory update in the chat">Propose update</button>
             </div>
           </div>
         </div>
@@ -1674,6 +1697,24 @@ async function loadChatMessages(sessionId) {
         } else {
           html += `<div class="chat-message bot">${esc(m.content)}<div class="msg-time">${esc(time)}</div></div>`;
         }
+      } else if (m.msg_type === 'memory_updated') {
+        // Render memory update card with Undo button
+        let previousContent = '';
+        let metaType = '';
+        try {
+          const meta = JSON.parse(m.metadata || '{}');
+          metaType = meta.type || '';
+          if (meta.type === 'memory_updated' && meta.previous_content !== undefined) {
+            previousContent = meta.previous_content;
+          }
+        } catch(e) { /* ignore */ }
+        const canUndo = previousContent !== '' && metaType !== 'memory_undone';
+        html += `<div class="memory-update-card">
+          <span class="memory-update-text">${esc(m.content)}${time ? ` <span style="opacity:0.5">(${esc(time)})</span>` : ''}</span>
+          ${canUndo ? `<div class="memory-update-actions">
+            <button class="btn-undo" onclick="undoMemoryUpdate('${esc(m.id)}', ${JSON.stringify(previousContent).replace(/'/g, "\\'")})">Undo</button>
+          </div>` : ''}
+        </div>`;
       } else {
         html += `<div class="chat-message system">${esc(m.content)}${time ? `<div class="msg-time">${esc(time)}</div>` : ''}</div>`;
       }
@@ -2126,6 +2167,37 @@ async function saveBotMemory() {
   } catch(e) {
     console.error('Failed to save memory:', e);
     alert('Failed to save memory');
+  }
+}
+
+async function proposeMemoryUpdate() {
+  if (!currentBot || !currentSessionId) return;
+  const content = document.getElementById('panel-memory-text').value;
+  try {
+    await api('/bots/' + encodeURIComponent(currentBot) + '/memory/propose', {
+      method: 'POST',
+      body: { content, session_id: currentSessionId }
+    });
+    // Reload chat to show the system message
+    if (currentSessionId) loadChatMessages(currentSessionId);
+  } catch(e) {
+    console.error('Failed to propose memory update:', e);
+    alert('Failed to propose memory update');
+  }
+}
+
+async function undoMemoryUpdate(messageId, previousContent) {
+  if (!currentBot || !currentSessionId) return;
+  try {
+    await api('/bots/' + encodeURIComponent(currentBot) + '/memory/undo', {
+      method: 'POST',
+      body: { session_id: currentSessionId, previous_content: previousContent }
+    });
+    // Reload memory panel and chat
+    loadPanelMemory(currentBot);
+    if (currentSessionId) loadChatMessages(currentSessionId);
+  } catch(e) {
+    console.error('Failed to undo memory update:', e);
   }
 }
 

@@ -33,6 +33,8 @@ Everything you need to manage AI coding agents from one place:
 | ⏱️ **Routines** | Scheduled tasks | Create recurring tasks for Bots with interval or cron-like schedules; enable/disable/run-now from the right panel |
 | 🎓 **Teach a task** | Save runs as routines | Click "Save as routine" on any completed run to create a reusable routine with one click |
 | 📂 **Sidebar grouping** | Schedule-based groups | Bots are grouped by routine schedule (Daily, Weekly, etc.) in the sidebar; falls back to Working/Recent |
+| 🧠 **Bot Memory** | Per-Bot notes | Edit each Bot's memory in the right panel; propose updates that appear in the chat with an Undo button |
+| ↩️ **Memory Undo** | Revert changes | Click "Undo" on any memory update system message to restore the previous memory content |
 | 📦 **Context** | Smart context assembly | Agents get relevant history, memories, and instructions automatically |
 | 🔌 **Providers** | Extensible backends | Junie CLI is the default; add more via the `AgentProvider` interface |
 | 🔒 **Permissions** | Per-agent controls | Toggle file read/write, command execution, Git ops, and network access |
@@ -528,6 +530,10 @@ Quality checklist for the messenger-style web UI:
 - [ ] "Save as routine" button appears on completed run cards in the chat
 - [ ] Clicking "Save as routine" prompts for a name and creates the routine
 - [ ] Creating a routine appends a "Created routine ⏱ <name>" system message in the chat
+- [ ] Memory section in right panel shows editable textarea with Save button
+- [ ] "Propose update" button in Memory section creates a memory update system message in the chat
+- [ ] Memory update appears as a card with "Updated memory for <Bot>" and an Undo button
+- [ ] Clicking "Undo" restores the previous memory content and shows "Undid memory update" message
 
 ### Chat Thread
 - [ ] Selecting a Bot loads its chat session (auto-creates session if none exists)
@@ -546,9 +552,10 @@ Quality checklist for the messenger-style web UI:
 - [ ] Guidelines: editable textarea with Save button
 - [ ] Skills: checkboxes for each skill, toggles enable/disable for current Bot
 - [ ] Run History: clickable list of recent runs, opens run detail modal
+- [ ] Memory section: editable textarea with Save and "Propose update" buttons
 - [ ] Routines section: lists routines with enable/disable toggle, run-now, and delete buttons
 - [ ] Routines section: "+ New Routine" button opens inline form for creating routines
-- [ ] Placeholder sections: Memory, Plugins (disabled, "Coming soon")
+- [ ] Placeholder sections: Plugins (disabled, "Coming soon")
 
 ### New Bot Dialog
 - [ ] "Describe the job in a sentence" field auto-generates a name

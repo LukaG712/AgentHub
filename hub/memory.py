@@ -498,6 +498,60 @@ def delete_memory(memory_id: str) -> bool:
     return cursor.rowcount > 0
 
 
+def propose_memory_update(
+    bot_id: str,
+    session_id: str,
+    new_content: str,
+    run_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Propose a memory update for a bot.
+
+    Saves the previous memory content for undo, writes the new content,
+    and returns a proposal record with the message ID for the system line.
+    """
+    import json as _json
+
+    from hub import bot_memory as _bot_mem
+
+    old_content = _bot_mem.read_bot_memory(bot_id)
+    _bot_mem.write_bot_memory(bot_id, new_content)
+
+    metadata = _json.dumps({"type": "memory_updated", "bot_id": bot_id, "previous_content": old_content})
+    msg = add_message(
+        session_id=session_id,
+        role="system",
+        content=f"Updated memory for {bot_id}",
+        run_id=run_id,
+        bot_id=bot_id,
+        msg_type="memory_updated",
+        metadata=metadata,
+    )
+    return msg
+
+
+def undo_memory_update(bot_id: str, session_id: str, previous_content: str) -> Dict[str, Any]:
+    """Undo a previous memory update by restoring the old content.
+
+    Writes the previous content back and adds a system message about the undo.
+    """
+    import json as _json
+
+    from hub import bot_memory as _bot_mem
+
+    _bot_mem.write_bot_memory(bot_id, previous_content)
+
+    metadata = _json.dumps({"type": "memory_undone", "bot_id": bot_id})
+    msg = add_message(
+        session_id=session_id,
+        role="system",
+        content=f"Undid memory update for {bot_id}",
+        bot_id=bot_id,
+        msg_type="memory_updated",
+        metadata=metadata,
+    )
+    return msg
+
+
 def _memory_to_dict(row: sqlite3.Row) -> Dict[str, Any]:
     """Convert a memory row to a dict."""
     return dict(row)
