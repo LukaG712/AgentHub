@@ -138,6 +138,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         """)
         # Schema migration for existing tables
         _add_column_if_not_exists(cursor, "sessions", "bot_ids", "TEXT")
+        _add_column_if_not_exists(cursor, "sessions", "unread_since", "TEXT")
         _add_column_if_not_exists(cursor, "messages", "bot_id", "TEXT")
         _add_column_if_not_exists(cursor, "messages", "msg_type", "TEXT NOT NULL DEFAULT 'message'")
         _add_column_if_not_exists(cursor, "messages", "metadata", "TEXT")
@@ -282,6 +283,41 @@ def update_session_timestamp(session_id: str) -> None:
         (now, session_id),
     )
     conn.commit()
+
+
+def mark_session_read(session_id: str) -> None:
+    """Mark a session as read by recording the current time in unread_since.
+
+    Assistant messages created after this timestamp are considered unread.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _get_connection()
+    conn.execute(
+        "UPDATE sessions SET unread_since = ? WHERE id = ?",
+        (now, session_id),
+    )
+    conn.commit()
+
+
+def get_unread_count(session_id: str) -> int:
+    """Count assistant messages created after the session's unread_since timestamp."""
+    conn = _get_connection()
+    row = conn.execute(
+        "SELECT unread_since FROM sessions WHERE id = ?",
+        (session_id,),
+    ).fetchone()
+    if row is None or row["unread_since"] is None:
+        # Never been read — count all assistant messages
+        row = conn.execute(
+            "SELECT COUNT(*) AS cnt FROM messages WHERE session_id = ? AND role = 'assistant'",
+            (session_id,),
+        ).fetchone()
+        return row["cnt"] if row else 0
+    row = conn.execute(
+        "SELECT COUNT(*) AS cnt FROM messages WHERE session_id = ? AND role = 'assistant' AND created_at > ?",
+        (session_id, row["unread_since"]),
+    ).fetchone()
+    return row["cnt"] if row else 0
 
 
 def _session_to_dict(row: sqlite3.Row) -> Dict[str, Any]:

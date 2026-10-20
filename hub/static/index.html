@@ -5,90 +5,117 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Agent Hub</title>
 <style>
+/* ===== Design Tokens ===== */
 :root {
-  --bg: #f3f4f6; --bg-secondary: #fff; --bg-tertiary: #f9fafb;
-  --fg: #111827; --fg-secondary: #4b5563; --fg-muted: #9ca3af;
-  --border: #e5e7eb; --border-strong: #d1d5db;
-  --accent: #2563eb; --accent-hover: #1d4ed8; --accent-light: #dbeafe;
-  --danger: #dc2626; --danger-light: #fee2e2;
-  --success: #16a34a; --success-light: #dcfce7;
-  --warning: #d97706; --warning-light: #fef3c7;
-  --user-bubble: #2563eb; --user-bubble-text: #fff;
-  --bot-bubble: #e5e7eb; --bot-bubble-text: #111827;
-  --sidebar-width: 260px; --panel-width: 300px;
-  --header-height: 48px;
-  --radius: 8px; --radius-lg: 12px;
-  --shadow: 0 1px 3px rgba(0,0,0,0.1);
-  --shadow-lg: 0 4px 12px rgba(0,0,0,0.15);
+  /* Light theme — neutral greys, color only from avatars */
+  --sidebar-bg: #f6f6f6;
+  --main-bg: #fcfcfc;
+  --hairline: #e8e8e8;
+  --selected-row: #e4e4e4;
+  --search-bg: #ececec;
+  --bot-bubble: #f0f0f0;
+  --bot-bubble-text: #111;
+  --user-bubble: #111;
+  --user-bubble-text: #f2f2f2;
+  --fg: #111;
+  --fg-secondary: #8a8a8e;
+  --link: #1a5fd0;
+  --success: #12a35f;
+  --diff-add: #1a9b4b;
+  --diff-remove: #d1304a;
+  --danger: #d1304a;
+  --warning: #fbab18;
+  --composer-bg: #fff;
+  --composer-border: #e8e8e8;
+  --primary-btn-bg: #111;
+  --primary-btn-text: #f2f2f2;
+  --panel-bg: #fcfcfc;
+  /* Radii */
+  --radius-row: 14px;
+  --radius-bubble: 22px;
+  --radius-composer: 28px;
+  --radius-pill: 999px;
+  --radius-card: 18px;
+  --radius-input: 14px;
+  /* Sizes */
+  --sidebar-width: clamp(280px, 24vw, 340px);
+  --panel-width: 320px;
+  --thread-header-height: 56px;
+  --font-size-base: 15px;
   --transition: 0.2s ease;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0b0f14; --bg-secondary: #151b23; --bg-tertiary: #1c2333;
-    --fg: #e5e7eb; --fg-secondary: #9ca3af; --fg-muted: #6b7280;
-    --border: #2a3444; --border-strong: #374151;
-    --accent: #3b82f6; --accent-hover: #60a5fa; --accent-light: #1e3a5f;
-    --danger: #ef4444; --danger-light: #3b1f1f;
-    --success: #22c55e; --success-light: #1a3d2a;
-    --warning: #f59e0b; --warning-light: #3d3318;
-    --user-bubble: #3b82f6; --user-bubble-text: #fff;
-    --bot-bubble: #2a3444; --bot-bubble-text: #e5e7eb;
-    --shadow: 0 1px 3px rgba(0,0,0,0.4);
-    --shadow-lg: 0 4px 12px rgba(0,0,0,0.5);
+    --sidebar-bg: #1c1c1c;
+    --main-bg: #262626;
+    --hairline: #3c3c3c;
+    --selected-row: #2e2e2e;
+    --search-bg: #262626;
+    --bot-bubble: #343434;
+    --bot-bubble-text: #f2f2f2;
+    --user-bubble: #f2f2f2;
+    --user-bubble-text: #111;
+    --fg: #f2f2f2;
+    --fg-secondary: #9a9a9a;
+    --link: #1a7cff;
+    --success: #16c26a;
+    --diff-add: #16c26a;
+    --diff-remove: #d1304a;
+    --danger: #d1304a;
+    --warning: #fbab18;
+    --composer-bg: #262626;
+    --composer-border: #3c3c3c;
+    --primary-btn-bg: #f2f2f2;
+    --primary-btn-text: #111;
+    --panel-bg: #1c1c1c;
   }
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: var(--bg); color: var(--fg);
-  font-size: 14px; line-height: 1.5;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  background: var(--main-bg); color: var(--fg);
+  font-size: var(--font-size-base); line-height: 1.5;
   height: 100vh; overflow: hidden;
 }
 .hidden { display: none !important; }
-button { cursor: pointer; font-family: inherit; }
+button { cursor: pointer; font-family: inherit; border: none; background: none; }
 input, textarea, select { font-family: inherit; }
 
 /* ===== Auth Prompt ===== */
 #auth-prompt {
   display: flex; align-items: center; justify-content: center;
-  min-height: 100vh; background: var(--bg);
+  min-height: 100vh; background: var(--main-bg);
 }
 #auth-prompt form {
-  background: var(--bg-secondary); padding: 2rem; border-radius: var(--radius-lg);
-  border: 1px solid var(--border); box-shadow: var(--shadow-lg);
-  text-align: center;
+  background: var(--composer-bg); padding: 2.5rem 2rem; border-radius: var(--radius-card);
+  border: 1px solid var(--hairline);
+  text-align: center; max-width: 360px; width: 90%;
 }
-#auth-prompt h2 { margin-bottom: 0.5rem; font-size: 1.5rem; }
-#auth-prompt p { color: var(--fg-muted); margin-bottom: 1rem; font-size: 0.9rem; }
+#auth-prompt h2 { margin-bottom: 0.3rem; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+#auth-prompt p { color: var(--fg-secondary); margin-bottom: 1.5rem; font-size: 0.9rem; }
 #auth-prompt input {
-  padding: 0.6rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--bg); color: var(--fg); width: 260px; font-size: 0.9rem;
+  padding: 0.7rem 1rem; border: 1px solid var(--hairline); border-radius: var(--radius-input);
+  background: var(--search-bg); color: var(--fg); width: 100%; font-size: 0.95rem;
+  margin-bottom: 1rem;
 }
+#auth-prompt input:focus { outline: none; border-color: var(--link); }
 #auth-prompt button {
-  padding: 0.6rem 1.2rem; background: var(--accent); color: #fff;
-  border: none; border-radius: var(--radius); font-size: 0.9rem; margin-left: 0.5rem;
+  padding: 0.65rem 1.5rem; background: var(--primary-btn-bg); color: var(--primary-btn-text);
+  border-radius: var(--radius-pill); font-size: 0.95rem; font-weight: 600; width: 100%;
 }
-#auth-prompt button:hover { background: var(--accent-hover); }
+#auth-prompt button:hover { opacity: 0.85; }
 
-/* ===== App Layout ===== */
-#app { display: flex; flex-direction: column; height: 100vh; }
+/* ===== App Shell — two columns, no top bar ===== */
+#app { display: flex; flex-direction: row; height: 100vh; overflow: hidden; }
 
-/* Header */
-#app-header {
-  height: var(--header-height); flex-shrink: 0;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 1rem; border-bottom: 1px solid var(--border);
-  background: var(--bg-secondary);
-}
-#app-header .logo { font-size: 1.1rem; font-weight: 700; }
-#app-header .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+/* Icon button — quiet, no border */
 .icon-btn {
-  background: none; border: 1px solid var(--border); color: var(--fg);
-  width: 32px; height: 32px; border-radius: var(--radius);
+  color: var(--fg-secondary);
+  width: 36px; height: 36px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 1rem; transition: background var(--transition);
+  font-size: 1.1rem; transition: background var(--transition), color var(--transition);
 }
-.icon-btn:hover { background: var(--bg-tertiary); }
+.icon-btn:hover { background: var(--selected-row); color: var(--fg); }
 
 /* Main layout */
 #app-body { display: flex; flex: 1; overflow: hidden; }
@@ -96,187 +123,355 @@ input, textarea, select { font-family: inherit; }
 /* ===== Sidebar ===== */
 #sidebar {
   width: var(--sidebar-width); flex-shrink: 0;
-  border-right: 1px solid var(--border);
-  background: var(--bg-secondary);
+  border-right: 1px solid var(--hairline);
+  background: var(--sidebar-bg);
   display: flex; flex-direction: column;
   transition: transform var(--transition);
+  overflow: hidden;
 }
 #sidebar-header {
-  padding: 0.75rem; border-bottom: 1px solid var(--border);
+  padding: 1rem 1rem 0.5rem; flex-shrink: 0;
 }
-#sidebar-header h3 { font-size: 0.85rem; color: var(--fg-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+#sidebar-header .sidebar-top-row {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;
+}
+#sidebar-header .sidebar-title {
+  font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em;
+}
 .btn-new-bot {
-  width: 100%; padding: 0.5rem; background: var(--accent); color: #fff;
-  border: none; border-radius: var(--radius); font-size: 0.85rem;
-  display: flex; align-items: center; justify-content: center; gap: 0.3rem;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--selected-row); color: var(--fg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem; font-weight: 500; flex-shrink: 0;
+  transition: background var(--transition);
 }
-.btn-new-bot:hover { background: var(--accent-hover); }
+.btn-new-bot:hover { background: var(--hairline); }
 #sidebar-search {
-  display: none; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);
+  padding: 0 1rem 0.75rem; flex-shrink: 0;
 }
-#sidebar-search.visible { display: block; }
 #sidebar-search input {
-  width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--border);
-  border-radius: var(--radius); background: var(--bg); color: var(--fg);
-  font-size: 0.85rem;
+  width: 100%; padding: 0.55rem 0.75rem 0.55rem 2.2rem;
+  border: none; border-radius: var(--radius-input);
+  background: var(--search-bg); color: var(--fg);
+  font-size: 0.85rem; position: relative;
 }
-#bot-list {
-  flex: 1; overflow-y: auto; padding: 0.25rem;
-}
-.bot-item {
-  display: flex; align-items: center; gap: 0.6rem;
-  padding: 0.5rem 0.5rem; border-radius: var(--radius);
-  cursor: pointer; transition: background var(--transition);
+#sidebar-search input::placeholder { color: var(--fg-secondary); }
+#sidebar-search input:focus { outline: none; box-shadow: inset 0 0 0 1px var(--hairline); }
+#sidebar-search-wrapper {
   position: relative;
 }
-.bot-item:hover { background: var(--bg-tertiary); }
-.bot-item.active { background: var(--accent-light); }
+#sidebar-search-wrapper .search-icon {
+  position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%);
+  color: var(--fg-secondary); font-size: 0.85rem; pointer-events: none;
+}
+#bot-list {
+  flex: 1; overflow-y: auto; padding: 0 0.75rem;
+}
+.sidebar-section-label {
+  font-size: 0.75rem; font-weight: 600; color: var(--fg-secondary);
+  padding: 0.75rem 0.25rem 0.35rem; text-transform: none; letter-spacing: 0;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sidebar-section-label .count {
+  font-size: 0.7rem; color: var(--fg-secondary); opacity: 0.7;
+}
+.bot-item {
+  display: flex; align-items: center; gap: 0.65rem;
+  padding: 0.55rem 0.65rem; border-radius: var(--radius-row);
+  cursor: pointer; transition: background var(--transition);
+  position: relative; height: auto; min-height: 52px;
+}
+.bot-item:hover { background: var(--selected-row); }
+.bot-item.active { background: var(--selected-row); }
 .bot-avatar {
-  width: 32px; height: 32px; border-radius: 50%;
+  width: 44px; height: 44px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.75rem; font-weight: 700; color: #fff;
-  flex-shrink: 0;
+  flex-shrink: 0; position: relative;
 }
+.bot-avatar svg { width: 44px; height: 44px; }
 .bot-info { flex: 1; min-width: 0; }
-.bot-name { font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bot-desc { font-size: 0.75rem; color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bot-status-dot {
-  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+.bot-name-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;
 }
-.bot-status-dot.working { background: var(--success); }
-.bot-status-dot.idle { background: var(--fg-muted); }
-.bot-status-dot.failed { background: var(--danger); }
-.bot-status-dot.paused { background: var(--warning); }
-.bot-run-status.queued { color: var(--fg-muted); font-style: italic; }
+.bot-name {
+  font-size: var(--font-size-base); font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bot-time {
+  font-size: 0.75rem; color: var(--fg-secondary); flex-shrink: 0;
+}
+.bot-desc {
+  font-size: 0.8rem; color: var(--fg-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-top: 1px;
+  display: flex; align-items: center; gap: 0.35rem;
+}
+.unread-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--link); flex-shrink: 0;
+}
+.bot-status-badge {
+  position: absolute; top: -2px; right: -2px;
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid var(--sidebar-bg);
+}
+.bot-status-badge.working { background: var(--success); }
+.bot-status-badge.idle { background: var(--fg-secondary); }
+.bot-status-badge.failed { background: var(--danger); }
+.bot-status-badge.paused { background: var(--warning); }
+.bot-status-badge.needs-approval { background: var(--warning); }
+.bot-run-status.queued { color: var(--fg-secondary); font-style: italic; }
 
 #sidebar-footer {
-  padding: 0.5rem 0.75rem; border-top: 1px solid var(--border);
+  padding: 0.5rem 0.75rem 1rem; border-top: 1px solid var(--hairline); flex-shrink: 0;
 }
 .sidebar-link {
-  display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.4rem 0.5rem; border-radius: var(--radius);
-  font-size: 0.85rem; color: var(--fg-secondary);
+  display: flex; align-items: center; gap: 0.65rem;
+  padding: 0.55rem 0.65rem; border-radius: var(--radius-row);
+  font-size: 0.9rem; color: var(--fg);
   cursor: pointer; transition: background var(--transition);
 }
-.sidebar-link:hover { background: var(--bg-tertiary); }
+.sidebar-link:hover { background: var(--selected-row); }
 .sidebar-link.disabled { opacity: 0.4; cursor: not-allowed; }
 .sidebar-link.disabled:hover { background: none; }
+.sidebar-link .link-icon {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--search-bg); display: flex;
+  align-items: center; justify-content: center;
+  font-size: 0.85rem; color: var(--fg-secondary); flex-shrink: 0;
+}
 
 /* ===== Chat Area ===== */
 #chat-area {
   flex: 1; display: flex; flex-direction: column; min-width: 0;
-  background: var(--bg);
+  background: var(--main-bg);
+  max-width: 980px;
 }
 #chat-header {
-  padding: 0.6rem 1rem; border-bottom: 1px solid var(--border);
-  background: var(--bg-secondary); display: flex; align-items: center; gap: 0.6rem;
+  height: var(--thread-header-height); flex-shrink: 0;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--main-bg); display: flex; align-items: center;
+  padding: 0 1.5rem; gap: 0.65rem;
 }
-#chat-header .bot-avatar { width: 28px; height: 28px; font-size: 0.7rem; }
-#chat-header .chat-bot-name { font-weight: 600; font-size: 0.95rem; }
-#chat-header .chat-bot-status { font-size: 0.8rem; color: var(--fg-muted); }
+#chat-header .chat-avatar-wrap {
+  width: 32px; height: 32px; flex-shrink: 0;
+}
+#chat-header .chat-avatar-wrap svg { width: 32px; height: 32px; }
+#chat-header .chat-bot-name { font-weight: 500; font-size: var(--font-size-base); }
+#chat-header .chat-bot-status { font-size: 0.8rem; color: var(--fg-secondary); }
+#chat-header .chat-header-actions {
+  margin-left: auto; display: flex; gap: 0.25rem; align-items: center;
+}
 
 #chat-messages {
-  flex: 1; overflow-y: auto; padding: 1rem;
-  display: flex; flex-direction: column; gap: 0.75rem;
+  flex: 1; overflow-y: auto; padding: 1.5rem 1.75rem;
+  display: flex; flex-direction: column; gap: 0.5rem;
+  max-width: 980px; margin: 0 auto; width: 100%;
+  position: relative;
 }
 .chat-message {
-  max-width: 75%; padding: 0.6rem 0.9rem;
-  border-radius: var(--radius-lg); font-size: 0.9rem;
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius-bubble); font-size: 0.9rem;
   line-height: 1.5; word-break: break-word; white-space: pre-wrap;
 }
 .chat-message.user {
   align-self: flex-end; background: var(--user-bubble);
-  color: var(--user-bubble-text); border-bottom-right-radius: 4px;
+  color: var(--user-bubble-text); border-bottom-right-radius: 6px;
+  max-width: 70%;
 }
 .chat-message.bot {
   align-self: flex-start; background: var(--bot-bubble);
-  color: var(--bot-bubble-text); border-bottom-left-radius: 4px;
+  color: var(--bot-bubble-text); border-bottom-left-radius: 6px;
+  max-width: 82%;
+}
+.chat-message.bot a {
+  color: var(--link); text-decoration: underline;
+}
+.chat-message.bot code {
+  background: var(--hairline); padding: 0.15em 0.35em; border-radius: 4px;
+  font-size: 0.85em; font-family: 'SF Mono', Menlo, Consolas, monospace;
+}
+.chat-message.bot pre {
+  background: var(--hairline); padding: 0.75rem; border-radius: 8px;
+  overflow-x: auto; margin: 0.5rem 0; position: relative;
+}
+.chat-message.bot pre code {
+  background: none; padding: 0;
+}
+.chat-message.bot pre .copy-code-btn {
+  position: absolute; top: 0.4rem; right: 0.4rem;
+  padding: 0.2rem 0.5rem; background: var(--selected-row); color: var(--fg-secondary);
+  border: 1px solid var(--hairline); border-radius: 6px;
+  font-size: 0.7rem; cursor: pointer;
+}
+.chat-message.bot pre .copy-code-btn:hover {
+  color: var(--fg);
 }
 .chat-message.system {
-  align-self: center; background: var(--bg-tertiary);
-  color: var(--fg-muted); font-size: 0.8rem; font-style: italic;
-  border-radius: var(--radius); padding: 0.4rem 0.8rem;
+  align-self: center; background: none;
+  color: var(--fg-secondary); font-size: 0.8rem; font-style: normal;
+  padding: 0.3rem 0.8rem;
 }
 .msg-time { font-size: 0.7rem; opacity: 0.6; margin-top: 0.25rem; }
 
-/* Bot run message */
+/* Timestamp grouping */
+.timestamp-divider {
+  align-self: center; color: var(--fg-secondary); font-size: 0.75rem;
+  padding: 0.5rem 0; text-align: center;
+}
+
+/* Jump to latest pill */
+.jump-to-latest {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  padding: 0.4rem 1rem; background: var(--primary-btn-bg); color: var(--primary-btn-text);
+  border-radius: var(--radius-pill); font-size: 0.8rem; cursor: pointer;
+  z-index: 10; display: none;
+}
+.jump-to-latest.visible { display: block; }
+
+/* Bot run message — spec compliant run card */
 .bot-run {
   align-self: flex-start; max-width: 85%;
   background: var(--bot-bubble); color: var(--bot-bubble-text);
-  border-radius: var(--radius-lg); overflow: hidden;
+  border-radius: var(--radius-card); overflow: hidden;
+  border: 1px solid var(--hairline);
 }
 .bot-run-header {
   display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);
-  font-size: 0.8rem;
+  padding: 0.75rem 0.75rem 0.25rem; font-size: 0.85rem;
 }
-.bot-run-status { font-weight: 600; }
-.bot-run-status.working { color: var(--warning); }
-.bot-run-status.done { color: var(--success); }
-.bot-run-status.failed { color: var(--danger); }
-.bot-run-elapsed { color: var(--fg-muted); }
-.btn-stop-run {
-  margin-left: auto; padding: 0.2rem 0.6rem;
-  background: var(--danger); color: #fff; border: none;
-  border-radius: var(--radius); font-size: 0.75rem;
+.bot-run-title {
+  font-weight: 600; font-size: 0.9rem; flex: 1;
 }
-.btn-stop-run:hover { opacity: 0.85; }
+/* Status pills */
+.run-status-pill {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.2rem 0.6rem; border-radius: var(--radius-pill);
+  font-size: 0.75rem; font-weight: 600;
+}
+.run-status-pill .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.run-status-pill.done { color: var(--success); background: rgba(18,163,95,0.1); }
+.run-status-pill.done .status-dot { background: var(--success); }
+.run-status-pill.working { color: var(--warning); background: rgba(251,171,24,0.1); }
+.run-status-pill.working .status-dot { background: var(--warning); }
+.run-status-pill.failed { color: var(--danger); background: rgba(209,48,74,0.1); }
+.run-status-pill.failed .status-dot { background: var(--danger); }
+/* Meta lines */
+.bot-run-meta {
+  padding: 0 0.75rem; font-size: 0.8rem; color: var(--fg-secondary);
+  display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem;
+}
+.bot-run-meta .meta-item {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+}
+.bot-run-meta .diff-add { color: var(--diff-add); }
+.bot-run-meta .diff-remove { color: var(--diff-remove); }
 .bot-run-task {
   padding: 0.5rem 0.75rem; font-size: 0.9rem;
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
 }
 .bot-run-output {
   max-height: 200px; overflow-y: auto;
-  font-family: monospace; font-size: 0.8rem;
+  font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 0.8rem;
   white-space: pre-wrap; word-break: break-all;
+  padding: 0.5rem 0.75rem;
 }
-.bot-run-output.collapsed { max-height: 0; overflow: hidden; }
+.bot-run-output.collapsed { max-height: 0; overflow: hidden; padding: 0; border: none; }
 .bot-run-toggle {
-  padding: 0.3rem 0.75rem; font-size: 0.75rem;
-  background: none; border: none; color: var(--fg-muted);
-  cursor: pointer; border-top: 1px solid var(--border);
+  padding: 0.4rem 0.75rem; font-size: 0.75rem;
+  background: none; border: none; color: var(--fg-secondary);
+  cursor: pointer; border-top: 1px solid var(--hairline);
+  display: flex; align-items: center; gap: 0.25rem;
 }
 .bot-run-toggle:hover { color: var(--fg); }
 .bot-run-answer {
   padding: 0.5rem 0.75rem; font-size: 0.9rem;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--hairline);
 }
+/* Action buttons row */
+.bot-run-actions {
+  display: flex; gap: 0.4rem; padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--hairline); flex-wrap: wrap;
+}
+.btn-run-primary {
+  padding: 0.35rem 0.8rem; background: var(--primary-btn-bg); color: var(--primary-btn-text);
+  border: none; border-radius: var(--radius-pill); font-size: 0.75rem; font-weight: 500;
+}
+.btn-run-primary:hover { opacity: 0.85; }
+.btn-run-secondary {
+  padding: 0.35rem 0.8rem; background: transparent; color: var(--fg);
+  border: 1px solid var(--hairline); border-radius: var(--radius-pill);
+  font-size: 0.75rem; font-weight: 500;
+}
+.btn-run-secondary:hover { background: var(--selected-row); }
+.btn-stop-run {
+  padding: 0.35rem 0.8rem;
+  background: var(--primary-btn-bg); color: var(--primary-btn-text); border: none;
+  border-radius: var(--radius-pill); font-size: 0.75rem; font-weight: 500;
+}
+.btn-stop-run:hover { opacity: 0.85; }
 
-/* Composer */
+/* Composer — floating rounded card */
 #composer {
-  padding: 0.75rem 1rem; border-top: 1px solid var(--border);
-  background: var(--bg-secondary);
+  padding: 0 1.5rem 1rem; flex-shrink: 0;
 }
 #composer-inner {
-  display: flex; gap: 0.5rem; align-items: flex-end;
+  display: flex; gap: 0.25rem; align-items: flex-end;
   max-width: 800px; margin: 0 auto;
+  background: var(--composer-bg);
+  border: 1px solid var(--composer-border);
+  border-radius: var(--radius-composer);
+  padding: 0.4rem;
+}
+.composer-plus-btn {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  background: var(--search-bg); color: var(--fg-secondary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; margin-bottom: auto; margin-top: 0.4rem;
+  cursor: not-allowed; opacity: 0.5;
 }
 #composer textarea {
-  flex: 1; padding: 0.6rem 0.8rem; border: 1px solid var(--border);
-  border-radius: var(--radius); background: var(--bg); color: var(--fg);
-  resize: none; min-height: 38px; max-height: 120px;
+  flex: 1; padding: 0.5rem 0.6rem; border: none;
+  background: transparent; color: var(--fg);
+  resize: none; min-height: 24px; max-height: 120px;
   font-size: 0.9rem; line-height: 1.4;
 }
-#composer textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-#send-btn {
-  padding: 0.6rem 1rem; background: var(--accent); color: #fff;
-  border: none; border-radius: var(--radius); font-size: 0.85rem;
-  height: 38px;
+#composer textarea:focus { outline: none; }
+#composer textarea::placeholder { color: var(--fg-secondary); }
+.composer-actions {
+  display: flex; align-items: center; gap: 0.2rem; flex-shrink: 0;
 }
-#send-btn:hover { background: var(--accent-hover); }
-#send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.composer-mic-btn {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  background: var(--search-bg); color: var(--fg-secondary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9rem; cursor: not-allowed; opacity: 0.5;
+}
+#send-btn {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  background: var(--primary-btn-bg); color: var(--primary-btn-text);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+}
+#send-btn:hover { opacity: 0.85; }
+#send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+/* Stop square icon for send button when streaming */
+#send-btn .stop-icon { display: none; }
+#send-btn.streaming .send-icon { display: none; }
+#send-btn.streaming .stop-icon { display: block; }
 
 /* Empty chat */
 #chat-empty {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  color: var(--fg-muted); font-size: 0.95rem; text-align: center; padding: 2rem;
+  color: var(--fg-secondary); font-size: 0.95rem; text-align: center; padding: 2rem;
 }
 
-/* ===== Right Panel ===== */
+/* ===== Right Panel — clean inspector ===== */
 #right-panel {
   width: var(--panel-width); flex-shrink: 0;
-  border-left: 1px solid var(--border);
-  background: var(--bg-secondary);
+  border-left: 1px solid var(--hairline);
+  background: var(--panel-bg);
   display: flex; flex-direction: column;
   overflow-y: auto;
   transition: transform var(--transition), width var(--transition), opacity var(--transition);
@@ -285,29 +480,49 @@ input, textarea, select { font-family: inherit; }
   width: 0; opacity: 0; overflow: hidden; border: none;
 }
 .panel-section {
-  padding: 1rem; border-bottom: 1px solid var(--border);
+  padding: 1rem; border-bottom: 1px solid var(--hairline);
 }
-.panel-section h3 {
-  font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;
-  color: var(--fg-muted); margin-bottom: 0.5rem;
+.panel-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none;
+}
+.panel-section-header h3 {
+  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--fg-secondary); margin: 0; font-weight: 600;
+}
+.panel-section-header .collapse-icon {
+  color: var(--fg-secondary); font-size: 0.7rem; transition: transform var(--transition);
+}
+.panel-section-header.collapsed .collapse-icon {
+  transform: rotate(-90deg);
+}
+.panel-section-content {
+  margin-top: 0.5rem;
+}
+.panel-section-content.collapsed {
+  display: none;
+}
+.coming-soon {
+  color: var(--fg-secondary); font-size: 0.8rem; font-style: italic;
+  padding: 0.25rem 0;
 }
 .panel-bot-name { font-size: 1.1rem; font-weight: 700; }
 .panel-bot-title { font-size: 0.85rem; color: var(--fg-secondary); margin-top: 0.15rem; }
 .panel-bot-desc { font-size: 0.85rem; color: var(--fg-secondary); margin-top: 0.5rem; line-height: 1.4; }
 .panel-field { margin-bottom: 0.5rem; }
-.panel-field label { display: block; font-size: 0.8rem; color: var(--fg-muted); margin-bottom: 0.2rem; }
+.panel-field label { display: block; font-size: 0.8rem; color: var(--fg-secondary); margin-bottom: 0.2rem; }
 .panel-field input, .panel-field textarea {
-  width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--border);
-  border-radius: var(--radius); background: var(--bg); color: var(--fg);
+  width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--hairline);
+  border-radius: var(--radius-input); background: var(--search-bg); color: var(--fg);
   font-size: 0.85rem;
 }
 .panel-field textarea { min-height: 60px; resize: vertical; }
 .panel-field .field-actions { display: flex; gap: 0.3rem; margin-top: 0.3rem; }
 .btn-save-field {
-  padding: 0.25rem 0.6rem; background: var(--accent); color: #fff;
-  border: none; border-radius: var(--radius); font-size: 0.75rem;
+  padding: 0.25rem 0.6rem; background: var(--primary-btn-bg); color: var(--primary-btn-text);
+  border-radius: var(--radius-pill); font-size: 0.75rem; font-weight: 500;
 }
-.btn-save-field:hover { background: var(--accent-hover); }
+.btn-save-field:hover { opacity: 0.85; }
 .panel-runner { font-size: 0.85rem; color: var(--fg-secondary); }
 
 /* Skills in panel */
@@ -316,14 +531,14 @@ input, textarea, select { font-family: inherit; }
   display: flex; align-items: center; gap: 0.4rem;
   font-size: 0.85rem;
 }
-.panel-skill-item input[type="checkbox"] { accent-color: var(--accent); }
+.panel-skill-item input[type="checkbox"] { accent-color: var(--link); }
 
 /* Run history in panel */
 .panel-run-item {
-  padding: 0.4rem 0; border-bottom: 1px solid var(--border);
+  padding: 0.4rem 0; border-bottom: 1px solid var(--hairline);
   font-size: 0.8rem; cursor: pointer;
 }
-.panel-run-item:hover { color: var(--accent); }
+.panel-run-item:hover { color: var(--link); }
 .panel-run-item:last-child { border-bottom: none; }
 .panel-run-state { font-weight: 600; }
 .panel-run-state.done { color: var(--success); }
@@ -333,201 +548,310 @@ input, textarea, select { font-family: inherit; }
 /* Memory panel */
 .panel-memory textarea {
   width: 100%; font-size: 0.8rem; padding: 0.4rem;
-  background: var(--bg-elevated); color: var(--fg);
-  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--sidebar-bg); color: var(--fg);
+  border: 1px solid var(--hairline); border-radius: var(--radius-input);
   resize: vertical; font-family: inherit;
 }
 
 /* Routines panel */
 .panel-routines { display: flex; flex-direction: column; gap: 0.3rem; }
 .panel-routine-item {
-  padding: 0.4rem; border: 1px solid var(--border); border-radius: 4px;
+  padding: 0.4rem; border: 1px solid var(--hairline); border-radius: var(--radius-input);
   font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center;
 }
 .panel-routine-item .routine-info { flex: 1; }
 .panel-routine-item .routine-name { font-weight: 600; }
-.panel-routine-item .routine-task { color: var(--fg-muted); font-size: 0.75rem; }
+.panel-routine-item .routine-task { color: var(--fg-secondary); font-size: 0.75rem; }
 .panel-routine-item .routine-actions { display: flex; gap: 0.3rem; align-items: center; }
-.routine-enabled { color: var(--success); }
-.routine-disabled { color: var(--fg-muted); }
+.routine-enabled { color: var(--success); cursor: pointer; }
+.routine-disabled { color: var(--fg-secondary); cursor: pointer; }
 
 /* Plugins panel */
 .panel-plugins { display: flex; flex-direction: column; gap: 0.3rem; }
 .panel-plugin-item {
-  padding: 0.4rem; border: 1px solid var(--border); border-radius: 4px;
+  padding: 0.4rem; border: 1px solid var(--hairline); border-radius: var(--radius-input);
   font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center;
 }
 .panel-plugin-item .plugin-name { font-weight: 600; }
-.panel-plugin-item .plugin-type { color: var(--fg-muted); font-size: 0.75rem; }
+.panel-plugin-item .plugin-type { color: var(--fg-secondary); font-size: 0.75rem; }
 
 /* ===== Marketplace Page ===== */
 #marketplace-page {
   flex: 1; display: none; flex-direction: column;
-  overflow-y: auto; padding: 1.5rem;
+  overflow-y: auto; padding: 2rem 1.5rem;
   max-width: 900px; margin: 0 auto; width: 100%;
 }
 #marketplace-page.visible { display: flex; }
-#marketplace-page h2 { margin-bottom: 1rem; font-size: 1.2rem; }
+#marketplace-page h2 {
+  margin-bottom: 0.25rem; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em;
+}
+.marketplace-subtitle {
+  color: var(--fg-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;
+}
+.marketplace-search {
+  margin-bottom: 1rem;
+}
+.marketplace-search input {
+  width: 100%; padding: 0.55rem 0.75rem; border: 1px solid var(--hairline);
+  border-radius: var(--radius-input); background: var(--search-bg); color: var(--fg);
+  font-size: 0.9rem;
+}
+.marketplace-search input:focus { outline: none; border-color: var(--link); }
+.marketplace-chips {
+  display: flex; gap: 0.4rem; margin-bottom: 1.5rem; flex-wrap: wrap;
+}
+.marketplace-chip {
+  padding: 0.3rem 0.7rem; border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill); background: transparent; color: var(--fg);
+  font-size: 0.8rem; cursor: pointer;
+}
+.marketplace-chip:hover, .marketplace-chip.active {
+  background: var(--selected-row); border-color: var(--fg-secondary);
+}
+.marketplace-section-title {
+  font-size: 1rem; font-weight: 600; margin-bottom: 1rem;
+}
 .marketplace-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1rem;
 }
 .marketplace-card {
-  background: var(--bg-secondary); border: 1px solid var(--border);
-  border-radius: 8px; padding: 1rem;
+  background: var(--sidebar-bg); border: 1px solid var(--hairline);
+  border-radius: var(--radius-card); padding: 1.25rem;
   display: flex; flex-direction: column;
+  transition: border-color var(--transition);
 }
-.marketplace-card h3 { font-size: 1rem; margin-bottom: 0.3rem; }
-.marketplace-card .desc { font-size: 0.85rem; color: var(--fg-muted); flex: 1; margin-bottom: 0.5rem; }
+.marketplace-card:hover { border-color: var(--fg-secondary); }
+.marketplace-card .card-icon {
+  width: 44px; height: 44px; border-radius: 12px; margin-bottom: 0.75rem;
+  background: var(--search-bg); display: flex; align-items: center; justify-content: center;
+}
+.marketplace-card h3 { font-size: 1rem; margin-bottom: 0.3rem; font-weight: 600; }
+.marketplace-card .desc { font-size: 0.85rem; color: var(--fg-secondary); flex: 1; margin-bottom: 0.75rem; line-height: 1.4; }
 .marketplace-card button { align-self: flex-start; }
+/* Empty state */
+.marketplace-empty {
+  text-align: center; padding: 3rem 1rem; color: var(--fg-secondary);
+}
+.marketplace-empty .empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+.marketplace-empty p { font-size: 0.9rem; }
 
 /* ===== Skills Page ===== */
 #skills-page {
   flex: 1; display: none; flex-direction: column;
-  overflow-y: auto; padding: 1.5rem;
+  overflow-y: auto; padding: 2rem 1.5rem;
   max-width: 900px; margin: 0 auto; width: 100%;
 }
 #skills-page.visible { display: flex; }
-#skills-page h2 { margin-bottom: 1rem; font-size: 1.2rem; }
-.skill-form-card {
-  background: var(--bg-secondary); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); padding: 1rem; margin-bottom: 1rem;
+#skills-page h2 {
+  margin-bottom: 1rem; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em;
 }
-.skill-form-card h3 { margin-bottom: 0.5rem; font-size: 0.95rem; }
+.skill-form-card {
+  background: var(--sidebar-bg); border: 1px solid var(--hairline);
+  border-radius: var(--radius-card); padding: 1.25rem; margin-bottom: 1.5rem;
+}
+.skill-form-card h3 { margin-bottom: 0.5rem; font-size: 0.95rem; font-weight: 600; }
 .skill-form-card input, .skill-form-card textarea {
-  width: 100%; padding: 0.5rem; border: 1px solid var(--border);
-  border-radius: var(--radius); background: var(--bg); color: var(--fg);
+  width: 100%; padding: 0.55rem 0.75rem; border: 1px solid var(--hairline);
+  border-radius: var(--radius-input); background: var(--search-bg); color: var(--fg);
   font-size: 0.85rem; margin-bottom: 0.5rem;
 }
-.skill-form-card textarea { min-height: 120px; font-family: monospace; }
-.skill-form-actions { display: flex; gap: 0.3rem; }
+.skill-form-card input:focus, .skill-form-card textarea:focus {
+  outline: none; border-color: var(--link);
+}
+.skill-form-card textarea { min-height: 120px; font-family: 'SF Mono', Menlo, Consolas, monospace; }
+.skill-form-actions { display: flex; gap: 0.4rem; }
 .skills-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 0.75rem; margin-bottom: 1.5rem;
 }
 .skill-card {
-  background: var(--bg-secondary); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); padding: 1rem;
+  background: var(--sidebar-bg); border: 1px solid var(--hairline);
+  border-radius: var(--radius-card); padding: 1.25rem;
+  transition: border-color var(--transition);
 }
-.skill-card h4 { margin-bottom: 0.25rem; font-size: 0.95rem; }
-.skill-card .desc { font-size: 0.8rem; color: var(--fg-muted); margin-bottom: 0.4rem; }
-.skill-card .used-by { font-size: 0.75rem; color: var(--fg-muted); }
-.skill-card .actions { margin-top: 0.4rem; display: flex; gap: 0.3rem; }
+.skill-card:hover { border-color: var(--fg-secondary); }
+.skill-card .actions { margin-top: 0.5rem; display: flex; gap: 0.4rem; }
 .btn-sm {
-  padding: 0.2rem 0.5rem; border: 1px solid var(--border);
-  border-radius: var(--radius); background: var(--bg); color: var(--fg);
-  font-size: 0.75rem;
+  padding: 0.35rem 0.8rem; border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill); background: var(--search-bg); color: var(--fg);
+  font-size: 0.75rem; font-weight: 500;
 }
-.btn-sm:hover { background: var(--bg-tertiary); }
+.skill-card h4 { margin-bottom: 0.25rem; font-size: 0.95rem; font-weight: 600; }
+.skill-card .desc { font-size: 0.8rem; color: var(--fg-secondary); margin-bottom: 0.4rem; line-height: 1.4; }
+.skill-card .used-by { font-size: 0.75rem; color: var(--fg-secondary); }
+.btn-sm:hover { background: var(--selected-row); }
 .btn-sm.danger { color: var(--danger); border-color: var(--danger); }
-.skills-matrix-section h3 { margin-bottom: 0.5rem; font-size: 1rem; }
+.skills-matrix-section h3 { margin-bottom: 0.75rem; font-size: 1rem; font-weight: 600; }
 .matrix-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .matrix-table th, .matrix-table td {
-  padding: 0.4rem 0.6rem; border: 1px solid var(--border); text-align: center;
+  padding: 0.5rem 0.6rem; border: 1px solid var(--hairline); text-align: center;
 }
-.matrix-table th { background: var(--bg-tertiary); font-weight: 600; }
+.matrix-table th { background: var(--selected-row); font-weight: 600; }
+.matrix-table td input[type="checkbox"] { accent-color: var(--link); }
 
-/* ===== New Bot Dialog ===== */
-#dialog-overlay {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.5); display: flex;
-  align-items: center; justify-content: center; z-index: 200;
+/* ===== New Bot Page — inline, replaces dialog ===== */
+#new-bot-page {
+  flex: 1; display: none; flex-direction: column;
+  overflow-y: auto; padding: 2rem 1.5rem;
+  max-width: 560px; margin: 0 auto; width: 100%;
 }
-#dialog-overlay.hidden { display: none; }
-.dialog-box {
-  background: var(--bg-secondary); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); padding: 1.5rem;
-  max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
-  box-shadow: var(--shadow-lg);
+#new-bot-page.visible { display: flex; }
+#new-bot-page h2 {
+  margin-bottom: 1.5rem; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em;
+  text-align: center;
 }
-.dialog-box h2 { margin-bottom: 1rem; font-size: 1.1rem; }
-.dialog-field { margin-bottom: 0.75rem; }
-.dialog-field label { display: block; font-size: 0.8rem; color: var(--fg-muted); margin-bottom: 0.2rem; }
-.dialog-field input, .dialog-field textarea, .dialog-field select {
-  width: 100%; padding: 0.5rem; border: 1px solid var(--border);
-  border-radius: var(--radius); background: var(--bg); color: var(--fg);
-  font-size: 0.85rem;
+/* Avatar picker */
+.new-bot-avatar-section {
+  display: flex; flex-direction: column; align-items: center; margin-bottom: 1.5rem;
 }
-.dialog-field textarea { min-height: 60px; resize: vertical; }
-.dialog-field .error { font-size: 0.75rem; color: var(--danger); margin-top: 0.2rem; }
-.dialog-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
-.btn-dialog {
-  padding: 0.5rem 1rem; border-radius: var(--radius); font-size: 0.85rem;
+.new-bot-avatar-preview {
+  width: 100px; height: 100px; margin-bottom: 1rem;
 }
-.btn-dialog.primary { background: var(--accent); color: #fff; border: none; }
-.btn-dialog.primary:hover { background: var(--accent-hover); }
-.btn-dialog.secondary { background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
-.btn-dialog.secondary:hover { background: var(--bg-tertiary); }
+.new-bot-avatar-preview svg { width: 100px; height: 100px; }
+.avatar-color-swatches {
+  display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; margin-bottom: 0.75rem;
+}
+.color-swatch {
+  width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+  border: 3px solid transparent; transition: border-color var(--transition), transform var(--transition);
+}
+.color-swatch:hover { transform: scale(1.15); }
+.color-swatch.selected { border-color: var(--fg); transform: scale(1.15); }
+.avatar-shape-buttons {
+  display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: center;
+}
+.shape-btn {
+  width: 40px; height: 40px; border-radius: 8px; cursor: pointer;
+  background: var(--search-bg); border: 2px solid transparent;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color var(--transition), background var(--transition);
+}
+.shape-btn:hover { background: var(--selected-row); }
+.shape-btn.selected { border-color: var(--fg); }
+.shape-btn svg { width: 24px; height: 24px; }
+/* Form fields */
+.new-bot-field { margin-bottom: 0.75rem; }
+.new-bot-field label { display: block; font-size: 0.8rem; color: var(--fg-secondary); margin-bottom: 0.25rem; font-weight: 500; }
+.new-bot-field input, .new-bot-field textarea, .new-bot-field select {
+  width: 100%; padding: 0.55rem 0.75rem; border: 1px solid var(--hairline);
+  border-radius: var(--radius-input); background: var(--search-bg); color: var(--fg);
+  font-size: 0.9rem;
+}
+.new-bot-field input:focus, .new-bot-field textarea:focus, .new-bot-field select:focus {
+  outline: none; border-color: var(--link);
+}
+.new-bot-field textarea { min-height: 60px; resize: vertical; }
+.new-bot-field .error { font-size: 0.75rem; color: var(--danger); margin-top: 0.2rem; }
+/* Advanced section */
+.new-bot-advanced-toggle {
+  display: flex; align-items: center; gap: 0.35rem; margin: 1rem 0 0.5rem;
+  color: var(--fg-secondary); font-size: 0.85rem; cursor: pointer;
+}
+.new-bot-advanced-toggle:hover { color: var(--fg); }
+.new-bot-advanced { display: none; }
+.new-bot-advanced.visible { display: block; }
+/* Get started button */
+.new-bot-get-started {
+  margin-top: 1.5rem; width: 100%; padding: 0.65rem 1.5rem;
+  background: var(--primary-btn-bg); color: var(--primary-btn-text);
+  border: none; border-radius: var(--radius-pill); font-size: 0.95rem; font-weight: 600;
+  cursor: pointer;
+}
+.new-bot-get-started:hover { opacity: 0.85; }
+.new-bot-get-started:disabled { opacity: 0.3; cursor: not-allowed; }
+/* Suggestions */
+.new-bot-suggestions {
+  margin-top: 2rem;
+}
+.new-bot-suggestions h3 {
+  font-size: 0.9rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--fg-secondary);
+}
+.suggestions-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+.suggestion-card {
+  background: var(--sidebar-bg); border: 1px solid var(--hairline);
+  border-radius: var(--radius-card); padding: 1rem; cursor: pointer;
+  transition: border-color var(--transition);
+}
+.suggestion-card:hover { border-color: var(--fg-secondary); }
+.suggestion-card .sug-avatar {
+  width: 32px; height: 32px; margin-bottom: 0.5rem;
+}
+.suggestion-card .sug-avatar svg { width: 32px; height: 32px; }
+.suggestion-card h4 { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.25rem; }
+.suggestion-card p { font-size: 0.8rem; color: var(--fg-secondary); line-height: 1.4; }
+
+/* Keep dialog styles for backward compat but hidden */
+#dialog-overlay { display: none !important; }
 
 /* ===== Run Detail Modal ===== */
 #run-modal-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.5); display: flex;
+  background: rgba(0,0,0,0.4); display: flex;
   align-items: center; justify-content: center; z-index: 200;
 }
 #run-modal-overlay.hidden { display: none; }
 #run-modal {
-  background: var(--bg-secondary); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); padding: 1.5rem;
+  background: var(--composer-bg); border: 1px solid var(--hairline);
+  border-radius: var(--radius-card); padding: 1.5rem;
   max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto;
-  box-shadow: var(--shadow-lg);
 }
-#run-modal h2 { margin-bottom: 0.5rem; font-size: 1.1rem; }
-#run-modal .run-meta { font-size: 0.85rem; color: var(--fg-muted); margin-bottom: 1rem; }
+#run-modal h2 { margin-bottom: 0.5rem; font-size: 1.2rem; font-weight: 700; }
+#run-modal .run-meta { font-size: 0.85rem; color: var(--fg-secondary); margin-bottom: 1rem; }
 #run-modal .run-section { margin-bottom: 0.75rem; }
-#run-modal .run-section h4 { font-size: 0.85rem; color: var(--fg-muted); margin-bottom: 0.3rem; }
+#run-modal .run-section h4 { font-size: 0.85rem; color: var(--fg-secondary); margin-bottom: 0.3rem; font-weight: 600; }
 .output-box {
-  background: var(--bg); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 0.75rem;
+  background: var(--search-bg); border: 1px solid var(--hairline);
+  border-radius: var(--radius-input); padding: 0.75rem;
   max-height: 200px; overflow-y: auto;
   font-family: monospace; font-size: 0.8rem;
   white-space: pre-wrap; word-break: break-all;
 }
 .close-btn {
-  float: right; background: none; border: none; color: var(--fg);
-  font-size: 1.2rem; cursor: pointer;
+  float: right; background: none; border: none; color: var(--fg-secondary);
+  font-size: 1.2rem; cursor: pointer; width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center; border-radius: 50%;
 }
+.close-btn:hover { background: var(--selected-row); color: var(--fg); }
 
 /* ===== Spinner ===== */
 .spinner {
   display: inline-block; width: 12px; height: 12px;
-  border: 2px solid var(--fg-muted); border-top-color: var(--accent);
+  border: 2px solid var(--fg-secondary); border-top-color: var(--link);
   border-radius: 50%; animation: spin 0.6s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ===== Responsive ===== */
-@media (max-width: 768px) {
-  #right-panel { display: none; }
-  #right-panel.mobile-visible {
-    display: flex; position: fixed; top: var(--header-height);
-    right: 0; bottom: 0; width: 85%; max-width: 320px;
-    z-index: 150; box-shadow: var(--shadow-lg);
-  }
-}
-@media (max-width: 480px) {
+@media (max-width: 800px) {
   #sidebar {
-    position: fixed; top: var(--header-height); left: 0; bottom: 0;
+    position: fixed; top: 0; left: 0; bottom: 0;
     z-index: 150; transform: translateX(-100%);
-    box-shadow: var(--shadow-lg);
+    box-shadow: 2px 0 12px rgba(0,0,0,0.15);
   }
   #sidebar.mobile-open { transform: translateX(0); }
-  #sidebar-toggle { display: flex !important; }
-  .chat-message { max-width: 90%; }
+  #right-panel { display: none; }
+  .chat-message.user { max-width: 88%; }
+  .chat-message.bot { max-width: 92%; }
   .bot-run { max-width: 95%; }
+  #chat-messages { padding: 1rem; }
+  #composer { padding: 0 0.75rem 0.75rem; }
+  .suggestions-grid { grid-template-columns: 1fr; }
 }
-#sidebar-toggle { display: none; }
 
 /* ===== Focus styles ===== */
 :focus-visible {
-  outline: 2px solid var(--accent); outline-offset: 2px;
+  outline: 2px solid var(--link); outline-offset: 2px;
 }
 
 /* ===== Scrollbar ===== */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
+::-webkit-scrollbar-thumb { background: var(--hairline); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--fg-secondary); }
 </style>
 </head>
 <body>
@@ -544,47 +868,58 @@ input, textarea, select { font-family: inherit; }
 
 <!-- Main app -->
 <div id="app" class="hidden">
-  <header id="app-header">
-    <div style="display:flex;align-items:center;gap:0.5rem">
-      <button id="sidebar-toggle" class="icon-btn" aria-label="Toggle sidebar" onclick="toggleSidebar()">☰</button>
-      <span class="logo">Agent Hub</span>
-    </div>
-    <div class="header-actions">
-      <button class="icon-btn" id="panel-toggle" aria-label="Toggle right panel" onclick="togglePanel()" title="Toggle panel">☰</button>
-      <button class="icon-btn" aria-label="Logout" onclick="logout()" title="Logout">⏻</button>
-    </div>
-  </header>
-
-  <div id="app-body">
-    <!-- Sidebar -->
-    <nav id="sidebar" role="navigation" aria-label="Bot list">
-      <div id="sidebar-header">
-        <h3>Bots</h3>
-        <button class="btn-new-bot" onclick="openNewBotDialog()" aria-label="Create new bot">+ New Bot</button>
+  <!-- Sidebar -->
+  <nav id="sidebar" role="navigation" aria-label="Bot list">
+    <div id="sidebar-header">
+      <div class="sidebar-top-row">
+        <span class="sidebar-title">Agent Hub</span>
+        <button class="btn-new-bot" onclick="openNewBotDialog()" aria-label="Create new bot" title="New Bot">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
       </div>
       <div id="sidebar-search">
-        <input type="text" id="bot-search-input" placeholder="Search bots..." oninput="filterBots()" aria-label="Search bots">
-      </div>
-      <div id="bot-list"></div>
-      <div id="sidebar-footer">
-        <div class="sidebar-link" onclick="navigateTo('skills')" role="button" tabindex="0" aria-label="Skills page">
-          <span>⚙</span> Skills
-        </div>
-        <div class="sidebar-link" onclick="showMarketplace()" aria-label="Marketplace">
-          <span>🏪</span> Marketplace
+        <div id="sidebar-search-wrapper">
+          <span class="search-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M10 10l3.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </span>
+          <input type="text" id="bot-search-input" placeholder="Search" oninput="filterBots()" aria-label="Search bots">
         </div>
       </div>
-    </nav>
+    </div>
+    <div id="bot-list"></div>
+    <div id="sidebar-footer">
+      <div class="sidebar-link" onclick="showMarketplace()" aria-label="Marketplace">
+        <span class="link-icon">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4h12l-1 9H3L2 4z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 4V3a2 2 0 014 0v1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        </span>
+        Marketplace
+      </div>
+      <div class="sidebar-link" onclick="navigateTo('skills')" role="button" tabindex="0" aria-label="Skills page">
+        <span class="link-icon">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        </span>
+        Skills
+      </div>
+    </div>
+  </nav>
 
-    <!-- Chat Area -->
-    <main id="chat-area">
-      <div id="chat-header" class="hidden">
-        <div class="bot-avatar" id="chat-avatar"></div>
-        <div>
-          <div class="chat-bot-name" id="chat-bot-name"></div>
-          <div class="chat-bot-status" id="chat-bot-status"></div>
-        </div>
+  <!-- Chat Area -->
+  <main id="chat-area">
+    <div id="chat-header" class="hidden">
+      <div class="chat-avatar-wrap" id="chat-avatar-wrap"></div>
+      <div>
+        <div class="chat-bot-name" id="chat-bot-name"></div>
+        <div class="chat-bot-status" id="chat-bot-status"></div>
       </div>
+      <div class="chat-header-actions">
+        <button class="icon-btn" aria-label="Share" disabled title="Share (coming soon)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 8h10M10 5l3 3-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="icon-btn" id="panel-toggle" aria-label="Toggle right panel" onclick="togglePanel()" title="Toggle panel">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M6 11v2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
       <div id="chat-empty">
         <div>
           <p>Select a Bot from the sidebar to start chatting.</p>
@@ -594,9 +929,20 @@ input, textarea, select { font-family: inherit; }
       <div id="chat-messages" class="hidden"></div>
       <div id="composer" class="hidden">
         <div id="composer-inner">
+          <button class="composer-plus-btn" disabled title="Attach (coming soon)" aria-label="Attach (coming soon)">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
           <textarea id="composer-input" placeholder="Type a message..." rows="1"
             onkeydown="handleComposerKey(event)" aria-label="Message input"></textarea>
-          <button id="send-btn" onclick="sendComposerMessage()" aria-label="Send message">Send</button>
+          <div class="composer-actions">
+            <button class="composer-mic-btn" disabled title="Voice (coming soon)" aria-label="Voice (coming soon)">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M5 2v7a3 3 0 106 0V2M3 7h10M10 11v1a3 3 0 01-6 0v-1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            </button>
+            <button id="send-btn" onclick="sendComposerMessage()" aria-label="Send message">
+              <svg class="send-icon" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M4 7l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <svg class="stop-icon" width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor"/></svg>
+            </button>
+          </div>
         </div>
       </div>
     </main>
@@ -609,7 +955,17 @@ input, textarea, select { font-family: inherit; }
     <!-- Marketplace Page -->
     <div id="marketplace-page">
       <h2>Marketplace</h2>
-      <p style="color:var(--fg-muted);margin-bottom:1rem;">Add pre-configured Bots to your team.</p>
+      <p class="marketplace-subtitle">Add pre-configured Bots to your team.</p>
+      <div class="marketplace-search">
+        <input type="text" placeholder="Search templates..." oninput="filterMarketplace(this.value)">
+      </div>
+      <div class="marketplace-chips">
+        <button class="marketplace-chip active" onclick="filterMarketplaceCategory('all', this)">All</button>
+        <button class="marketplace-chip" onclick="filterMarketplaceCategory('dev', this)">Development</button>
+        <button class="marketplace-chip" onclick="filterMarketplaceCategory('ops', this)">Operations</button>
+        <button class="marketplace-chip" onclick="filterMarketplaceCategory('data', this)">Data</button>
+      </div>
+      <div class="marketplace-section-title">Featured</div>
       <div class="marketplace-grid" id="marketplace-grid"></div>
     </div>
 
@@ -641,7 +997,7 @@ input, textarea, select { font-family: inherit; }
           <div class="panel-bot-desc" id="panel-bot-desc"></div>
           <div id="panel-bot-controls" style="margin-top:0.6rem;display:flex;gap:0.5rem;align-items:center;">
             <button id="panel-pause-btn" class="icon-btn" style="width:auto;padding:0.25rem 0.6rem;font-size:0.75rem;" onclick="toggleCurrentBotPause()">Pause</button>
-            <span id="panel-bot-queue-status" style="font-size:0.75rem;color:var(--fg-muted);"></span>
+            <span id="panel-bot-queue-status" style="font-size:0.75rem;color:var(--fg-secondary);"></span>
           </div>
         </div>
         <div class="panel-section">
@@ -710,39 +1066,44 @@ input, textarea, select { font-family: inherit; }
   </div>
 </div>
 
-<!-- New Bot Dialog -->
-<div id="dialog-overlay" class="hidden" onclick="if(event.target===this)closeNewBotDialog()">
-  <div class="dialog-box">
-    <h2>New Bot</h2>
-    <div class="dialog-field">
-      <label for="new-bot-desc">Describe the job in a sentence</label>
-      <textarea id="new-bot-desc" placeholder="e.g. A bot that reviews pull requests and suggests improvements" oninput="autoGenerateBotName()"></textarea>
-    </div>
-    <div class="dialog-field">
-      <label for="new-bot-name">Name</label>
-      <input type="text" id="new-bot-name" placeholder="Auto-generated from description" pattern="^[a-z0-9][a-z0-9-]{0,40}$">
-      <div class="error" id="name-error"></div>
-    </div>
-    <div class="dialog-field">
-      <label for="new-bot-title">Title</label>
-      <input type="text" id="new-bot-title" placeholder="Display title">
-    </div>
-    <div class="dialog-field">
+<!-- New Bot Page — inline, replaces dialog -->
+<div id="new-bot-page">
+  <h2>New Bot</h2>
+  <div class="new-bot-avatar-section">
+    <div class="new-bot-avatar-preview" id="new-bot-avatar-preview"></div>
+    <div class="avatar-color-swatches" id="avatar-color-swatches"></div>
+    <div class="avatar-shape-buttons" id="avatar-shape-buttons"></div>
+  </div>
+  <div class="new-bot-field">
+    <label for="new-bot-name">Name</label>
+    <input type="text" id="new-bot-name" placeholder="e.g. code-reviewer" pattern="^[a-z0-9][a-z0-9-]{0,40}$" oninput="updateNewBotPreview(); toggleNewBotSubmit();">
+    <div class="error" id="name-error"></div>
+  </div>
+  <div class="new-bot-field">
+    <label for="new-bot-desc">What should this Bot do?</label>
+    <textarea id="new-bot-desc" placeholder="e.g. A bot that reviews pull requests and suggests improvements" oninput="autoGenerateBotName(); updateNewBotPreview();"></textarea>
+  </div>
+  <div class="new-bot-advanced-toggle" onclick="toggleAdvancedSection()">
+    <span id="advanced-toggle-icon">▶</span> Advanced
+  </div>
+  <div class="new-bot-advanced" id="new-bot-advanced">
+    <div class="new-bot-field">
       <label for="new-bot-runner">Runner</label>
       <select id="new-bot-runner"></select>
     </div>
-    <div class="dialog-field">
+    <div class="new-bot-field">
       <label for="new-bot-project">Project Directory</label>
       <input type="text" id="new-bot-project" placeholder="/path/to/project">
     </div>
-    <div class="dialog-field">
+    <div class="new-bot-field">
       <label for="new-bot-guidelines">Guidelines</label>
       <textarea id="new-bot-guidelines" placeholder="Any guidelines for this bot..."></textarea>
     </div>
-    <div class="dialog-actions">
-      <button class="btn-dialog secondary" onclick="closeNewBotDialog()">Cancel</button>
-      <button class="btn-dialog primary" onclick="createNewBot()">Create</button>
-    </div>
+  </div>
+  <button class="new-bot-get-started" id="new-bot-submit-btn" onclick="createNewBot()" disabled>Get started</button>
+  <div class="new-bot-suggestions">
+    <h3>Suggestions</h3>
+    <div class="suggestions-grid" id="suggestions-grid"></div>
   </div>
 </div>
 
@@ -801,15 +1162,65 @@ function logout() {
 }
 
 // ===================== Avatar Generation =====================
-function avatarColor(name) {
-  let hash = 0;
+// 10-color palette from spec
+const AVATAR_COLORS = [
+  '#8c5a35', '#f0243a', '#f97316', '#fbab18', '#16c26a',
+  '#13b9a8', '#1a7cff', '#9a5cf5', '#ff3d9a', '#727272'
+];
+
+// 8 geometric shapes as SVG path data (44x44 viewBox)
+const AVATAR_SHAPES = [
+  // 0: circle
+  '<circle cx="22" cy="22" r="18"/>',
+  // 1: wide oval
+  '<ellipse cx="22" cy="22" rx="20" ry="14"/>',
+  // 2: rounded square
+  '<rect x="4" y="4" width="36" height="36" rx="10"/>',
+  // 3: pill
+  '<rect x="4" y="10" width="36" height="24" rx="12"/>',
+  // 4: rounded triangle
+  '<path d="M22 4L38 36L6 36Z" stroke-linejoin="round"/>',
+  // 5: hexagon
+  '<polygon points="22,4 38,12 38,32 22,40 6,32 6,12"/>',
+  // 6: cloud
+  '<path d="M14 30a8 8 0 010-16 10 10 0 0118-4 8 8 0 0110 12H14z"/>',
+  // 7: droplet
+  '<path d="M22 6C22 6 10 20 10 28a12 12 0 0024 0C34 20 22 6 22 6z"/>'
+];
+
+// Tiny face: two white dot eyes
+const AVATAR_FACE = '<circle cx="17" cy="19" r="2.2" fill="rgba(255,255,255,0.9)"/><circle cx="27" cy="19" r="2.2" fill="rgba(255,255,255,0.9)"/>';
+
+function hashName(name) {
+  let h = 0;
   for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    h = name.charCodeAt(i) + ((h << 5) - h);
   }
-  const h = Math.abs(hash) % 360;
-  return `hsl(${h}, 55%, 50%)`;
+  return Math.abs(h);
 }
 
+function getAvatarColor(name) {
+  return AVATAR_COLORS[hashName(name) % AVATAR_COLORS.length];
+}
+
+function getAvatarShape(name) {
+  return AVATAR_SHAPES[hashName(name + '_shape') % AVATAR_SHAPES.length];
+}
+
+function renderAvatarSVG(name, size) {
+  const s = size || 44;
+  const color = getAvatarColor(name);
+  const shape = getAvatarShape(name);
+  return `<div class="bot-avatar" style="width:${s}px;height:${s}px">
+    <svg width="${s}" height="${s}" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+      <g fill="${color}">${shape}</g>
+      ${AVATAR_FACE}
+    </svg>
+  </div>`;
+}
+
+// Keep backward compat
+function avatarColor(name) { return getAvatarColor(name); }
 function avatarInitials(name) {
   const parts = name.replace(/[-_]/g, ' ').split(' ').filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -817,9 +1228,7 @@ function avatarInitials(name) {
 }
 
 function renderAvatar(name, size) {
-  const color = avatarColor(name);
-  const initials = avatarInitials(name);
-  return `<div class="bot-avatar" style="background:${color};width:${size||32}px;height:${size||32}px;font-size:${(size||32)*0.35}px">${esc(initials)}</div>`;
+  return renderAvatarSVG(name, size);
 }
 
 // ===================== Auth =====================
@@ -869,22 +1278,29 @@ function handleRoute() {
   const hash = window.location.hash || '#bot/';
   const chatArea = document.getElementById('chat-area');
   const skillsPage = document.getElementById('skills-page');
+  const marketplacePage = document.getElementById('marketplace-page');
+  const newBotPage = document.getElementById('new-bot-page');
+  const rightPanel = document.getElementById('right-panel');
 
-  if (hash.startsWith('#bot/')) {
+  // Hide all pages first
+  chatArea.style.display = 'none';
+  skillsPage.classList.remove('visible');
+  marketplacePage.classList.remove('visible');
+  newBotPage.classList.remove('visible');
+  if (rightPanel) rightPanel.classList.add('hidden-panel');
+
+  if (hash === '#new-bot') {
+    newBotPage.classList.add('visible');
+    initNewBotPage();
+  } else if (hash.startsWith('#bot/')) {
     const botName = decodeURIComponent(hash.slice(5));
     chatArea.style.display = 'flex';
-    skillsPage.classList.remove('visible');
     if (botName) selectBot(botName);
   } else if (hash === '#skills') {
     chatArea.style.display = 'none';
     skillsPage.classList.add('visible');
     loadSkills();
   } else if (hash === '#marketplace') {
-    const chatArea = document.getElementById('chat-area');
-    const skillsPage = document.getElementById('skills-page');
-    const marketplacePage = document.getElementById('marketplace-page');
-    chatArea.style.display = 'none';
-    skillsPage.classList.remove('visible');
     marketplacePage.classList.add('visible');
     loadMarketplace();
   }
@@ -924,6 +1340,25 @@ async function loadAllAgents() {
 }
 
 // ===================== Sidebar =====================
+function formatTime(timestamp) {
+  if (!timestamp) return '';
+  const d = new Date(timestamp);
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 60 * 60 * 1000) {
+    // Today — show time
+    const h = d.getHours() % 12 || 12;
+    const m = String(d.getMinutes()).padStart(2, '0');
+    const ampm = d.getHours() >= 12 ? 'PM' : 'AM';
+    return `${h}:${m} ${ampm}`;
+  } else if (diff < 48 * 60 * 60 * 1000) {
+    return 'Yesterday';
+  } else {
+    const m = d.getMonth() + 1;
+    return `${m}/${d.getDate()}`;
+  }
+}
+
 function renderBotList(filter) {
   const list = document.getElementById('bot-list');
   let filtered = agents;
@@ -936,36 +1371,81 @@ function renderBotList(filter) {
     );
   }
   if (!filtered.length) {
-    list.innerHTML = '<div style="padding:1rem;color:var(--fg-muted);font-size:0.85rem;text-align:center">No bots found.</div>';
+    list.innerHTML = '<div style="padding:1rem;color:var(--fg-secondary);font-size:0.85rem;text-align:center">No bots found.</div>';
     return;
   }
+  // Group: working first, then rest
+  const working = filtered.filter(a => a.status === 'working' && !a.paused);
+  const recent = filtered.filter(a => a.status !== 'working' || a.paused);
+
   let html = '';
-  filtered.forEach(a => {
-    const detail = agentDetails[a.name] || {};
-    const title = detail.title || a.name;
-    const desc = detail.description || '';
-    const statusClass = a.paused ? 'paused' : (a.status === 'working' ? 'working' : a.status === 'failed' ? 'failed' : 'idle');
-    const statusLabel = a.paused ? 'Paused' : a.status;
-    const activeClass = currentBot === a.name ? 'active' : '';
-    html += `<div class="bot-item ${activeClass}" onclick="selectBot('${esc(a.name)}')" role="button" tabindex="0" aria-label="Select bot ${esc(title)}">
-      ${renderAvatar(a.name)}
-      <div class="bot-info">
-        <div class="bot-name">${esc(title)}</div>
-        ${desc ? `<div class="bot-desc">${esc(desc)}</div>` : ''}
-      </div>
-      <div class="bot-status-dot ${statusClass}" title="${statusLabel}"></div>
-    </div>`;
+  if (working.length > 0) {
+    html += `<div class="sidebar-section-label">Working <span class="count">${working.length}</span></div>`;
+  }
+  working.forEach(a => {
+    html += buildBotItem(a, true);
   });
+  if (recent.length > 0) {
+    if (working.length > 0) {
+      html += `<div class="sidebar-section-label">Recent <span class="count">${recent.length}</span></div>`;
+    }
+    recent.forEach(a => {
+      html += buildBotItem(a, false);
+    });
+  }
   list.innerHTML = html;
+}
+
+function buildBotItem(a, isWorking) {
+  const detail = agentDetails[a.name] || {};
+  const title = detail.title || a.name;
+  const desc = detail.description || '';
+  const statusClass = a.paused ? 'paused' : (a.status === 'working' ? 'working' : a.status === 'failed' ? 'failed' : 'idle');
+  const statusLabel = a.paused ? 'Paused' : a.status;
+  const activeClass = currentBot === a.name ? 'active' : '';
+  const lastTime = (a.updated_at || detail.last_activity || detail.updated_at || '');
+  const timeStr = formatTime(lastTime);
+
+  // Last message preview from session data
+  const preview = (a.last_message_preview || '');
+  const unreadCount = (a.unread_count || 0);
+  const showUnread = unreadCount > 0 && currentBot !== a.name;
+
+  let avatarHTML = renderAvatarSVG(a.name, 44);
+  // Wrap avatar with status badge
+  avatarHTML = `<div style="position:relative;flex-shrink:0;">
+    ${avatarHTML}
+    <div class="bot-status-badge ${statusClass}" title="${statusLabel}"></div>
+  </div>`;
+
+  let previewLine = '';
+  if (preview) {
+    previewLine = `<div class="bot-desc">${esc(preview)}</div>`;
+  } else if (desc) {
+    previewLine = `<div class="bot-desc">${esc(desc)}</div>`;
+  }
+
+  const unreadDot = showUnread ? `<div class="unread-dot" title="${unreadCount} unread"></div>` : '';
+
+  return `<div class="bot-item ${activeClass}" onclick="selectBot('${esc(a.name)}')" role="button" tabindex="0" aria-label="Select bot ${esc(title)}">
+    ${avatarHTML}
+    <div class="bot-info">
+      <div class="bot-name-row">
+        <div class="bot-name">${esc(title)}</div>
+        ${timeStr ? `<span class="bot-time">${timeStr}</span>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:0.35rem;">
+        ${previewLine}
+        ${unreadDot}
+      </div>
+    </div>
+  </div>`;
 }
 
 function updateSearchVisibility() {
   const search = document.getElementById('sidebar-search');
-  if (agents.length >= 5) {
-    search.classList.add('visible');
-  } else {
-    search.classList.remove('visible');
-  }
+  // Always show search field now
+  search.style.display = 'block';
 }
 
 function filterBots() {
@@ -987,10 +1467,11 @@ async function selectBot(name) {
 
   const detail = agentDetails[name] || {};
   const title = detail.title || name;
-  document.getElementById('chat-avatar').innerHTML = '';
-  document.getElementById('chat-avatar').style.background = avatarColor(name);
-  document.getElementById('chat-avatar').textContent = avatarInitials(name);
+  // Set SVG avatar in header
+  document.getElementById('chat-avatar-wrap').innerHTML = renderAvatarSVG(name, 32);
   document.getElementById('chat-bot-name').textContent = title;
+  // Update composer placeholder
+  document.getElementById('composer-input').placeholder = `Message ${title}`;
   updateBotStatusInChat();
 
   // Update right panel
@@ -1086,21 +1567,32 @@ async function loadChatMessages(sessionId) {
 
 function renderBotRun(run, time) {
   const stateClass = run.state === 'done' ? 'done' : run.state === 'failed' ? 'failed' : 'working';
-  const stateLabel = run.state === 'done' ? 'Done' : run.state === 'failed' ? 'Failed' : run.state === 'working' ? 'Working...' : run.state || 'Unknown';
+  const stateLabel = run.state === 'done' ? 'Done' : run.state === 'failed' ? 'Failed' : run.state === 'working' ? 'Working' : run.state || 'Unknown';
   const hasOutput = run.raw_output || run.answer;
   const outputId = 'output-' + run.id;
+  const title = run.task ? run.task.substring(0, 80) : (run.id || 'Run').substring(0, 12);
 
   let html = `<div class="bot-run" data-run-id="${esc(run.id)}">
     <div class="bot-run-header">
-      <span class="bot-run-status ${stateClass}">${esc(stateLabel)}</span>`;
+      <span class="bot-run-title">${esc(title)}</span>
+      <span class="run-status-pill ${stateClass}"><span class="status-dot"></span>${esc(stateLabel)}</span>`;
 
   if (run.state === 'working') {
     html += `<span class="bot-run-elapsed elapsed-${esc(run.id)}">00:00</span>`;
-    html += `<button class="btn-stop-run" onclick="stopRun('${esc(run.id)}')">Stop</button>`;
   }
 
   if (time) html += `<span class="bot-run-elapsed">${esc(time)}</span>`;
   html += `</div>`;
+
+  // Meta line
+  let metaParts = [];
+  if (run.branch) metaParts.push(`<span class="meta-item">🔀 ${esc(run.branch)}</span>`);
+  if (run.path) metaParts.push(`<span class="meta-item">📁 ${esc(run.path)}</span>`);
+  if (run.files_changed) metaParts.push(`<span class="meta-item">± ${run.files_changed} files</span>`);
+  if (run.elapsed) metaParts.push(`<span class="meta-item">⏱ ${esc(run.elapsed)}</span>`);
+  if (metaParts.length) {
+    html += `<div class="bot-run-meta">${metaParts.join('')}</div>`;
+  }
 
   if (run.task) {
     html += `<div class="bot-run-task">${esc(run.task)}</div>`;
@@ -1116,8 +1608,19 @@ function renderBotRun(run, time) {
 
   if (hasOutput) {
     const collapsed = run.raw_output && run.raw_output.length > 200 ? 'collapsed' : '';
-    html += `<button class="bot-run-toggle" onclick="toggleRunOutput('${esc(run.id)}')">▼ Output</button>`;
+    html += `<button class="bot-run-toggle" onclick="toggleRunOutput('${esc(run.id)}')"><span>▼</span> Output</button>`;
     html += `<div class="bot-run-output ${collapsed}" id="${esc(outputId)}">${esc(run.raw_output || '')}</div>`;
+  }
+
+  // Action buttons
+  if (run.state === 'working') {
+    html += `<div class="bot-run-actions">
+      <button class="btn-stop-run" onclick="stopRun('${esc(run.id)}')">Stop</button>
+    </div>`;
+  } else if (run.state === 'done') {
+    html += `<div class="bot-run-actions">
+      <button class="btn-run-secondary" onclick="showRunDetail('${esc(run.id)}')">View details</button>
+    </div>`;
   }
 
   html += `</div>`;
@@ -1169,7 +1672,10 @@ async function sendComposerMessage() {
   input.value = '';
   input.style.height = 'auto';
   chatStreaming = true;
-  document.getElementById('send-btn').disabled = true;
+  const sendBtn = document.getElementById('send-btn');
+  sendBtn.disabled = false;
+  sendBtn.classList.add('streaming');
+  sendBtn.onclick = stopStreaming;
 
   appendChatMessage('user', text);
 
@@ -1184,9 +1690,25 @@ async function sendComposerMessage() {
   } catch(e) {
     console.error('Failed to send message:', e);
     appendChatMessage('system', 'Error: Failed to send message.');
+    resetSendButton();
     chatStreaming = false;
-    document.getElementById('send-btn').disabled = false;
   }
+}
+
+function stopStreaming() {
+  if (activeRunId) {
+    stopRun(activeRunId);
+  }
+  disconnectSSE();
+  resetSendButton();
+  chatStreaming = false;
+}
+
+function resetSendButton() {
+  const sendBtn = document.getElementById('send-btn');
+  sendBtn.classList.remove('streaming');
+  sendBtn.disabled = false;
+  sendBtn.onclick = sendComposerMessage;
 }
 
 function appendChatMessage(role, content) {
@@ -1293,11 +1815,14 @@ function appendBotRunStart(runId) {
   div.id = 'run-' + runId;
   div.innerHTML = `
     <div class="bot-run-header">
-      <span class="bot-run-status working">Working...</span>
+      <span class="bot-run-title">Running...</span>
+      <span class="run-status-pill working"><span class="status-dot"></span>Working</span>
       <span class="bot-run-elapsed elapsed-${runId}">00:00</span>
-      <button class="btn-stop-run" onclick="stopRun('${esc(runId)}')">Stop</button>
     </div>
     <div class="bot-run-output streaming-output-${runId}"></div>
+    <div class="bot-run-actions">
+      <button class="btn-stop-run" onclick="stopRun('${esc(runId)}')">Stop</button>
+    </div>
   `;
   container.appendChild(div);
   scrollToBottom();
@@ -1315,10 +1840,17 @@ function updateStreamingOutput(runId, output) {
 function finishBotRun(runId, state, answer) {
   const el = document.getElementById('run-' + runId);
   if (el) {
-    const statusEl = el.querySelector('.bot-run-status');
+    const statusEl = el.querySelector('.run-status-pill, .bot-run-status');
     if (statusEl) {
-      statusEl.className = `bot-run-status ${state}`;
-      statusEl.textContent = state === 'done' ? 'Done' : 'Failed';
+      const stateClass = state === 'done' ? 'done' : 'failed';
+      const stateLabel = state === 'done' ? 'Done' : 'Failed';
+      if (statusEl.classList.contains('run-status-pill')) {
+        statusEl.className = `run-status-pill ${stateClass}`;
+        statusEl.innerHTML = `<span class="status-dot"></span>${stateLabel}`;
+      } else {
+        statusEl.className = `bot-run-status ${stateClass}`;
+        statusEl.textContent = stateLabel;
+      }
     }
     const stopBtn = el.querySelector('.btn-stop-run');
     if (stopBtn) stopBtn.remove();
@@ -1329,6 +1861,9 @@ function finishBotRun(runId, state, answer) {
       el.appendChild(answerDiv);
     }
   }
+  // Reset send button when streaming finishes
+  resetSendButton();
+  chatStreaming = false;
 }
 
 // ===================== Elapsed Timer =====================
@@ -1424,7 +1959,7 @@ async function loadPanelSkills(botName) {
         ${esc(s.name)}
       </label>`;
     });
-    container.innerHTML = html || '<div style="font-size:0.8rem;color:var(--fg-muted)">No skills available.</div>';
+    container.innerHTML = html || '<div style="font-size:0.8rem;color:var(--fg-secondary)">No skills available.</div>';
   } catch(e) { console.error('Failed to load skills:', e); }
 }
 
@@ -1434,7 +1969,7 @@ async function loadPanelRunHistory(botName) {
     const runList = runs.runs || [];
     const container = document.getElementById('panel-run-history');
     if (!runList.length) {
-      container.innerHTML = '<div style="font-size:0.8rem;color:var(--fg-muted)">No runs yet.</div>';
+      container.innerHTML = '<div style="font-size:0.8rem;color:var(--fg-secondary)">No runs yet.</div>';
       return;
     }
     let html = '';
@@ -1479,7 +2014,7 @@ async function loadPanelRoutines(botName) {
     const routines = data.routines || [];
     const container = document.getElementById('panel-routines-list');
     if (!routines.length) {
-      container.innerHTML = '<div style="font-size:0.8rem;color:var(--fg-muted)">No routines yet.</div>';
+      container.innerHTML = '<div style="font-size:0.8rem;color:var(--fg-secondary)">No routines yet.</div>';
       return;
     }
     let html = '';
@@ -1563,7 +2098,7 @@ async function loadPanelPlugins(botName) {
     const plugins = config.plugins || [];
     const container = document.getElementById('panel-plugins-list');
     if (!plugins.length) {
-      container.innerHTML = '<div style="font-size:0.8rem;color:var(--fg-muted)">No plugins configured. Add plugins to hub.yaml.</div>';
+      container.innerHTML = '<div style="font-size:0.8rem;color:var(--fg-secondary)">No plugins configured. Add plugins to hub.yaml.</div>';
       return;
     }
     const detail = agentDetails[botName] || {};
@@ -1635,19 +2170,49 @@ async function loadMarketplace() {
     const templates = data.templates || [];
     const grid = document.getElementById('marketplace-grid');
     if (!templates.length) {
-      grid.innerHTML = '<p style="color:var(--fg-muted)">No templates available.</p>';
+      grid.innerHTML = `<div class="marketplace-empty">
+        <div class="empty-icon">📦</div>
+        <p>Templates will be available soon.</p>
+      </div>`;
       return;
     }
     let html = '';
     templates.forEach(t => {
       html += `<div class="marketplace-card">
+        <div class="card-icon">
+          <svg width="22" height="22" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5" stroke="var(--fg-secondary)" stroke-width="1.2"/><path d="M8 5v3l2 1" stroke="var(--fg-secondary)" stroke-width="1.2" stroke-linecap="round"/></svg>
+        </div>
         <h3>${esc(t.title)}</h3>
         <div class="desc">${esc(t.description || '')}</div>
-        <button class="btn-sm" onclick="applyTemplate('${esc(t.name)}')">Add to my Bots</button>
+        <button class="btn-sm" onclick="applyTemplate('${esc(t.name)}')">Add</button>
       </div>`;
     });
     grid.innerHTML = html;
-  } catch(e) { console.error('Failed to load marketplace:', e); }
+  } catch(e) {
+    console.error('Failed to load marketplace:', e);
+    const grid = document.getElementById('marketplace-grid');
+    grid.innerHTML = `<div class="marketplace-empty">
+      <div class="empty-icon">📦</div>
+      <p>Marketplace content is coming soon.</p>
+    </div>`;
+  }
+}
+
+function filterMarketplace(query) {
+  const cards = document.querySelectorAll('.marketplace-card');
+  query = query.toLowerCase();
+  cards.forEach(card => {
+    const text = card.textContent.toLowerCase();
+    card.style.display = text.includes(query) ? '' : 'none';
+  });
+}
+
+function filterMarketplaceCategory(category, btn) {
+  document.querySelectorAll('.marketplace-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  // For now, just show all — categories would need backend support
+  const cards = document.querySelectorAll('.marketplace-card');
+  cards.forEach(card => { card.style.display = ''; });
 }
 
 async function applyTemplate(name) {
@@ -1684,7 +2249,7 @@ function renderSkillsList() {
       </div>
     </div>`;
   });
-  document.getElementById('skills-list').innerHTML = html || '<p style="color:var(--fg-muted)">No skills yet.</p>';
+  document.getElementById('skills-list').innerHTML = html || '<p style="color:var(--fg-secondary)">No skills yet.</p>';
 }
 
 function renderSkillsMatrix() {
@@ -1757,21 +2322,148 @@ async function toggleSkill(agent, skill, enabled) {
   } catch(e) { console.error('Skill toggle error:', e); }
 }
 
-// ===================== New Bot Dialog =====================
+// ===================== New Bot Page =====================
+let newBotSelectedColor = AVATAR_COLORS[0];
+let newBotSelectedShape = 0;
+let newBotPreviewName = 'new-bot';
+
+// Suggestion templates
+const BOT_SUGGESTIONS = [
+  { name: 'night-shift', title: 'Night Shift', desc: 'Monitors and responds while you sleep', desc_full: 'A bot that handles overnight tasks, monitors alerts, and responds to urgent matters.' },
+  { name: 'inbox-triage', title: 'Inbox Triage', desc: 'Sorts and prioritizes your messages', desc_full: 'A bot that organizes your inbox, prioritizes messages, and drafts responses.' },
+  { name: 'vault-librarian', title: 'Vault Librarian', desc: 'Organizes and retrieves your documents', desc_full: 'A bot that organizes documents, maintains knowledge bases, and retrieves information.' },
+  { name: 'code-reviewer', title: 'Code Reviewer', desc: 'Reviews PRs and suggests improvements', desc_full: 'A bot that reviews pull requests, suggests improvements, and ensures code quality.' },
+];
+
 function openNewBotDialog() {
-  document.getElementById('dialog-overlay').classList.remove('hidden');
-  document.getElementById('new-bot-desc').value = '';
+  window.location.hash = '#new-bot';
+}
+
+function closeNewBotDialog() {
+  window.location.hash = '#bot/';
+}
+
+function initNewBotPage() {
+  // Reset form
   document.getElementById('new-bot-name').value = '';
-  document.getElementById('new-bot-title').value = '';
+  document.getElementById('new-bot-desc').value = '';
   document.getElementById('new-bot-project').value = '';
   document.getElementById('new-bot-guidelines').value = '';
   document.getElementById('name-error').textContent = '';
+  document.getElementById('new-bot-submit-btn').disabled = true;
+  newBotSelectedColor = AVATAR_COLORS[0];
+  newBotSelectedShape = 0;
+  newBotPreviewName = 'new-bot';
+
+  // Render color swatches
+  const swatchesEl = document.getElementById('avatar-color-swatches');
+  let swatchesHTML = '';
+  AVATAR_COLORS.forEach((color, i) => {
+    swatchesHTML += `<div class="color-swatch ${i === 0 ? 'selected' : ''}" style="background:${color}" onclick="selectAvatarColor(${i})" title="${color}"></div>`;
+  });
+  swatchesEl.innerHTML = swatchesHTML;
+
+  // Render shape buttons
+  const shapesEl = document.getElementById('avatar-shape-buttons');
+  let shapesHTML = '';
+  AVATAR_SHAPES.forEach((shape, i) => {
+    shapesHTML += `<div class="shape-btn ${i === 0 ? 'selected' : ''}" onclick="selectAvatarShape(${i})">
+      <svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg"><g fill="var(--fg-secondary)">${shape}</g></svg>
+    </div>`;
+  });
+  shapesEl.innerHTML = shapesHTML;
+
+  // Render preview
+  updateNewBotPreview();
+
+  // Render suggestions
+  const gridEl = document.getElementById('suggestions-grid');
+  let sugHTML = '';
+  BOT_SUGGESTIONS.forEach(s => {
+    sugHTML += `<div class="suggestion-card" onclick="applySuggestion('${s.name}')">
+      <div class="sug-avatar">${renderAvatarSVG(s.name, 32)}</div>
+      <h4>${esc(s.title)}</h4>
+      <p>${esc(s.desc)}</p>
+    </div>`;
+  });
+  gridEl.innerHTML = sugHTML;
+
   // Populate runners
   populateRunners();
 }
 
-function closeNewBotDialog() {
-  document.getElementById('dialog-overlay').classList.add('hidden');
+function selectAvatarColor(index) {
+  newBotSelectedColor = AVATAR_COLORS[index];
+  document.querySelectorAll('.color-swatch').forEach((el, i) => {
+    el.classList.toggle('selected', i === index);
+  });
+  updateNewBotPreview();
+}
+
+function selectAvatarShape(index) {
+  newBotSelectedShape = index;
+  document.querySelectorAll('.shape-btn').forEach((el, i) => {
+    el.classList.toggle('selected', i === index);
+  });
+  updateNewBotPreview();
+}
+
+function updateNewBotPreview() {
+  const nameInput = document.getElementById('new-bot-name');
+  newBotPreviewName = nameInput.value.trim() || 'new-bot';
+
+  // Store avatar preferences for this bot name
+  if (newBotPreviewName !== 'new-bot') {
+    localStorage.setItem(`avatar_color_${newBotPreviewName}`, newBotSelectedColor);
+    localStorage.setItem(`avatar_shape_${newBotPreviewName}`, newBotSelectedShape);
+  }
+
+  const previewEl = document.getElementById('new-bot-avatar-preview');
+  const shape = AVATAR_SHAPES[newBotSelectedShape];
+  previewEl.innerHTML = `<svg width="100" height="100" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <g fill="${newBotSelectedColor}">${shape}</g>
+    ${AVATAR_FACE}
+  </svg>`;
+}
+
+function toggleNewBotSubmit() {
+  const name = document.getElementById('new-bot-name').value.trim();
+  document.getElementById('new-bot-submit-btn').disabled = !name;
+}
+
+function toggleAdvancedSection() {
+  const adv = document.getElementById('new-bot-advanced');
+  const icon = document.getElementById('advanced-toggle-icon');
+  adv.classList.toggle('visible');
+  icon.textContent = adv.classList.contains('visible') ? '▼' : '▶';
+}
+
+function applySuggestion(name) {
+  const s = BOT_SUGGESTIONS.find(x => x.name === name);
+  if (!s) return;
+  document.getElementById('new-bot-name').value = s.name;
+  document.getElementById('new-bot-desc').value = s.desc_full;
+  updateNewBotPreview();
+  toggleNewBotSubmit();
+}
+
+function autoGenerateBotName() {
+  const desc = document.getElementById('new-bot-desc').value;
+  const nameInput = document.getElementById('new-bot-name');
+  // Only auto-generate if user hasn't manually edited the name
+  if (desc && !nameInput.dataset.manual) {
+    const name = desc.toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .substring(0, 40)
+      .replace(/^-|-$/g, '');
+    if (name && /^[a-z0-9]/.test(name)) {
+      nameInput.value = name;
+      updateNewBotPreview();
+      toggleNewBotSubmit();
+    }
+  }
 }
 
 async function populateRunners() {
@@ -1783,24 +2475,8 @@ async function populateRunners() {
   } catch(e) { console.error('Failed to load runners:', e); }
 }
 
-function autoGenerateBotName() {
-  const desc = document.getElementById('new-bot-desc').value;
-  if (desc) {
-    const name = desc.toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .substring(0, 40)
-      .replace(/^-|-$/g, '');
-    if (name && /^[a-z0-9]/.test(name)) {
-      document.getElementById('new-bot-name').value = name;
-    }
-  }
-}
-
 async function createNewBot() {
   const name = document.getElementById('new-bot-name').value.trim();
-  const title = document.getElementById('new-bot-title').value.trim();
   const description = document.getElementById('new-bot-desc').value.trim();
   const runner = document.getElementById('new-bot-runner').value;
   const projectDir = document.getElementById('new-bot-project').value.trim();
@@ -1820,14 +2496,13 @@ async function createNewBot() {
   try {
     const body = {
       name,
-      title: title || name,
+      title: name,
       description,
       runner,
       project_dir: projectDir,
       guidelines,
     };
     await api('/agents/' + name, { method: 'POST', body });
-    closeNewBotDialog();
     // Refresh
     await pollStatus();
     await loadAllAgents();

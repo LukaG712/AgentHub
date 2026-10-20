@@ -250,6 +250,22 @@ async def api_status(_auth: None = Depends(_verify_token)):
     agent_list = []
     for name in config.get("agents", {}):
         status = agent_status(name)
+        # Add session-based info: last message preview and unread count
+        try:
+            sessions = memory.list_sessions(agent_id=name, limit=1)
+            if sessions:
+                sess = sessions[0]
+                status["last_message_preview"] = sess.get("last_message_preview", "")
+                status["updated_at"] = sess.get("updated_at", "")
+                status["unread_count"] = memory.get_unread_count(sess["id"])
+            else:
+                status["last_message_preview"] = ""
+                status["updated_at"] = ""
+                status["unread_count"] = 0
+        except Exception:
+            status["last_message_preview"] = ""
+            status["updated_at"] = ""
+            status["unread_count"] = 0
         agent_list.append(status)
 
     validation = _validate_startup()
@@ -483,6 +499,9 @@ async def api_list_sessions(
     _auth: None = Depends(_verify_token),
 ):
     sessions = memory.list_sessions(agent_id=agent)
+    # Add unread count to each session
+    for s in sessions:
+        s["unread_count"] = memory.get_unread_count(s["id"])
     return {"sessions": sessions}
 
 
@@ -512,6 +531,9 @@ async def api_get_session(
     session = memory.get_session_with_messages(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+    # Mark session as read and include unread count
+    memory.mark_session_read(session_id)
+    session["unread_count"] = 0
     return session
 
 
@@ -1429,7 +1451,7 @@ async def api_handoff(
         memory.add_message(
             session_id=session_id,
             role="assistant",
-            content=res.output or "Handoff task completed.",
+            content=res.raw_output or "Handoff task completed.",
             bot_id=to_bot,
             msg_type="handoff_reply",
             metadata=f'{{"from": "{to_bot}", "run_id": "{res.id}", "at": "{finished_iso}"}}',

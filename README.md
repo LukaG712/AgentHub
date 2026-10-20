@@ -20,10 +20,16 @@ Everything you need to manage AI coding agents from one place:
 
 | Category | Feature | Description |
 |----------|---------|-------------|
-| 🤖 **Agents** | Multi-agent management | Define agents with unique project folders, runners, and guidelines |
+| 🤖 **Agents** | Multi-agent management | Define agents (Bots) with unique project folders, runners, and guidelines |
 | 🧠 **Skills** | Shared skill library | Create reusable prompts and enable them for any agent |
 | 💬 **Chat** | Real-time streaming | See agent output as it happens via Server-Sent Events (SSE) |
 | 💾 **Memory** | Persistent knowledge | Store, search, and edit project notes that survive restarts |
+| 📌 **Persistence** | Thread survival | Conversations, runs, and messages persist in SQLite — survive page reloads and restarts |
+| 🔵 **Unread tracking** | Blue dot indicators | Unread assistant replies show a blue dot in the sidebar; clears when you open the thread |
+| 👀 **Previews** | Last-message preview | Sidebar shows the last message preview and activity time per Bot |
+| ⏸️ **Pause/Resume** | Per-Bot control | Pause a Bot to halt queued tasks; resume to continue processing |
+| 🔄 **Queueing** | Sequential per-Bot | Each Bot runs one task at a time; extra messages queue and display as "queued" |
+| ⚡ **Parallel Bots** | Concurrent execution | Different Bots run simultaneously — only one task per Bot at a time |
 | 📦 **Context** | Smart context assembly | Agents get relevant history, memories, and instructions automatically |
 | 🔌 **Providers** | Extensible backends | Junie CLI is the default; add more via the `AgentProvider` interface |
 | 🔒 **Permissions** | Per-agent controls | Toggle file read/write, command execution, Git ops, and network access |
@@ -501,12 +507,19 @@ Quality checklist for the messenger-style web UI:
 ### Layout & Navigation
 - [ ] Three-column layout: sidebar (260px), chat thread (flex), right panel (300px, toggleable)
 - [ ] Left sidebar shows Bot list with avatars (initials + color), name, description, and status dots
-- [ ] Status dots: green = Working, gray = Idle, red = Failed
+- [ ] Status dots: green = Working, gray = Idle, red = Failed, amber = Paused
+- [ ] Blue unread dot appears on sidebar rows when assistant replies arrive while thread is closed
+- [ ] Unread dot clears when you open the thread
+- [ ] Last-message preview shown in sidebar (from session data, not agent description)
+- [ ] Last-activity time shown right-aligned in sidebar ("8:20 AM", "Yesterday", "9/1")
+- [ ] Bots grouped by "Working" and "Recent" in sidebar
 - [ ] "+ New Bot" button at top of sidebar opens creation dialog
 - [ ] "Marketplace" link is disabled with "(soon)" label
 - [ ] Search/filter field appears when 5+ Bots are configured
 - [ ] Skills link in sidebar navigates to Skills page (`#skills` hash route)
 - [ ] Right panel toggle button in header shows/hides the panel
+- [ ] Pause/Resume button in right panel toggles Bot pause state
+- [ ] Queue length shown in thread header status ("Working (2 queued)")
 
 ### Chat Thread
 - [ ] Selecting a Bot loads its chat session (auto-creates session if none exists)
