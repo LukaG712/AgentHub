@@ -122,7 +122,20 @@ All 32 Grok feature tests pass. The backend API endpoints exist for all features
 11. **README updated**: Added Approvals and Auto Review to features table and UI checklist
 
 ## Phase 7: Plugins, Marketplace, New Bot from Sentence
-(Not in scope for this session)
+(COMPLETED)
+
+**Goal:** Plugins toggled per Bot in the right panel, Marketplace page with local Bot templates (search + category chips), and New Bot page with sentence-based creation, avatar customization, and suggestion cards.
+
+### What was done
+1. **Verified backend complete**: templates.py provides list_templates(), get_template(), create_agent_from_template(), and generate_bot_config() for sentence-based creation
+2. **Verified API complete**: GET /api/templates, GET /api/templates/{name}, POST /api/templates/{name}/apply, POST /api/agents/generate endpoints all working
+3. **Verified UI Marketplace page**: Full page with search field, category chips (All, Development, Operations, Data), template cards with "Add" button, and empty state
+4. **Verified UI New Bot page**: Full page with name input, description textarea, avatar color/shape customization, live preview, suggestions grid, advanced section (runner, project dir, guidelines), and "Get started" submit button
+5. **Verified UI Plugins section**: Right panel Plugins section lists available plugins with enable/disable toggle per Bot
+6. **Verified routing**: Hash-based routing (#marketplace, #new-bot) properly shows/hides pages
+7. **Verified templates**: 7 templates in templates/ directory (research, bug-repro, chief-of-staff, daily-briefing, email-triage, expense-manager, vault-librarian)
+8. **Verified sidebar navigation**: "+ New Bot" button in header, "Marketplace" link in footer
+9. **README updated**: Added Plugins, Marketplace, and New Bot from Sentence to features table; updated checklist items; added Marketplace Page and New Bot Page sections
 
 ## Phase 8: Primary Bot + Notifications
 (Not in scope for this session)

@@ -39,6 +39,9 @@ Everything you need to manage AI coding agents from one place:
 | 🤝 **Handoffs** | Bot-to-Bot delegation | Hand off tasks between Bots within the same thread; system messages show colored dots for each Bot; loop prevention limits max hops |
 | ⚠️ **Approvals** | Human-in-the-loop | When auto-review detects sensitive actions, an inline Approve/Deny card appears in the chat; amber badge on the Bot's avatar shows pending approvals |
 | 🔍 **Auto Review** | Sensitive action detection | Configurable pattern matching (git push, rm -rf, etc.) automatically flags sensitive actions for approval; toggle in the right panel |
+| 🔌 **Plugins** | Per-Bot plugins | Toggle plugins per Bot in the right panel; plugin definitions live in `hub.yaml` |
+| 🏪 **Marketplace** | Local Bot templates | Browse pre-configured Bot templates (Research, Night Shift, etc.) with search and category filters; click "Add" to create a Bot from a template |
+| ✨ **New Bot from Sentence** | AI-assisted creation | Describe what a Bot should do in a sentence and get an auto-generated name and config; choose from suggestion cards or create from scratch |
 | 📦 **Context** | Smart context assembly | Agents get relevant history, memories, and instructions automatically |
 | 🔌 **Providers** | Extensible backends | Junie CLI is the default; add more via the `AgentProvider` interface |
 | 🔒 **Permissions** | Per-agent controls | Toggle file read/write, command execution, Git ops, and network access |
@@ -524,8 +527,8 @@ Quality checklist for the messenger-style web UI:
 - [ ] Bots grouped by "Working" and "Recent" in sidebar (fallback when no routines)
 - [ ] Bots grouped by routine schedule (Daily, Weekly, etc.) when routines exist
 - [ ] Bots without routines appear under "Unassigned" group
-- [ ] "+ New Bot" button at top of sidebar opens creation dialog
-- [ ] "Marketplace" link is disabled with "(soon)" label
+- [ ] "+ New Bot" button at top of sidebar opens the New Bot page
+- [ ] "Marketplace" link in sidebar footer navigates to the Marketplace page
 - [ ] Search/filter field appears when 5+ Bots are configured
 - [ ] Skills link in sidebar navigates to Skills page (`#skills` hash route)
 - [ ] Right panel toggle button in header shows/hides the panel
@@ -573,14 +576,24 @@ Quality checklist for the messenger-style web UI:
 - [ ] Memory section: editable textarea with Save and "Propose update" buttons
 - [ ] Routines section: lists routines with enable/disable toggle, run-now, and delete buttons
 - [ ] Routines section: "+ New Routine" button opens inline form for creating routines
-- [ ] Placeholder sections: Plugins (disabled, "Coming soon")
+- [ ] Plugins section: lists available plugins with enable/disable toggle per Bot
 
-### New Bot Dialog
+### New Bot Page
 - [ ] "Describe the job in a sentence" field auto-generates a name
 - [ ] Editable fields: name, title, runner (select), project directory, guidelines
 - [ ] Name validation: `^[a-z0-9][a-z0-9-]{0,40}$` pattern with error message
 - [ ] Runner command template is never shown or editable
 - [ ] Submit creates the Bot and navigates to its chat
+- [ ] Avatar customization: color swatches and shape buttons with live preview
+- [ ] Suggestions grid shows pre-configured Bot templates to quickly start
+- [ ] Clicking a suggestion fills the form with that template's info
+
+### Marketplace Page
+- [ ] Marketplace page lists Bot templates as cards with title, description, and "Add" button
+- [ ] Search field filters templates by name and description
+- [ ] Category chips (All, Development, Operations, Data) filter templates
+- [ ] Clicking "Add" creates a Bot from the template and refreshes the sidebar
+- [ ] Empty state shows "Templates will be available soon" when no templates exist
 
 ### Skills Page
 - [ ] Skill cards with name, description, and "used by" info
