@@ -1,0 +1,66 @@
+runners:
+  junie:
+    command:
+      - "junie"
+      - "--task"
+      - "{task}"
+      - "--project"
+      - "{project}"
+      - "--output-format"
+      - "json"
+    skills_dir: ".junie/skills"
+    guidelines_file: ".junie/AGENTS.md"
+
+agents:
+  vault:
+    title: "Vault librarian"
+    description: "Reads and updates the Obsidian vault notes."
+    runner: junie
+    project_dir: "/mnt/vault-test"
+    skills:
+      - "vault-conventions"
+    guidelines: "Never delete files. New notes go in _ai/."
+    permissions:
+      file_read: true
+      file_write: true
+      command_exec: true
+      git_ops: true
+      network: true
+
+# --- Example agents (uncomment and edit to use) ---
+
+# website-builder:
+#   title: "Website builder"
+#   description: "Builds and edits static websites."
+#   runner: junie
+#   project_dir: "~/workspace/website"
+#   skills: []
+#   guidelines: "Use plain HTML, CSS, and vanilla JavaScript. No build tools."
+
+# software-builder:
+#   title: "Software builder"
+#   description: "Develops Python applications and libraries."
+#   runner: junie
+#   project_dir: "~/workspace/software"
+#   skills: []
+#   guidelines: "Write clean, well-tested Python. Follow PEP 8."
+
+# --- Remote execution example ---
+# To run an agent on a remote machine (e.g., Proxmox VM), add a 'remote' section:
+
+# remote-builder:
+#   title: "Remote software builder"
+#   description: "Runs on a remote Linux VM."
+#   runner: ssh
+#   project_dir: "~/workspace/software"
+#   skills: []
+#   guidelines: "Write clean, well-tested Python. Follow PEP 8."
+#   remote:
+#     host: "192.168.1.100"
+#     user: "deploy"
+#     port: 22
+#     key_path: "~/.ssh/id_ed25519"
+#     remote_project_dir: "/home/deploy/software"
+#     sync_before_run: true
+#     connection_timeout: 30
+#     command_timeout: 1800

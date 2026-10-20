@@ -183,32 +183,53 @@ def recover_stale_runs() -> List[Run]:
     return recovered
 
 
+_agent_thread_locks: Dict[str, threading.Lock] = {}
+_agent_thread_locks_guard = threading.Lock()
+
+
+def _get_agent_thread_lock(agent: str) -> threading.Lock:
+    with _agent_thread_locks_guard:
+        if agent not in _agent_thread_locks:
+            _agent_thread_locks[agent] = threading.Lock()
+        return _agent_thread_locks[agent]
+
+
 class _FileLock:
-    """Cross-process file lock using fcntl.flock."""
+    """Cross-process file lock using fcntl.flock + in-process thread lock."""
 
     def __init__(self, agent: str):
         self.agent = agent
         _ensure_dirs()
         self.lock_path = _LOCKS_DIR / f"{agent}.lock"
         self._fh: Optional[Any] = None
+        self._thread_lock = _get_agent_thread_lock(agent)
+        self._thread_locked = False
 
     def acquire(self) -> bool:
+        self._thread_lock.acquire()
+        self._thread_locked = True
         if not _HAS_FLOCK:
-            return True  # No locking on Windows
+            return True
         self._fh = open(self.lock_path, "w")
         fcntl.flock(self._fh.fileno(), fcntl.LOCK_EX)
         return True
 
     def release(self):
-        if self._fh:
+        if _HAS_FLOCK and self._fh:
             try:
                 fcntl.flock(self._fh.fileno(), fcntl.LOCK_UN)
             finally:
                 self._fh.close()
                 self._fh = None
+        if self._thread_locked:
+            self._thread_lock.release()
+            self._thread_locked = False
 
     def try_acquire(self) -> bool:
         """Non-blocking acquire. Returns True if acquired, False if busy."""
+        if not self._thread_lock.acquire(blocking=False):
+            return False
+        self._thread_locked = True
         if not _HAS_FLOCK:
             return True
         self._fh = open(self.lock_path, "w")
@@ -218,6 +239,8 @@ class _FileLock:
         except (IOError, OSError):
             self._fh.close()
             self._fh = None
+            self._thread_lock.release()
+            self._thread_locked = False
             return False
 
     def __enter__(self):
@@ -752,12 +775,21 @@ def _persist_run_to_session(run: Run) -> None:
     """
     try:
         from hub import memory
+        meta = json.dumps({
+            "state": run.state,
+            "task": run.task,
+            "exit_code": run.exit_code,
+            "fail_reason": run.fail_reason,
+        })
         if run.state == "done" and run.answer:
             memory.add_message(
                 session_id=run.session_id,
                 role="assistant",
                 content=run.answer,
                 run_id=run.id,
+                bot_id=run.agent,
+                msg_type="message",
+                metadata=meta,
             )
         elif run.state in ("failed", "stopped"):
             reason = run.fail_reason or "unknown error"
@@ -769,6 +801,9 @@ def _persist_run_to_session(run: Run) -> None:
                 role="assistant",
                 content=content,
                 run_id=run.id,
+                bot_id=run.agent,
+                msg_type="message",
+                metadata=meta,
             )
     except Exception:
         # Don't let persistence failures break the run
@@ -776,10 +811,16 @@ def _persist_run_to_session(run: Run) -> None:
 
 
 def stop_run(run_id: str) -> Optional[Run]:
-    """Stop a running agent by run ID."""
+    """Stop a running or queued agent by run ID."""
     run = _load_run(run_id)
     if run is None:
         return None
+
+    if run.state == "queued":
+        run.state = "stopped"
+        run.finished = datetime.now(timezone.utc).isoformat()
+        _save_run(run)
+        return run
 
     if run.state != "working":
         return run
@@ -828,9 +869,16 @@ def agent_status(agent_name: str) -> Dict[str, Any]:
     # Count queued runs
     queued = sum(1 for r in runs if r.state == "queued")
 
+    try:
+        from hub import queue_manager
+        paused = queue_manager.is_bot_paused(agent_name)
+    except Exception:
+        paused = False
+
     return {
         "name": agent_name,
         "status": status,
+        "paused": paused,
         "current_task": current_task,
         "last_run": last_run.to_dict() if last_run else None,
         "queue_length": queued,

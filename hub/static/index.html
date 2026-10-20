@@ -146,6 +146,8 @@ input, textarea, select { font-family: inherit; }
 .bot-status-dot.working { background: var(--success); }
 .bot-status-dot.idle { background: var(--fg-muted); }
 .bot-status-dot.failed { background: var(--danger); }
+.bot-status-dot.paused { background: var(--warning); }
+.bot-run-status.queued { color: var(--fg-muted); font-style: italic; }
 
 #sidebar-footer {
   padding: 0.5rem 0.75rem; border-top: 1px solid var(--border);
@@ -328,16 +330,56 @@ input, textarea, select { font-family: inherit; }
 .panel-run-state.failed { color: var(--danger); }
 .panel-run-state.working { color: var(--warning); }
 
-/* Placeholder sections */
-.placeholder-card {
-  padding: 1rem; border-bottom: 1px solid var(--border);
-  opacity: 0.5;
+/* Memory panel */
+.panel-memory textarea {
+  width: 100%; font-size: 0.8rem; padding: 0.4rem;
+  background: var(--bg-elevated); color: var(--fg);
+  border: 1px solid var(--border); border-radius: 4px;
+  resize: vertical; font-family: inherit;
 }
-.placeholder-card h3 {
-  font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;
-  color: var(--fg-muted); margin-bottom: 0.3rem;
+
+/* Routines panel */
+.panel-routines { display: flex; flex-direction: column; gap: 0.3rem; }
+.panel-routine-item {
+  padding: 0.4rem; border: 1px solid var(--border); border-radius: 4px;
+  font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center;
 }
-.placeholder-card p { font-size: 0.8rem; color: var(--fg-muted); font-style: italic; }
+.panel-routine-item .routine-info { flex: 1; }
+.panel-routine-item .routine-name { font-weight: 600; }
+.panel-routine-item .routine-task { color: var(--fg-muted); font-size: 0.75rem; }
+.panel-routine-item .routine-actions { display: flex; gap: 0.3rem; align-items: center; }
+.routine-enabled { color: var(--success); }
+.routine-disabled { color: var(--fg-muted); }
+
+/* Plugins panel */
+.panel-plugins { display: flex; flex-direction: column; gap: 0.3rem; }
+.panel-plugin-item {
+  padding: 0.4rem; border: 1px solid var(--border); border-radius: 4px;
+  font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center;
+}
+.panel-plugin-item .plugin-name { font-weight: 600; }
+.panel-plugin-item .plugin-type { color: var(--fg-muted); font-size: 0.75rem; }
+
+/* ===== Marketplace Page ===== */
+#marketplace-page {
+  flex: 1; display: none; flex-direction: column;
+  overflow-y: auto; padding: 1.5rem;
+  max-width: 900px; margin: 0 auto; width: 100%;
+}
+#marketplace-page.visible { display: flex; }
+#marketplace-page h2 { margin-bottom: 1rem; font-size: 1.2rem; }
+.marketplace-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+.marketplace-card {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: 8px; padding: 1rem;
+  display: flex; flex-direction: column;
+}
+.marketplace-card h3 { font-size: 1rem; margin-bottom: 0.3rem; }
+.marketplace-card .desc { font-size: 0.85rem; color: var(--fg-muted); flex: 1; margin-bottom: 0.5rem; }
+.marketplace-card button { align-self: flex-start; }
 
 /* ===== Skills Page ===== */
 #skills-page {
@@ -528,8 +570,8 @@ input, textarea, select { font-family: inherit; }
         <div class="sidebar-link" onclick="navigateTo('skills')" role="button" tabindex="0" aria-label="Skills page">
           <span>⚙</span> Skills
         </div>
-        <div class="sidebar-link disabled" title="Coming soon" aria-label="Marketplace (coming soon)">
-          <span>🏪</span> Marketplace <span style="font-size:0.7rem;color:var(--fg-muted)">(soon)</span>
+        <div class="sidebar-link" onclick="showMarketplace()" aria-label="Marketplace">
+          <span>🏪</span> Marketplace
         </div>
       </div>
     </nav>
@@ -563,6 +605,18 @@ input, textarea, select { font-family: inherit; }
     <div id="skills-page">
       <h2>Skills</h2>
       <div class="skill-form-card">
+
+    <!-- Marketplace Page -->
+    <div id="marketplace-page">
+      <h2>Marketplace</h2>
+      <p style="color:var(--fg-muted);margin-bottom:1rem;">Add pre-configured Bots to your team.</p>
+      <div class="marketplace-grid" id="marketplace-grid"></div>
+    </div>
+
+    <!-- Skills Page -->
+    <div id="skills-page">
+      <h2>Skills</h2>
+      <div class="skill-form-card">
         <h3 id="skill-form-title">New Skill</h3>
         <input type="text" id="skill-name" placeholder="Skill name">
         <textarea id="skill-content" placeholder="SKILL.md content (YAML frontmatter + markdown)"></textarea>
@@ -585,6 +639,10 @@ input, textarea, select { font-family: inherit; }
           <div class="panel-bot-name" id="panel-bot-name">—</div>
           <div class="panel-bot-title" id="panel-bot-title"></div>
           <div class="panel-bot-desc" id="panel-bot-desc"></div>
+          <div id="panel-bot-controls" style="margin-top:0.6rem;display:flex;gap:0.5rem;align-items:center;">
+            <button id="panel-pause-btn" class="icon-btn" style="width:auto;padding:0.25rem 0.6rem;font-size:0.75rem;" onclick="toggleCurrentBotPause()">Pause</button>
+            <span id="panel-bot-queue-status" style="font-size:0.75rem;color:var(--fg-muted);"></span>
+          </div>
         </div>
         <div class="panel-section">
           <h3>Runner</h3>
@@ -616,17 +674,36 @@ input, textarea, select { font-family: inherit; }
           <h3>Run History</h3>
           <div id="panel-run-history"></div>
         </div>
-        <div class="placeholder-card">
+        <div class="panel-section">
           <h3>Memory</h3>
-          <p>Coming soon</p>
+          <div class="panel-memory" id="panel-memory">
+            <textarea id="panel-memory-text" placeholder="Bot memory..." rows="4"></textarea>
+            <div class="field-actions">
+              <button class="btn-save-field" onclick="saveBotMemory()">Save</button>
+            </div>
+          </div>
         </div>
-        <div class="placeholder-card">
+        <div class="panel-section">
           <h3>Routines</h3>
-          <p>Coming soon</p>
+          <div class="panel-routines" id="panel-routines">
+            <div id="panel-routines-list"></div>
+            <button class="btn-sm" onclick="showNewRoutineForm()" style="margin-top:0.5rem;">+ New Routine</button>
+            <div id="new-routine-form" class="hidden" style="margin-top:0.5rem;">
+              <input type="text" id="routine-name" placeholder="Routine name" style="width:100%;margin-bottom:0.3rem;padding:0.3rem;">
+              <textarea id="routine-task" placeholder="Task text" rows="2" style="width:100%;margin-bottom:0.3rem;padding:0.3rem;"></textarea>
+              <input type="text" id="routine-schedule" placeholder="Schedule (e.g. 1h, 30m, 1d)" style="width:100%;margin-bottom:0.3rem;padding:0.3rem;">
+              <div class="field-actions">
+                <button class="btn-save-field" onclick="createRoutine()">Create</button>
+                <button class="btn-sm" onclick="hideNewRoutineForm()">Cancel</button>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="placeholder-card">
+        <div class="panel-section">
           <h3>Plugins</h3>
-          <p>Coming soon</p>
+          <div class="panel-plugins" id="panel-plugins">
+            <div id="panel-plugins-list"></div>
+          </div>
         </div>
       </div>
     </aside>
@@ -784,6 +861,10 @@ function navigateTo(route) {
   window.location.hash = route;
 }
 
+function showMarketplace() {
+  window.location.hash = '#marketplace';
+}
+
 function handleRoute() {
   const hash = window.location.hash || '#bot/';
   const chatArea = document.getElementById('chat-area');
@@ -798,6 +879,14 @@ function handleRoute() {
     chatArea.style.display = 'none';
     skillsPage.classList.add('visible');
     loadSkills();
+  } else if (hash === '#marketplace') {
+    const chatArea = document.getElementById('chat-area');
+    const skillsPage = document.getElementById('skills-page');
+    const marketplacePage = document.getElementById('marketplace-page');
+    chatArea.style.display = 'none';
+    skillsPage.classList.remove('visible');
+    marketplacePage.classList.add('visible');
+    loadMarketplace();
   }
 }
 
@@ -855,7 +944,8 @@ function renderBotList(filter) {
     const detail = agentDetails[a.name] || {};
     const title = detail.title || a.name;
     const desc = detail.description || '';
-    const statusClass = a.status === 'working' ? 'working' : a.status === 'failed' ? 'failed' : 'idle';
+    const statusClass = a.paused ? 'paused' : (a.status === 'working' ? 'working' : a.status === 'failed' ? 'failed' : 'idle');
+    const statusLabel = a.paused ? 'Paused' : a.status;
     const activeClass = currentBot === a.name ? 'active' : '';
     html += `<div class="bot-item ${activeClass}" onclick="selectBot('${esc(a.name)}')" role="button" tabindex="0" aria-label="Select bot ${esc(title)}">
       ${renderAvatar(a.name)}
@@ -863,7 +953,7 @@ function renderBotList(filter) {
         <div class="bot-name">${esc(title)}</div>
         ${desc ? `<div class="bot-desc">${esc(desc)}</div>` : ''}
       </div>
-      <div class="bot-status-dot ${statusClass}" title="${a.status}"></div>
+      <div class="bot-status-dot ${statusClass}" title="${statusLabel}"></div>
     </div>`;
   });
   list.innerHTML = html;
@@ -918,7 +1008,9 @@ function updateBotStatusInChat() {
   const a = agents.find(x => x.name === currentBot);
   const statusEl = document.getElementById('chat-bot-status');
   if (a) {
-    const label = a.status === 'working' ? 'Working' : a.status === 'failed' ? 'Failed' : 'Idle';
+    let label = a.status === 'working' ? 'Working' : a.status === 'failed' ? 'Failed' : 'Idle';
+    if (a.paused) label = 'Paused';
+    if (a.queue_length > 0) label += ` (${a.queue_length} queued)`;
     statusEl.textContent = label;
   }
 }
@@ -930,9 +1022,10 @@ function updateBotStatusInPanel() {
 // ===================== Session Management =====================
 async function findOrCreateSession(botName) {
   try {
-    let sessions = await api('/sessions');
+    let res = await api('/sessions');
+    let sessions = Array.isArray(res) ? res : (res.sessions || []);
     // Find session for this bot
-    let session = sessions.find(s => s.agent_id === botName);
+    let session = sessions.find(s => s.agent_id === botName || (s.bot_ids && s.bot_ids.includes(botName)));
     if (!session) {
       session = await api('/sessions', {
         method: 'POST',
@@ -1116,60 +1209,68 @@ function scrollToBottom() {
 // ===================== SSE =====================
 function connectSSE(sessionId, runId) {
   disconnectSSE();
-  const url = `${API}/sessions/${sessionId}/stream?token=${encodeURIComponent(API_KEY)}`;
+  let url = `${API}/sessions/${sessionId}/stream?token=${encodeURIComponent(API_KEY)}`;
+  if (runId) {
+    url += `&run_id=${encodeURIComponent(runId)}`;
+  }
   chatSSE = new EventSource(url);
 
   chatSSE.onopen = () => { console.log('SSE connected'); };
 
-  chatSSE.addEventListener('message', (event) => {
+  const handleSSEEvent = (event) => {
     try {
-      const data = JSON.parse(event.data);
-      if (data.event === 'start') {
+      let data = {};
+      if (event.data) {
+        try { data = JSON.parse(event.data); } catch { data = { text: event.data }; }
+      }
+      const evType = event.type || data.event;
+      const targetRunId = data.run_id || runId || activeRunId;
+
+      if (evType === 'start') {
         chatStreaming = true;
         streamingOutput = '';
-        activeRunId = data.run_id || activeRunId;
-        // Create a bot run message
-        appendBotRunStart(data.run_id);
-        // Start elapsed timer
-        startElapsedTimer(data.run_id);
-      } else if (data.event === 'output') {
-        if (data.text && data.text.trim()) {
-          streamingOutput += data.text;
-          updateStreamingOutput(data.run_id, streamingOutput);
+        activeRunId = targetRunId;
+        appendBotRunStart(targetRunId);
+        startElapsedTimer(targetRunId);
+      } else if (evType === 'output') {
+        if (data.text) {
+          streamingOutput += data.text + '\n';
+          updateStreamingOutput(targetRunId, streamingOutput);
         }
-      } else if (data.event === 'complete') {
-        finishBotRun(data.run_id, 'done', data.answer || '');
+      } else if (evType === 'complete') {
+        finishBotRun(targetRunId, 'done', data.answer || '');
         streamingOutput = '';
         chatStreaming = false;
         document.getElementById('send-btn').disabled = false;
-        stopElapsedTimer(data.run_id);
-        // Reload messages to get the final state
+        stopElapsedTimer(targetRunId);
         setTimeout(() => {
           if (currentSessionId) loadChatMessages(currentSessionId);
         }, 500);
-      } else if (data.event === 'error') {
-        finishBotRun(data.run_id, 'failed', data.reason || data.message || 'Run failed.');
+      } else if (evType === 'error') {
+        finishBotRun(targetRunId, 'failed', data.reason || data.message || 'Run failed.');
         streamingOutput = '';
         chatStreaming = false;
         document.getElementById('send-btn').disabled = false;
-        stopElapsedTimer(data.run_id);
-      } else if (data.event === 'end' || data.event === 'idle') {
-        chatSSE.close();
-        chatSSE = null;
+        stopElapsedTimer(targetRunId);
+      } else if (evType === 'end' || evType === 'idle') {
+        if (chatSSE) { chatSSE.close(); chatSSE = null; }
       }
     } catch(e) {
-      console.error('SSE parse error:', e);
+      console.error('SSE handler error:', e);
     }
+  };
+
+  ['start', 'output', 'complete', 'error', 'end', 'idle', 'retention_gap', 'message'].forEach(name => {
+    chatSSE.addEventListener(name, handleSSEEvent);
   });
 
   chatSSE.onerror = () => {
     console.error('SSE error, will reconnect...');
-    chatSSE.close();
-    chatSSE = null;
+    if (chatSSE) { chatSSE.close(); chatSSE = null; }
     if (chatStreaming) {
       clearTimeout(sseReconnectTimer);
       sseReconnectTimer = setTimeout(() => {
-        if (currentSessionId) connectSSE(currentSessionId);
+        if (currentSessionId) connectSSE(currentSessionId, activeRunId);
       }, 3000);
     } else {
       chatStreaming = false;
@@ -1266,11 +1367,46 @@ function updateRightPanel(botName) {
   document.getElementById('panel-project-dir').value = detail.project_dir || '';
   document.getElementById('panel-guidelines').value = detail.guidelines || '';
 
+  const a = agents.find(x => x.name === botName);
+  const pauseBtn = document.getElementById('panel-pause-btn');
+  const queueStatus = document.getElementById('panel-bot-queue-status');
+  if (pauseBtn) {
+    pauseBtn.textContent = (a && a.paused) ? 'Resume' : 'Pause';
+    pauseBtn.style.color = (a && a.paused) ? 'var(--warning)' : 'inherit';
+  }
+  if (queueStatus && a) {
+    queueStatus.textContent = a.queue_length > 0 ? `${a.queue_length} queued` : '';
+  }
+
   // Skills
   loadPanelSkills(botName);
 
   // Run history
   loadPanelRunHistory(botName);
+
+  // Memory
+  loadPanelMemory(botName);
+
+  // Routines
+  loadPanelRoutines(botName);
+
+  // Plugins
+  loadPanelPlugins(botName);
+}
+
+async function toggleCurrentBotPause() {
+  if (!currentBot) return;
+  const a = agents.find(x => x.name === currentBot);
+  const isPaused = a && a.paused;
+  const endpoint = isPaused ? `/bots/${encodeURIComponent(currentBot)}/resume` : `/bots/${encodeURIComponent(currentBot)}/pause`;
+  try {
+    await api(endpoint, { method: 'POST' });
+    await pollStatus();
+    updateRightPanel(currentBot);
+    updateBotStatusInChat();
+  } catch(e) {
+    console.error('Failed to toggle pause:', e);
+  }
 }
 
 async function loadPanelSkills(botName) {
@@ -1314,6 +1450,156 @@ async function loadPanelRunHistory(botName) {
   } catch(e) { console.error('Failed to load run history:', e); }
 }
 
+// ===================== Bot Memory =====================
+async function loadPanelMemory(botName) {
+  try {
+    const data = await api('/bots/' + encodeURIComponent(botName) + '/memory');
+    document.getElementById('panel-memory-text').value = data.content || '';
+  } catch(e) { console.error('Failed to load memory:', e); }
+}
+
+async function saveBotMemory() {
+  if (!currentBot) return;
+  const content = document.getElementById('panel-memory-text').value;
+  try {
+    await api('/bots/' + encodeURIComponent(currentBot) + '/memory', {
+      method: 'PUT',
+      body: { content }
+    });
+  } catch(e) {
+    console.error('Failed to save memory:', e);
+    alert('Failed to save memory');
+  }
+}
+
+// ===================== Routines =====================
+async function loadPanelRoutines(botName) {
+  try {
+    const data = await api('/routines?bot_id=' + encodeURIComponent(botName));
+    const routines = data.routines || [];
+    const container = document.getElementById('panel-routines-list');
+    if (!routines.length) {
+      container.innerHTML = '<div style="font-size:0.8rem;color:var(--fg-muted)">No routines yet.</div>';
+      return;
+    }
+    let html = '';
+    routines.forEach(r => {
+      const statusClass = r.enabled ? 'routine-enabled' : 'routine-disabled';
+      const statusText = r.enabled ? '●' : '○';
+      html += `<div class="panel-routine-item">
+        <div class="routine-info">
+          <div class="routine-name">${esc(r.name)}</div>
+          <div class="routine-task">${esc((r.task_text || '').substring(0, 60))}</div>
+        </div>
+        <div class="routine-actions">
+          <span class="${statusClass}" title="${r.enabled ? 'Enabled' : 'Disabled'}" onclick="toggleRoutine('${esc(r.id)}', ${!r.enabled})">${statusText}</span>
+          <button class="btn-sm" onclick="runRoutineNow('${esc(r.id)}')" title="Run now">▶</button>
+          <button class="btn-sm danger" onclick="deleteRoutine('${esc(r.id)}')" title="Delete">×</button>
+        </div>
+      </div>`;
+    });
+    container.innerHTML = html;
+  } catch(e) { console.error('Failed to load routines:', e); }
+}
+
+function showNewRoutineForm() {
+  document.getElementById('new-routine-form').classList.remove('hidden');
+}
+
+function hideNewRoutineForm() {
+  document.getElementById('new-routine-form').classList.add('hidden');
+  document.getElementById('routine-name').value = '';
+  document.getElementById('routine-task').value = '';
+  document.getElementById('routine-schedule').value = '';
+}
+
+async function createRoutine() {
+  if (!currentBot) return;
+  const name = document.getElementById('routine-name').value.trim();
+  const task_text = document.getElementById('routine-task').value.trim();
+  const schedule = document.getElementById('routine-schedule').value.trim() || '3600';
+  if (!name || !task_text) { alert('Name and task are required'); return; }
+  try {
+    await api('/routines', {
+      method: 'POST',
+      body: { bot_id: currentBot, name, task_text, schedule_type: 'interval', schedule_value: schedule, enabled: true }
+    });
+    hideNewRoutineForm();
+    loadPanelRoutines(currentBot);
+  } catch(e) {
+    console.error('Failed to create routine:', e);
+    alert('Failed to create routine');
+  }
+}
+
+async function toggleRoutine(routineId, enabled) {
+  try {
+    await api('/routines/' + routineId, {
+      method: 'PUT',
+      body: { enabled }
+    });
+    if (currentBot) loadPanelRoutines(currentBot);
+  } catch(e) { console.error('Failed to toggle routine:', e); }
+}
+
+async function runRoutineNow(routineId) {
+  try {
+    await api('/routines/' + routineId + '/run-now', { method: 'POST' });
+  } catch(e) { console.error('Failed to run routine:', e); }
+}
+
+async function deleteRoutine(routineId) {
+  if (!confirm('Delete this routine?')) return;
+  try {
+    await api('/routines/' + routineId, { method: 'DELETE' });
+    if (currentBot) loadPanelRoutines(currentBot);
+  } catch(e) { console.error('Failed to delete routine:', e); }
+}
+
+// ===================== Plugins =====================
+async function loadPanelPlugins(botName) {
+  try {
+    const config = await api('/status');
+    const plugins = config.plugins || [];
+    const container = document.getElementById('panel-plugins-list');
+    if (!plugins.length) {
+      container.innerHTML = '<div style="font-size:0.8rem;color:var(--fg-muted)">No plugins configured. Add plugins to hub.yaml.</div>';
+      return;
+    }
+    const detail = agentDetails[botName] || {};
+    const agentPlugins = detail.plugins || [];
+    let html = '';
+    plugins.forEach(p => {
+      const checked = agentPlugins.includes(p.name) ? 'checked' : '';
+      html += `<div class="panel-plugin-item">
+        <div>
+          <div class="plugin-name">${esc(p.name)}</div>
+          <div class="plugin-type">${esc(p.type || 'script')}</div>
+        </div>
+        <label style="font-size:0.75rem;">
+          <input type="checkbox" ${checked} onchange="togglePlugin('${esc(botName)}','${esc(p.name)}',this.checked)>
+          Enabled
+        </label>
+      </div>`;
+    });
+    container.innerHTML = html;
+  } catch(e) { console.error('Failed to load plugins:', e); }
+}
+
+async function togglePlugin(botName, pluginName, enabled) {
+  try {
+    const detail = agentDetails[botName] || {};
+    let plugins = detail.plugins || [];
+    if (enabled && !plugins.includes(pluginName)) {
+      plugins.push(pluginName);
+    } else if (!enabled) {
+      plugins = plugins.filter(p => p !== pluginName);
+    }
+    await api('/agents/' + botName, { method: 'PUT', body: { plugins } });
+    agentDetails[botName] = await api('/agents/' + botName);
+  } catch(e) { console.error('Failed to toggle plugin:', e); }
+}
+
 async function savePanelField(field) {
   if (!currentBot) return;
   const body = {};
@@ -1340,6 +1626,39 @@ function togglePanel() {
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
   sidebar.classList.toggle('mobile-open');
+}
+
+// ===================== Marketplace =====================
+async function loadMarketplace() {
+  try {
+    const data = await api('/templates');
+    const templates = data.templates || [];
+    const grid = document.getElementById('marketplace-grid');
+    if (!templates.length) {
+      grid.innerHTML = '<p style="color:var(--fg-muted)">No templates available.</p>';
+      return;
+    }
+    let html = '';
+    templates.forEach(t => {
+      html += `<div class="marketplace-card">
+        <h3>${esc(t.title)}</h3>
+        <div class="desc">${esc(t.description || '')}</div>
+        <button class="btn-sm" onclick="applyTemplate('${esc(t.name)}')">Add to my Bots</button>
+      </div>`;
+    });
+    grid.innerHTML = html;
+  } catch(e) { console.error('Failed to load marketplace:', e); }
+}
+
+async function applyTemplate(name) {
+  try {
+    await api('/templates/' + name + '/apply', { method: 'POST', body: {} });
+    await pollStatus();
+    alert('Bot added successfully!');
+  } catch(e) {
+    console.error('Failed to apply template:', e);
+    alert('Failed to add Bot: ' + e.message);
+  }
 }
 
 // ===================== Skills Page =====================

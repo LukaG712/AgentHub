@@ -3,6 +3,7 @@
 import os
 import sqlite3
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,17 +30,39 @@ def _get_db_path() -> Path:
 
 
 def _get_connection() -> sqlite3.Connection:
-    """Get a thread-local database connection, creating it if needed."""
+    """Get a thread-local database connection, creating it if needed.
+
+    Retries on transient SQLite lock errors (e.g. another thread holding a lock
+    during PRAGMA journal_mode=WAL). This avoids flaky test failures when the
+    scheduler thread and test thread open connections concurrently.
+    """
     if not hasattr(_local, "conn") or _local.conn is None:
         db_path = _get_db_path()
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(str(db_path))
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA foreign_keys=ON")
-        conn.row_factory = sqlite3.Row
-        _ensure_schema(conn)
-        _local.conn = conn
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                conn = sqlite3.connect(str(db_path), timeout=10.0)
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA foreign_keys=ON")
+                conn.row_factory = sqlite3.Row
+                _ensure_schema(conn)
+                _local.conn = conn
+                break
+            except sqlite3.OperationalError:
+                if conn is not None:
+                    conn.close()
+                if attempt == max_retries - 1:
+                    raise
+                time.sleep(0.1 * (attempt + 1))
     return _local.conn
+
+
+def _add_column_if_not_exists(cursor: sqlite3.Cursor, table: str, column: str, col_type: str) -> None:
+    cursor.execute(f"PRAGMA table_info({table})")
+    existing_cols = {row[1] for row in cursor.fetchall()}
+    if column not in existing_cols:
+        cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
@@ -52,6 +75,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
                 title TEXT NOT NULL DEFAULT '',
                 project_path TEXT,
                 agent_id TEXT,
+                bot_ids TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
@@ -63,6 +87,9 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
                 role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system', 'tool')),
                 content TEXT NOT NULL DEFAULT '',
                 run_id TEXT,
+                bot_id TEXT,
+                msg_type TEXT NOT NULL DEFAULT 'message',
+                metadata TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
             )
@@ -80,6 +107,41 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE SET NULL
             )
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS approvals (
+                id TEXT PRIMARY KEY,
+                run_id TEXT,
+                session_id TEXT,
+                bot_id TEXT,
+                action_type TEXT NOT NULL DEFAULT 'command',
+                description TEXT NOT NULL DEFAULT '',
+                pattern_matched TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TEXT NOT NULL,
+                decided_at TEXT
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS routines (
+                id TEXT PRIMARY KEY,
+                bot_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                task_text TEXT NOT NULL,
+                schedule_type TEXT NOT NULL DEFAULT 'interval',
+                schedule_value TEXT NOT NULL DEFAULT '3600',
+                enabled INTEGER NOT NULL DEFAULT 1,
+                last_run_at TEXT,
+                next_run_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        # Schema migration for existing tables
+        _add_column_if_not_exists(cursor, "sessions", "bot_ids", "TEXT")
+        _add_column_if_not_exists(cursor, "messages", "bot_id", "TEXT")
+        _add_column_if_not_exists(cursor, "messages", "msg_type", "TEXT NOT NULL DEFAULT 'message'")
+        _add_column_if_not_exists(cursor, "messages", "metadata", "TEXT")
+
         # Indexes
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_messages_session_id
@@ -105,6 +167,18 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             CREATE INDEX IF NOT EXISTS idx_memories_created_at
             ON memories(created_at DESC)
         """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_approvals_session
+            ON approvals(session_id, status)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_approvals_bot
+            ON approvals(bot_id, status)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_routines_bot
+            ON routines(bot_id, enabled)
+        """)
         conn.commit()
 
 
@@ -121,15 +195,18 @@ def create_session(
     title: str = "",
     project_path: Optional[str] = None,
     agent_id: Optional[str] = None,
+    bot_ids: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Create a new session and return its dict representation."""
+    import json as _json
     now = datetime.now(timezone.utc).isoformat()
     session_id = str(uuid.uuid4())
     conn = _get_connection()
+    bot_ids_val = _json.dumps(bot_ids) if bot_ids is not None else (_json.dumps([agent_id]) if agent_id else None)
     conn.execute(
-        """INSERT INTO sessions (id, title, project_path, agent_id, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (session_id, title, project_path, agent_id, now, now),
+        """INSERT INTO sessions (id, title, project_path, agent_id, bot_ids, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (session_id, title, project_path, agent_id, bot_ids_val, now, now),
     )
     conn.commit()
     return _session_to_dict(conn.execute(
@@ -224,6 +301,9 @@ def add_message(
     role: str,
     content: str,
     run_id: Optional[str] = None,
+    bot_id: Optional[str] = None,
+    msg_type: str = "message",
+    metadata: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Add a message to a session."""
     if role not in ("user", "assistant", "system", "tool"):
@@ -232,9 +312,9 @@ def add_message(
     message_id = str(uuid.uuid4())
     conn = _get_connection()
     conn.execute(
-        """INSERT INTO messages (id, session_id, role, content, run_id, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (message_id, session_id, role, content, run_id, now),
+        """INSERT INTO messages (id, session_id, role, content, run_id, bot_id, msg_type, metadata, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (message_id, session_id, role, content, run_id, bot_id, msg_type, metadata, now),
     )
     conn.commit()
     # Update session timestamp
@@ -513,6 +593,17 @@ def assemble_context(
         parts.append("## Agent Guidelines\n\n" + guidelines)
         sources.append("agent_guidelines")
 
+    # 3b. Bot memory file (data/bots/{agent_id}/memory.md)
+    if agent_id:
+        try:
+            from hub import bot_memory as bot_memory_module
+            bot_mem = bot_memory_module.read_bot_memory(agent_id)
+            if bot_mem.strip():
+                parts.append("## Bot Memory\n\n" + bot_mem.strip())
+                sources.append(f"bot_memory:{agent_id}")
+        except (ValueError, OSError):
+            pass  # Invalid bot_id or file not found
+
     # 4. Project files (AGENTS.md, README.md) — avoid duplicates
     included_files: set = set()
     if project_path:
@@ -569,3 +660,203 @@ def assemble_context(
             full = truncated
 
     return full
+
+
+# --- Approvals Persistence ---
+
+def create_approval(
+    run_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    bot_id: Optional[str] = None,
+    action_type: str = "command",
+    description: str = "",
+    pattern_matched: str = "",
+) -> Dict[str, Any]:
+    """Create an approval record."""
+    now = datetime.now(timezone.utc).isoformat()
+    approval_id = str(uuid.uuid4())
+    conn = _get_connection()
+    conn.execute(
+        """INSERT INTO approvals (id, run_id, session_id, bot_id, action_type, description, pattern_matched, status, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)""",
+        (approval_id, run_id, session_id, bot_id, action_type, description, pattern_matched, now),
+    )
+    conn.commit()
+    return _approval_to_dict(conn.execute(
+        "SELECT * FROM approvals WHERE id = ?", (approval_id,)
+    ).fetchone())
+
+
+def get_approval(approval_id: str) -> Optional[Dict[str, Any]]:
+    """Get an approval by ID."""
+    conn = _get_connection()
+    row = conn.execute("SELECT * FROM approvals WHERE id = ?", (approval_id,)).fetchone()
+    if row is None:
+        return None
+    return _approval_to_dict(row)
+
+
+def list_approvals(
+    session_id: Optional[str] = None,
+    bot_id: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 50,
+) -> List[Dict[str, Any]]:
+    """List approvals with optional filters."""
+    conn = _get_connection()
+    conditions = []
+    params: List[Any] = []
+    if session_id:
+        conditions.append("session_id = ?")
+        params.append(session_id)
+    if bot_id:
+        conditions.append("bot_id = ?")
+        params.append(bot_id)
+    if status:
+        conditions.append("status = ?")
+        params.append(status)
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    params.append(limit)
+    rows = conn.execute(
+        f"SELECT * FROM approvals {where} ORDER BY created_at DESC LIMIT ?",
+        params,
+    ).fetchall()
+    return [_approval_to_dict(r) for r in rows]
+
+
+def update_approval_status(approval_id: str, status: str) -> Optional[Dict[str, Any]]:
+    """Update approval status (e.g. 'approved' or 'denied')."""
+    if status not in ("pending", "approved", "denied"):
+        raise ValueError(f"Invalid status: {status}")
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _get_connection()
+    conn.execute(
+        "UPDATE approvals SET status = ?, decided_at = ? WHERE id = ?",
+        (status, now, approval_id),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM approvals WHERE id = ?", (approval_id,)).fetchone()
+    if row is None:
+        return None
+    return _approval_to_dict(row)
+
+
+def _approval_to_dict(row: sqlite3.Row) -> Dict[str, Any]:
+    return dict(row)
+
+
+# --- Routines Persistence ---
+
+def create_routine(
+    bot_id: str,
+    name: str,
+    task_text: str,
+    schedule_type: str = "interval",
+    schedule_value: str = "3600",
+    enabled: bool = True,
+) -> Dict[str, Any]:
+    """Create a new routine for a bot."""
+    now = datetime.now(timezone.utc).isoformat()
+    routine_id = str(uuid.uuid4())
+    conn = _get_connection()
+    conn.execute(
+        """INSERT INTO routines (id, bot_id, name, task_text, schedule_type, schedule_value, enabled, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (routine_id, bot_id, name, task_text, schedule_type, schedule_value, 1 if enabled else 0, now, now),
+    )
+    conn.commit()
+    return _routine_to_dict(conn.execute(
+        "SELECT * FROM routines WHERE id = ?", (routine_id,)
+    ).fetchone())
+
+
+def get_routine(routine_id: str) -> Optional[Dict[str, Any]]:
+    """Get a routine by ID."""
+    conn = _get_connection()
+    row = conn.execute("SELECT * FROM routines WHERE id = ?", (routine_id,)).fetchone()
+    if row is None:
+        return None
+    return _routine_to_dict(row)
+
+
+def list_routines(
+    bot_id: Optional[str] = None,
+    enabled_only: bool = False,
+) -> List[Dict[str, Any]]:
+    """List routines, optionally filtered by bot and enabled state."""
+    conn = _get_connection()
+    conditions = []
+    params: List[Any] = []
+    if bot_id:
+        conditions.append("bot_id = ?")
+        params.append(bot_id)
+    if enabled_only:
+        conditions.append("enabled = 1")
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    rows = conn.execute(
+        f"SELECT * FROM routines {where} ORDER BY created_at ASC",
+        params,
+    ).fetchall()
+    return [_routine_to_dict(r) for r in rows]
+
+
+def update_routine(
+    routine_id: str,
+    name: Optional[str] = None,
+    task_text: Optional[str] = None,
+    schedule_type: Optional[str] = None,
+    schedule_value: Optional[str] = None,
+    enabled: Optional[bool] = None,
+    last_run_at: Optional[str] = None,
+    next_run_at: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Update a routine."""
+    conn = _get_connection()
+    updates = []
+    params: List[Any] = []
+    if name is not None:
+        updates.append("name = ?")
+        params.append(name)
+    if task_text is not None:
+        updates.append("task_text = ?")
+        params.append(task_text)
+    if schedule_type is not None:
+        updates.append("schedule_type = ?")
+        params.append(schedule_type)
+    if schedule_value is not None:
+        updates.append("schedule_value = ?")
+        params.append(schedule_value)
+    if enabled is not None:
+        updates.append("enabled = ?")
+        params.append(1 if enabled else 0)
+    if last_run_at is not None:
+        updates.append("last_run_at = ?")
+        params.append(last_run_at)
+    if next_run_at is not None:
+        updates.append("next_run_at = ?")
+        params.append(next_run_at)
+
+    updates.append("updated_at = ?")
+    params.append(datetime.now(timezone.utc).isoformat())
+    params.append(routine_id)
+
+    conn.execute(f"UPDATE routines SET {', '.join(updates)} WHERE id = ?", params)
+    conn.commit()
+    row = conn.execute("SELECT * FROM routines WHERE id = ?", (routine_id,)).fetchone()
+    if row is None:
+        return None
+    return _routine_to_dict(row)
+
+
+def delete_routine(routine_id: str) -> bool:
+    """Delete a routine."""
+    conn = _get_connection()
+    cursor = conn.execute("DELETE FROM routines WHERE id = ?", (routine_id,))
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def _routine_to_dict(row: sqlite3.Row) -> Dict[str, Any]:
+    d = dict(row)
+    d["enabled"] = bool(d.get("enabled", 1))
+    return d

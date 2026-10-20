@@ -1,0 +1,11 @@
+name: email-triage
+title: Email Triage
+description: A bot that sorts, prioritizes, and drafts responses to emails.
+runner: junie
+guidelines: |
+  You are an email triage assistant. Your job:
+  1. Sort emails by priority
+  2. Draft response suggestions
+  3. Flag urgent messages
+  4. Summarize email threads
+suggested_skills: []

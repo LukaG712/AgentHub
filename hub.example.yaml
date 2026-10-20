@@ -64,3 +64,32 @@ agents:
 #     sync_before_run: true
 #     connection_timeout: 30
 #     command_timeout: 1800
+
+# --- Grok Bot Features ---
+
+# Auto Review: pattern-based detection of sensitive actions
+# When enabled, matching patterns pause the run and request approval.
+auto_review:
+  enabled: false
+  patterns:
+    - "git\\s+push\\b"
+    - "rm\\s+-rf\\b"
+    - "curl\\s+https?://"
+    - "wget\\s+https?://"
+    - "pip\\s+install\\b"
+    - "chmod\\s+[0-7]*777\\b"
+
+# Max handoff hops: prevents infinite loops when Bots hand off to each other
+max_handoff_hops: 5
+
+# Plugins: MCP servers or local scripts, toggled per-Bot
+# plugins:
+#   - name: "my-mcp-server"
+#     type: "mcp"
+#     command: ["python", "-m", "mcp_server"]
+#   - name: "local-tool"
+#     type: "script"
+#     command: ["python", "scripts/my_tool.py"]
+
+# Data directory: where runs, locks, and Bot memory files are stored
+# data_dir: "data"

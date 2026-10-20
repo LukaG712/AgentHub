@@ -27,6 +27,7 @@ from hub.runner import (
     recover_stale_runs,
 )
 from hub import coordinator
+from hub import routines as routines_engine
 
 security = HTTPBearer(auto_error=False)
 
@@ -175,7 +176,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup and shutdown event handler."""
     recover_stale_runs()
     providers.ensure_default_providers()
+    routines_engine.start_scheduler()
     yield
+    routines_engine.stop_scheduler()
 
 app = FastAPI(title="Agent Hub", lifespan=lifespan)
 
@@ -272,6 +275,20 @@ async def api_list_agents(_auth: None = Depends(_verify_token)):
                 entry[key] = data[key]
         result.append(entry)
     return {"agents": result}
+
+
+@app.post("/api/agents/generate", status_code=201)
+async def api_generate_agent(
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    """Generate a Bot config from a one-sentence description."""
+    from hub import templates as templates_module
+    description = body.get("description", "")
+    if not description:
+        raise HTTPException(status_code=400, detail="description is required")
+    config = templates_module.generate_bot_config(description)
+    return config
 
 
 @app.get("/api/agents/{name}")
@@ -477,10 +494,12 @@ async def api_create_session(
     title = body.get("title", "")
     project_path = body.get("project_path")
     agent_id = body.get("agent_id")
+    bot_ids = body.get("bot_ids")
     session = memory.create_session(
         title=title,
         project_path=project_path,
         agent_id=agent_id,
+        bot_ids=bot_ids,
     )
     return session
 
@@ -569,6 +588,7 @@ async def api_dispatch_message(
         session_id=session_id,
         role="user",
         content=content,
+        bot_id=agent_id,
     )
 
     # Pre-create a run ID and SSE buffer BEFORE starting the run.
@@ -581,48 +601,54 @@ async def api_dispatch_message(
         clean = text.rstrip()
         if clean:
             _sse_send_event(pre_run_id, "output", json.dumps({
+                "event": "output",
                 "run_id": pre_run_id,
                 "type": line_type,
                 "text": clean,
             }))
 
-    def _run():
-        # Send start event immediately, before the agent begins
-        _sse_send_event(pre_run_id, "start", json.dumps({"run_id": pre_run_id, "state": "working"}))
+    def _on_start(rid: str) -> None:
+        _sse_send_event(rid, "start", json.dumps({"event": "start", "run_id": rid, "state": "working"}))
 
-        result = run_agent(
-            agent_id, refined_content,
-            session_id=session_id,
-            output_callback=_output_callback,
-            run_id=pre_run_id,
-        )
-
-        # Send terminal event
+    def _on_complete(result: Run) -> None:
         if result.state == "done":
             _sse_send_event(result.id, "complete", json.dumps({
+                "event": "complete",
                 "run_id": result.id,
                 "state": "done",
                 "answer": result.answer,
             }))
         elif result.state == "failed":
             _sse_send_event(result.id, "error", json.dumps({
+                "event": "error",
                 "run_id": result.id,
                 "state": "failed",
                 "reason": result.fail_reason,
             }))
         else:
             _sse_send_event(result.id, "complete", json.dumps({
+                "event": "complete",
                 "run_id": result.id,
                 "state": result.state,
             }))
-        # Signal completion
         _sse_send_event(result.id, "end", "")
-        # Clean up buffer after a delay to allow reconnecting clients
-        time.sleep(30)
-        _sse_remove_buffer(result.id)
 
-    t = threading.Thread(target=_run, daemon=True)
-    t.start()
+        def _delayed_cleanup():
+            time.sleep(30)
+            _sse_remove_buffer(result.id)
+
+        threading.Thread(target=_delayed_cleanup, daemon=True).start()
+
+    from hub import queue_manager
+    queue_manager.enqueue_task(
+        bot_id=agent_id,
+        task=refined_content,
+        session_id=session_id,
+        output_callback=_output_callback,
+        on_start=_on_start,
+        on_complete=_on_complete,
+        run_id=pre_run_id,
+    )
 
     # Return immediately with the run ID; client connects to SSE stream
     return {
@@ -630,6 +656,46 @@ async def api_dispatch_message(
         "session_id": session_id,
         "agent": agent_id,
         "run_id": pre_run_id,
+    }
+
+
+# --- Bot Queue & Pause/Resume ---
+
+
+@app.post("/api/bots/{bot_id}/pause")
+async def api_pause_bot(bot_id: str, _auth: None = Depends(_verify_token)):
+    try:
+        agents.get_agent(bot_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Bot '{bot_id}' not found")
+    from hub import queue_manager
+    queue_manager.pause_bot(bot_id)
+    return {"status": "paused", "bot": bot_id}
+
+
+@app.post("/api/bots/{bot_id}/resume")
+async def api_resume_bot(bot_id: str, _auth: None = Depends(_verify_token)):
+    try:
+        agents.get_agent(bot_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Bot '{bot_id}' not found")
+    from hub import queue_manager
+    queue_manager.resume_bot(bot_id)
+    return {"status": "resumed", "bot": bot_id}
+
+
+@app.get("/api/bots/{bot_id}/queue")
+async def api_get_bot_queue(bot_id: str, _auth: None = Depends(_verify_token)):
+    try:
+        agents.get_agent(bot_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Bot '{bot_id}' not found")
+    from hub import queue_manager
+    items = queue_manager.get_bot_queue(bot_id)
+    return {
+        "bot": bot_id,
+        "paused": queue_manager.is_bot_paused(bot_id),
+        "queue": items,
     }
 
 
@@ -1297,6 +1363,318 @@ async def api_reject_task(
     if not rejected:
         raise HTTPException(status_code=400, detail=f"Task '{task_id}' not in needs_approval state")
     return {"rejected": task_id}
+
+
+# --- Handoffs ---
+
+
+@app.post("/api/sessions/{session_id}/handoff", status_code=201)
+async def api_handoff(
+    session_id: str,
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    """Hand off a task from one Bot to another within the same session.
+
+    Expects: from_bot, to_bot, message.
+    Prevents infinite loops by tracking hop count.
+    """
+    from_bot = body.get("from_bot", "")
+    to_bot = body.get("to_bot", "")
+    message = body.get("message", "")
+    if not from_bot or not to_bot:
+        raise HTTPException(status_code=400, detail="from_bot and to_bot are required")
+
+    # Validate session exists
+    session = memory.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+
+    # Validate to_bot exists
+    try:
+        agents.get_agent(to_bot)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Bot '{to_bot}' not found")
+
+    # Check handoff loop prevention
+    max_hops = 5  # Default max hops
+    config = load_config()
+    max_hops = config.get("max_handoff_hops", 5)
+
+    # Count existing handoffs in this session
+    messages = memory.get_session_messages(session_id)
+    hop_count = sum(1 for m in messages if m.get("msg_type") == "handoff")
+    if hop_count >= max_hops:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Max handoff hops ({max_hops}) reached. Preventing infinite loop."
+        )
+
+    # Record handoff message
+    now_iso = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+    memory.add_message(
+        session_id=session_id,
+        role="assistant",
+        content=f"Handing off to @{to_bot}: {message}",
+        bot_id=from_bot,
+        msg_type="handoff",
+        metadata=f'{{"from": "{from_bot}", "to": "{to_bot}", "hop": {hop_count + 1}, "at": "{now_iso}"}}',
+    )
+
+    # Dispatch to the receiving bot via queue manager
+    from hub import queue_manager
+
+    def _on_handoff_complete(res):
+        finished_iso = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+        memory.add_message(
+            session_id=session_id,
+            role="assistant",
+            content=res.output or "Handoff task completed.",
+            bot_id=to_bot,
+            msg_type="handoff_reply",
+            metadata=f'{{"from": "{to_bot}", "run_id": "{res.id}", "at": "{finished_iso}"}}',
+        )
+        _sse_send_event(res.id, "complete", res.state)
+
+    run = queue_manager.enqueue_task(
+        bot_id=to_bot,
+        task=message,
+        session_id=session_id,
+        on_complete=_on_handoff_complete,
+    )
+
+    return {
+        "status": "dispatched",
+        "run_id": run.id,
+        "from_bot": from_bot,
+        "to_bot": to_bot,
+        "session_id": session_id,
+        "hop": hop_count + 1,
+    }
+
+
+# --- Templates / Marketplace ---
+
+
+@app.get("/api/templates")
+async def api_list_templates(_auth: None = Depends(_verify_token)):
+    """List all available Bot templates."""
+    from hub import templates as templates_module
+    templates_list = templates_module.list_templates()
+    return {"templates": templates_list}
+
+
+@app.get("/api/templates/{name}")
+async def api_get_template(name: str, _auth: None = Depends(_verify_token)):
+    """Get a single template by name."""
+    from hub import templates as templates_module
+    template = templates_module.get_template(name)
+    if template is None:
+        raise HTTPException(status_code=404, detail=f"Template '{name}' not found")
+    return template
+
+
+@app.post("/api/templates/{name}/apply", status_code=201)
+async def api_apply_template(
+    name: str,
+    body: Optional[Dict[str, Any]] = None,
+    _auth: None = Depends(_verify_token),
+):
+    """Create an agent from a template."""
+    from hub import templates as templates_module
+    body = body or {}
+    agent_name = body.get("agent_name")
+    try:
+        result = templates_module.create_agent_from_template(name, agent_name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return result
+
+
+# --- Teach a Task ---
+
+
+@app.post("/api/routines/teach", status_code=201)
+async def api_teach_as_routine(
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    """Save a run as a reusable routine.
+
+    Expects: run_id (required), bot_id (required), optional name override.
+    """
+    run_id = body.get("run_id", "")
+    bot_id = body.get("bot_id", "")
+    if not run_id or not bot_id:
+        raise HTTPException(status_code=400, detail="run_id and bot_id are required")
+
+    run = get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+
+    name = body.get("name", run.task[:50] if run.task else "Saved task")
+    routine = memory.create_routine(
+        bot_id=bot_id,
+        name=name,
+        task_text=run.task or "",
+        schedule_type="manual",
+        schedule_value="",
+        enabled=True,
+    )
+    return routine
+
+
+# --- Routines ---
+
+
+@app.get("/api/routines")
+async def api_list_routines(
+    bot_id: Optional[str] = None,
+    _auth: None = Depends(_verify_token),
+):
+    routines_list = memory.list_routines(bot_id=bot_id)
+    return {"routines": routines_list}
+
+
+@app.post("/api/routines", status_code=201)
+async def api_create_routine(
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    bot_id = body.get("bot_id", "")
+    name = body.get("name", "")
+    task_text = body.get("task_text", "")
+    if not bot_id or not name or not task_text:
+        raise HTTPException(status_code=400, detail="bot_id, name, and task_text are required")
+    routine = memory.create_routine(
+        bot_id=bot_id,
+        name=name,
+        task_text=task_text,
+        schedule_type=body.get("schedule_type", "interval"),
+        schedule_value=body.get("schedule_value", "3600"),
+        enabled=body.get("enabled", True),
+    )
+    return routine
+
+
+@app.put("/api/routines/{routine_id}")
+async def api_update_routine(
+    routine_id: str,
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    existing = memory.get_routine(routine_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail=f"Routine '{routine_id}' not found")
+    updated = memory.update_routine(
+        routine_id=routine_id,
+        name=body.get("name"),
+        task_text=body.get("task_text"),
+        schedule_type=body.get("schedule_type"),
+        schedule_value=body.get("schedule_value"),
+        enabled=body.get("enabled"),
+    )
+    return updated
+
+
+@app.delete("/api/routines/{routine_id}")
+async def api_delete_routine(
+    routine_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    deleted = memory.delete_routine(routine_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Routine '{routine_id}' not found")
+    return {"deleted": routine_id}
+
+
+@app.post("/api/routines/{routine_id}/run-now")
+async def api_run_routine_now(
+    routine_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    result = routines_engine.run_routine_now(routine_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Routine '{routine_id}' not found")
+    return result
+
+
+# --- Approvals ---
+
+
+@app.get("/api/approvals")
+async def api_list_approvals(
+    session_id: Optional[str] = None,
+    bot_id: Optional[str] = None,
+    status: Optional[str] = None,
+    _auth: None = Depends(_verify_token),
+):
+    approvals_list = memory.list_approvals(
+        session_id=session_id,
+        bot_id=bot_id,
+        status=status,
+    )
+    return {"approvals": approvals_list}
+
+
+@app.post("/api/approvals/{approval_id}/approve")
+async def api_approve(
+    approval_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    existing = memory.get_approval(approval_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail=f"Approval '{approval_id}' not found")
+    updated = memory.update_approval_status(approval_id, "approved")
+    return updated
+
+
+@app.post("/api/approvals/{approval_id}/deny")
+async def api_deny(
+    approval_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    existing = memory.get_approval(approval_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail=f"Approval '{approval_id}' not found")
+    updated = memory.update_approval_status(approval_id, "denied")
+    return updated
+
+
+# --- Bot Memory ---
+
+
+from hub import bot_memory as bot_memory_module
+
+
+@app.get("/api/bots/{bot_id}/memory")
+async def api_get_bot_memory(
+    bot_id: str,
+    _auth: None = Depends(_verify_token),
+):
+    """Get the per-Bot memory file content."""
+    config = load_config()
+    agents_cfg = config.get("agents", {})
+    if bot_id not in agents_cfg:
+        raise HTTPException(status_code=404, detail=f"Bot '{bot_id}' not found")
+    content = bot_memory_module.read_bot_memory(bot_id)
+    return {"content": content}
+
+
+@app.put("/api/bots/{bot_id}/memory")
+async def api_update_bot_memory(
+    bot_id: str,
+    body: Dict[str, Any],
+    _auth: None = Depends(_verify_token),
+):
+    """Update the per-Bot memory file content."""
+    config = load_config()
+    agents_cfg = config.get("agents", {})
+    if bot_id not in agents_cfg:
+        raise HTTPException(status_code=404, detail=f"Bot '{bot_id}' not found")
+    content = body.get("content", "")
+    bot_memory_module.write_bot_memory(bot_id, content)
+    return {"content": content}
 
 
 # --- Static files ---
