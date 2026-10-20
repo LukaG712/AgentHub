@@ -30,6 +30,9 @@ Everything you need to manage AI coding agents from one place:
 | ⏸️ **Pause/Resume** | Per-Bot control | Pause a Bot to halt queued tasks; resume to continue processing |
 | 🔄 **Queueing** | Sequential per-Bot | Each Bot runs one task at a time; extra messages queue and display as "queued" |
 | ⚡ **Parallel Bots** | Concurrent execution | Different Bots run simultaneously — only one task per Bot at a time |
+| ⏱️ **Routines** | Scheduled tasks | Create recurring tasks for Bots with interval or cron-like schedules; enable/disable/run-now from the right panel |
+| 🎓 **Teach a task** | Save runs as routines | Click "Save as routine" on any completed run to create a reusable routine with one click |
+| 📂 **Sidebar grouping** | Schedule-based groups | Bots are grouped by routine schedule (Daily, Weekly, etc.) in the sidebar; falls back to Working/Recent |
 | 📦 **Context** | Smart context assembly | Agents get relevant history, memories, and instructions automatically |
 | 🔌 **Providers** | Extensible backends | Junie CLI is the default; add more via the `AgentProvider` interface |
 | 🔒 **Permissions** | Per-agent controls | Toggle file read/write, command execution, Git ops, and network access |
@@ -512,7 +515,9 @@ Quality checklist for the messenger-style web UI:
 - [ ] Unread dot clears when you open the thread
 - [ ] Last-message preview shown in sidebar (from session data, not agent description)
 - [ ] Last-activity time shown right-aligned in sidebar ("8:20 AM", "Yesterday", "9/1")
-- [ ] Bots grouped by "Working" and "Recent" in sidebar
+- [ ] Bots grouped by "Working" and "Recent" in sidebar (fallback when no routines)
+- [ ] Bots grouped by routine schedule (Daily, Weekly, etc.) when routines exist
+- [ ] Bots without routines appear under "Unassigned" group
 - [ ] "+ New Bot" button at top of sidebar opens creation dialog
 - [ ] "Marketplace" link is disabled with "(soon)" label
 - [ ] Search/filter field appears when 5+ Bots are configured
@@ -520,6 +525,9 @@ Quality checklist for the messenger-style web UI:
 - [ ] Right panel toggle button in header shows/hides the panel
 - [ ] Pause/Resume button in right panel toggles Bot pause state
 - [ ] Queue length shown in thread header status ("Working (2 queued)")
+- [ ] "Save as routine" button appears on completed run cards in the chat
+- [ ] Clicking "Save as routine" prompts for a name and creates the routine
+- [ ] Creating a routine appends a "Created routine ⏱ <name>" system message in the chat
 
 ### Chat Thread
 - [ ] Selecting a Bot loads its chat session (auto-creates session if none exists)
@@ -538,7 +546,9 @@ Quality checklist for the messenger-style web UI:
 - [ ] Guidelines: editable textarea with Save button
 - [ ] Skills: checkboxes for each skill, toggles enable/disable for current Bot
 - [ ] Run History: clickable list of recent runs, opens run detail modal
-- [ ] Placeholder sections: Memory, Routines, Plugins (disabled, "Coming soon")
+- [ ] Routines section: lists routines with enable/disable toggle, run-now, and delete buttons
+- [ ] Routines section: "+ New Routine" button opens inline form for creating routines
+- [ ] Placeholder sections: Memory, Plugins (disabled, "Coming soon")
 
 ### New Bot Dialog
 - [ ] "Describe the job in a sentence" field auto-generates a name

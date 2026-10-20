@@ -1317,6 +1317,11 @@ async function pollStatus() {
   try {
     const data = await api('/status');
     agents = data.agents || [];
+    // Refresh routines cache for sidebar grouping
+    try {
+      const routinesData = await api('/routines');
+      window._routinesCache = routinesData.routines || [];
+    } catch(e) { /* ignore */ }
     renderBotList();
     updateSearchVisibility();
     if (currentBot) {
@@ -1336,6 +1341,11 @@ async function loadAllAgents() {
         agentDetails[name] = await api('/agents/' + name);
       } catch(e) { console.error('Failed to load agent:', name, e); }
     }
+    // Load all routines for sidebar grouping
+    try {
+      const routinesData = await api('/routines');
+      window._routinesCache = routinesData.routines || [];
+    } catch(e) { console.error('Failed to load routines:', e); }
   } catch(e) { console.error(e); }
 }
 
@@ -1374,26 +1384,137 @@ function renderBotList(filter) {
     list.innerHTML = '<div style="padding:1rem;color:var(--fg-secondary);font-size:0.85rem;text-align:center">No bots found.</div>';
     return;
   }
-  // Group: working first, then rest
-  const working = filtered.filter(a => a.status === 'working' && !a.paused);
-  const recent = filtered.filter(a => a.status !== 'working' || a.paused);
 
-  let html = '';
-  if (working.length > 0) {
-    html += `<div class="sidebar-section-label">Working <span class="count">${working.length}</span></div>`;
-  }
-  working.forEach(a => {
-    html += buildBotItem(a, true);
-  });
-  if (recent.length > 0) {
-    if (working.length > 0) {
-      html += `<div class="sidebar-section-label">Recent <span class="count">${recent.length}</span></div>`;
-    }
-    recent.forEach(a => {
-      html += buildBotItem(a, false);
+  // Build routine schedule map for sidebar grouping
+  const scheduleMap = {};
+  if (window._routinesCache) {
+    window._routinesCache.forEach(r => {
+      if (r.schedule_type !== 'manual' && r.enabled) {
+        const label = parseScheduleLabel(r.schedule_type, r.schedule_value);
+        if (!scheduleMap[r.bot_id]) scheduleMap[r.bot_id] = [];
+        scheduleMap[r.bot_id].push(label);
+      }
     });
   }
+
+  // Check if any bot has a routine schedule
+  const hasAnyRoutine = filtered.some(a => scheduleMap[a.name]);
+
+  let html = '';
+  if (hasAnyRoutine) {
+    // Group by routine schedule
+    const scheduleGroups = {};
+    const unassigned = [];
+    const working = filtered.filter(a => a.status === 'working' && !a.paused);
+
+    // Working bots always appear first
+    if (working.length > 0) {
+      html += `<div class="sidebar-section-label">Working <span class="count">${working.length}</span></div>`;
+      working.forEach(a => {
+        html += buildBotItem(a, true);
+      });
+    }
+
+    // Group remaining bots by schedule
+    filtered.forEach(a => {
+      if (a.status === 'working' && !a.paused) return; // already shown
+      const labels = scheduleMap[a.name];
+      if (labels && labels.length > 0) {
+        labels.forEach(label => {
+          if (!scheduleGroups[label]) scheduleGroups[label] = [];
+          scheduleGroups[label].push(a);
+        });
+      } else {
+        unassigned.push(a);
+      }
+    });
+
+    // Render schedule groups
+    const sortedLabels = Object.keys(scheduleGroups).sort();
+    sortedLabels.forEach(label => {
+      const bots = scheduleGroups[label];
+      html += `<div class="sidebar-section-label">${label} <span class="count">${bots.length}</span></div>`;
+      bots.forEach(a => {
+        html += buildBotItem(a, false);
+      });
+    });
+
+    // Unassigned bots
+    if (unassigned.length > 0) {
+      html += `<div class="sidebar-section-label">Unassigned <span class="count">${unassigned.length}</span></div>`;
+      unassigned.forEach(a => {
+        html += buildBotItem(a, false);
+      });
+    }
+  } else {
+    // Fallback: working first, then recent
+    const working = filtered.filter(a => a.status === 'working' && !a.paused);
+    const recent = filtered.filter(a => a.status !== 'working' || a.paused);
+
+    if (working.length > 0) {
+      html += `<div class="sidebar-section-label">Working <span class="count">${working.length}</span></div>`;
+    }
+    working.forEach(a => {
+      html += buildBotItem(a, true);
+    });
+    if (recent.length > 0) {
+      if (working.length > 0) {
+        html += `<div class="sidebar-section-label">Recent <span class="count">${recent.length}</span></div>`;
+      }
+      recent.forEach(a => {
+        html += buildBotItem(a, false);
+      });
+    }
+  }
   list.innerHTML = html;
+}
+
+function parseScheduleLabel(scheduleType, scheduleValue) {
+  if (scheduleType === 'cron') {
+    return 'Scheduled';
+  }
+  const s = String(scheduleValue).toLowerCase().trim();
+  // Parse interval to human-readable label
+  if (s.endsWith('d')) {
+    const days = parseInt(s, 10);
+    if (days === 1) return 'Daily';
+    if (days === 7) return 'Weekly';
+    if (days === 14) return 'Every 2 weeks';
+    return `Every ${days}d`;
+  }
+  if (s.endsWith('h')) {
+    const hours = parseInt(s, 10);
+    if (hours === 24) return 'Daily';
+    if (hours === 168) return 'Weekly';
+    return `Every ${hours}h`;
+  }
+  if (s.endsWith('m')) {
+    const mins = parseInt(s, 10);
+    const hours = mins / 60;
+    if (hours >= 24) {
+      const days = hours / 24;
+      if (days === 1) return 'Daily';
+      if (days === 7) return 'Weekly';
+      return `Every ${days}d`;
+    }
+    return `Every ${mins}m`;
+  }
+  if (s.endsWith('s')) {
+    const secs = parseInt(s, 10);
+    if (secs >= 86400) {
+      const days = secs / 86400;
+      if (days === 1) return 'Daily';
+      if (days === 7) return 'Weekly';
+      return `Every ${days}d`;
+    }
+    const mins = secs / 60;
+    if (mins >= 60) return `Every ${Math.round(mins / 60)}h`;
+    return `Every ${mins}m`;
+  }
+  // Plain number — treat as seconds
+  const secs = parseInt(s, 10);
+  if (!isNaN(secs)) return parseScheduleLabel('interval', secs + 's');
+  return 'Scheduled';
 }
 
 function buildBotItem(a, isWorking) {
@@ -1620,6 +1741,7 @@ function renderBotRun(run, time) {
   } else if (run.state === 'done') {
     html += `<div class="bot-run-actions">
       <button class="btn-run-secondary" onclick="showRunDetail('${esc(run.id)}')">View details</button>
+      <button class="btn-run-secondary" onclick="teachRunAsRoutine('${esc(run.id)}')">Save as routine</button>
     </div>`;
   }
 
@@ -2089,6 +2211,31 @@ async function deleteRoutine(routineId) {
     await api('/routines/' + routineId, { method: 'DELETE' });
     if (currentBot) loadPanelRoutines(currentBot);
   } catch(e) { console.error('Failed to delete routine:', e); }
+}
+
+// ===================== Teach a Task =====================
+async function teachRunAsRoutine(runId) {
+  if (!currentBot) return;
+  const name = prompt('Name for this routine:');
+  if (!name) return;
+  try {
+    const routine = await api('/routines/teach', {
+      method: 'POST',
+      body: { run_id: runId, bot_id: currentBot, name }
+    });
+    // Append a system message about the created routine
+    appendChatMessage('system', `Created routine ⏱ ${routine.name}`);
+    // Refresh routines cache and panel
+    try {
+      const routinesData = await api('/routines');
+      window._routinesCache = routinesData.routines || [];
+    } catch(e) { /* ignore */ }
+    if (currentBot) loadPanelRoutines(currentBot);
+    renderBotList();
+  } catch(e) {
+    console.error('Failed to save as routine:', e);
+    alert('Failed to save as routine');
+  }
 }
 
 // ===================== Plugins =====================

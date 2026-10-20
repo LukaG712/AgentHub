@@ -62,7 +62,17 @@ All 32 Grok feature tests pass. The backend API endpoints exist for all features
 ---
 
 ## Phase 3: Routines + "Teach a task" + Sidebar Grouping
-(Not in scope for this session)
+(COMPLETED)
+
+**Goal:** Routines with scheduled execution, "Teach a task" to save runs as routines, and sidebar grouping by routine schedule.
+
+### What was done
+1. **"Save as routine" button**: Added to completed run cards in the chat thread (`renderBotRun`)
+2. **teachRunAsRoutine function**: Prompts for routine name, calls `/api/routines/teach`, appends system message
+3. **Sidebar grouping**: Bots grouped by routine schedule (Daily, Weekly, etc.) with "Unassigned" for bots without routines; falls back to Working/Recent when no routines exist
+4. **Routines cache**: Loaded in `loadAllAgents` and refreshed in `pollStatus` and after teach
+5. **parseScheduleLabel function**: Converts schedule values to human-readable labels
+6. **README updated**: Added Routines, Teach a task, Sidebar grouping to features table and UI checklist
 
 ## Phase 4: Memory
 (Not in scope for this session)
