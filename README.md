@@ -35,6 +35,8 @@ Everything you need to manage AI coding agents from one place:
 | 📂 **Sidebar grouping** | Schedule-based groups | Bots are grouped by routine schedule (Daily, Weekly, etc.) in the sidebar; falls back to Working/Recent |
 | 🧠 **Bot Memory** | Per-Bot notes | Edit each Bot's memory in the right panel; propose updates that appear in the chat with an Undo button |
 | ↩️ **Memory Undo** | Revert changes | Click "Undo" on any memory update system message to restore the previous memory content |
+| 🔀 **Group Threads** | Multi-Bot threads | A thread can contain multiple Bots; hand off work between Bots with "Send to another Bot" button |
+| 🤝 **Handoffs** | Bot-to-Bot delegation | Hand off tasks between Bots within the same thread; system messages show colored dots for each Bot; loop prevention limits max hops |
 | 📦 **Context** | Smart context assembly | Agents get relevant history, memories, and instructions automatically |
 | 🔌 **Providers** | Extensible backends | Junie CLI is the default; add more via the `AgentProvider` interface |
 | 🔒 **Permissions** | Per-agent controls | Toggle file read/write, command execution, Git ops, and network access |
@@ -534,6 +536,13 @@ Quality checklist for the messenger-style web UI:
 - [ ] "Propose update" button in Memory section creates a memory update system message in the chat
 - [ ] Memory update appears as a card with "Updated memory for <Bot>" and an Undo button
 - [ ] Clicking "Undo" restores the previous memory content and shows "Undid memory update" message
+- [ ] "Send to another Bot" button appears on completed run cards
+- [ ] Clicking "Send to another Bot" opens a dialog listing other Bots
+- [ ] Selecting a Bot in the dialog hands off the task and shows a handoff system message
+- [ ] Handoff system message displays colored dots for both Bots involved
+- [ ] Handoff reply appears as a card showing the responding Bot's name and content
+- [ ] Group thread header shows participant avatars when session has multiple Bots
+- [ ] Handoff loop prevention rejects handoffs after max hops (default 5)
 
 ### Chat Thread
 - [ ] Selecting a Bot loads its chat session (auto-creates session if none exists)

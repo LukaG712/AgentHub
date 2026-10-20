@@ -334,6 +334,96 @@ input, textarea, select { font-family: inherit; }
 .memory-update-card .btn-undo:hover {
   background: var(--selected-row); color: var(--fg);
 }
+/* Handoff system message card */
+.handoff-card {
+  align-self: center; background: var(--sidebar-bg);
+  border: 1px solid var(--hairline); border-radius: var(--radius-card);
+  padding: 0.5rem 0.8rem; max-width: 500px; width: 100%;
+  font-size: 0.8rem; color: var(--fg-secondary);
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.handoff-card .handoff-dots {
+  display: flex; gap: 0.15rem; flex-shrink: 0;
+}
+.handoff-card .handoff-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  display: inline-block;
+}
+.handoff-card .handoff-text {
+  flex: 1; font-style: italic;
+}
+.handoff-card .handoff-time {
+  font-size: 0.7rem; opacity: 0.5; flex-shrink: 0;
+}
+/* Handoff reply card */
+.handoff-reply-card {
+  align-self: flex-start; background: var(--bot-bubble-bg);
+  border: 1px solid var(--hairline); border-radius: var(--radius-card);
+  padding: 0.5rem 0.8rem; max-width: 400px; width: 100%;
+  font-size: 0.85rem; color: var(--fg);
+}
+.handoff-reply-card .handoff-reply-label {
+  font-size: 0.75rem; color: var(--fg-secondary); margin-bottom: 0.25rem;
+  display: flex; align-items: center; gap: 0.3rem;
+}
+.handoff-reply-card .handoff-reply-dot {
+  width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+}
+.handoff-reply-card .handoff-reply-content {
+  font-size: 0.85rem; line-height: 1.4;
+}
+/* Group thread participants in header */
+.group-participants {
+  display: flex; align-items: center; gap: 0.3rem;
+}
+.group-participants .participant-avatar {
+  width: 24px; height: 24px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; font-weight: 600; color: white;
+  border: 2px solid var(--main-bg);
+  margin-left: -6px;
+}
+.group-participants .participant-avatar:first-child {
+  margin-left: 0;
+}
+/* Send to Bot button */
+.btn-send-to-bot {
+  padding: 0.35rem 0.8rem; background: transparent; color: var(--fg);
+  border: 1px solid var(--hairline); border-radius: var(--radius-pill);
+  font-size: 0.75rem; font-weight: 500; cursor: pointer;
+}
+.btn-send-to-bot:hover { background: var(--selected-row); }
+/* Handoff dialog */
+.handoff-dialog-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.handoff-dialog {
+  background: var(--main-bg); border-radius: var(--radius-card);
+  padding: 1.5rem; max-width: 400px; width: 90%;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+.handoff-dialog h3 {
+  margin: 0 0 1rem 0; font-size: 1rem;
+}
+.handoff-dialog .bot-list {
+  max-height: 200px; overflow-y: auto;
+}
+.handoff-dialog .bot-list-item {
+  padding: 0.5rem 0.75rem; border-radius: var(--radius-input);
+  cursor: pointer; display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.9rem;
+}
+.handoff-dialog .bot-list-item:hover {
+  background: var(--selected-row);
+}
+.handoff-dialog .bot-list-item .bot-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.handoff-dialog .dialog-actions {
+  display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end;
+}
 .msg-time { font-size: 0.7rem; opacity: 0.6; margin-top: 0.25rem; }
 
 /* Timestamp grouping */
@@ -1244,6 +1334,7 @@ function renderAvatarSVG(name, size) {
 
 // Keep backward compat
 function avatarColor(name) { return getAvatarColor(name); }
+function getBotColor(name) { return getAvatarColor(name); }
 function avatarInitials(name) {
   const parts = name.replace(/[-_]/g, ' ').split(' ').filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -1626,6 +1717,38 @@ async function selectBot(name) {
 
   // Find or create session
   await findOrCreateSession(name);
+  // Update header for group threads
+  updateGroupThreadHeader();
+}
+
+function updateGroupThreadHeader() {
+  if (!currentSessionId || !currentBot) return;
+  const sessionData = window._currentSessionData;
+  if (!sessionData) return;
+  const botIds = sessionData.bot_ids;
+  const nameEl = document.getElementById('chat-bot-name');
+  const statusEl = document.getElementById('chat-bot-status');
+  const avatarWrap = document.getElementById('chat-avatar-wrap');
+  
+  if (botIds && botIds.length > 1) {
+    // Group thread: show participant avatars
+    const detail = agentDetails[currentBot] || {};
+    const title = detail.title || currentBot;
+    nameEl.textContent = title + ' (Group)';
+    
+    // Build participant avatars
+    let participantsHtml = '';
+    botIds.forEach(botId => {
+      const color = getBotColor(botId);
+      const initial = (botId || '?').charAt(0).toUpperCase();
+      participantsHtml += `<span class="participant-avatar" style="background:${color}" title="${esc(botId)}">${initial}</span>`;
+    });
+    avatarWrap.innerHTML = `<div class="group-participants">${participantsHtml}</div>`;
+    
+    // Status shows participant names
+    const names = botIds.map(b => (agentDetails[b] || {}).title || b);
+    statusEl.textContent = names.join(', ');
+  }
 }
 
 function updateBotStatusInChat() {
@@ -1660,6 +1783,8 @@ async function findOrCreateSession(botName) {
     botSessions[botName] = session.id;
     currentSessionId = session.id;
     localStorage.setItem('hub_current_session', session.id);
+    // Store session data for group thread header
+    window._currentSessionData = session;
     await loadChatMessages(session.id);
     disconnectSSE();
     connectSSE(session.id);
@@ -1672,11 +1797,21 @@ async function findOrCreateSession(botName) {
 async function loadChatMessages(sessionId) {
   try {
     const data = await api('/sessions/' + sessionId);
+    // Store session data for group thread header
+    if (data) {
+      window._currentSessionData = data;
+      // Parse bot_ids if it's a JSON string
+      if (data.bot_ids && typeof data.bot_ids === 'string') {
+        try { data.bot_ids = JSON.parse(data.bot_ids); } catch(e) { data.bot_ids = null; }
+      }
+    }
     const messages = data.messages || [];
     const runs = await api('/runs?agent=' + currentBot);
     const runList = runs.runs || [];
     const container = document.getElementById('chat-messages');
     let html = '';
+    // Update group thread header after loading session data
+    updateGroupThreadHeader();
 
     // Build a map of run_id -> run data
     const runMap = {};
@@ -1714,6 +1849,40 @@ async function loadChatMessages(sessionId) {
           ${canUndo ? `<div class="memory-update-actions">
             <button class="btn-undo" onclick="undoMemoryUpdate('${esc(m.id)}', ${JSON.stringify(previousContent).replace(/'/g, "\\'")})">Undo</button>
           </div>` : ''}
+        </div>`;
+      } else if (m.msg_type === 'handoff') {
+        // Render handoff system message with colored dots
+        let fromBot = '', toBot = '';
+        try {
+          const meta = JSON.parse(m.metadata || '{}');
+          fromBot = meta.from || '';
+          toBot = meta.to || '';
+        } catch(e) { /* ignore */ }
+        const fromColor = getBotColor(fromBot);
+        const toColor = getBotColor(toBot);
+        html += `<div class="handoff-card">
+          <span class="handoff-dots">
+            <span class="handoff-dot" style="background:${fromColor}" title="${esc(fromBot)}"></span>
+            <span class="handoff-dot" style="background:${toColor}" title="${esc(toBot)}"></span>
+          </span>
+          <span class="handoff-text">${esc(m.content)}</span>
+          ${time ? `<span class="handoff-time">${esc(time)}</span>` : ''}
+        </div>`;
+      } else if (m.msg_type === 'handoff_reply') {
+        // Render handoff reply as a card
+        let fromBot = '';
+        try {
+          const meta = JSON.parse(m.metadata || '{}');
+          fromBot = meta.from || '';
+        } catch(e) { /* ignore */ }
+        const fromColor = getBotColor(fromBot);
+        html += `<div class="handoff-reply-card">
+          <div class="handoff-reply-label">
+            <span class="handoff-reply-dot" style="background:${fromColor}"></span>
+            ${esc(fromBot)} replied
+          </div>
+          <div class="handoff-reply-content">${esc(m.content)}</div>
+          ${time ? `<div class="msg-time">${esc(time)}</div>` : ''}
         </div>`;
       } else {
         html += `<div class="chat-message system">${esc(m.content)}${time ? `<div class="msg-time">${esc(time)}</div>` : ''}</div>`;
@@ -1783,6 +1952,7 @@ function renderBotRun(run, time) {
     html += `<div class="bot-run-actions">
       <button class="btn-run-secondary" onclick="showRunDetail('${esc(run.id)}')">View details</button>
       <button class="btn-run-secondary" onclick="teachRunAsRoutine('${esc(run.id)}')">Save as routine</button>
+      <button class="btn-send-to-bot" onclick="showHandoffDialog('${esc(run.id)}')">Send to another Bot</button>
     </div>`;
   }
 
@@ -2283,6 +2453,70 @@ async function deleteRoutine(routineId) {
     await api('/routines/' + routineId, { method: 'DELETE' });
     if (currentBot) loadPanelRoutines(currentBot);
   } catch(e) { console.error('Failed to delete routine:', e); }
+}
+
+// ===================== Handoffs =====================
+
+function showHandoffDialog(runId) {
+  if (!currentBot || !currentSessionId) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'handoff-dialog-overlay';
+  overlay.id = 'handoff-dialog-overlay';
+  
+  // Get all agents for the list
+  const agents = window._allAgents || [];
+  const otherBots = agents.filter(a => a.id !== currentBot);
+  
+  let botListHtml = '';
+  otherBots.forEach(bot => {
+    const color = getBotColor(bot.id);
+    botListHtml += `<div class="bot-list-item" onclick="executeHandoff('${esc(bot.id)}', '${esc(runId)}')">
+      <span class="bot-dot" style="background:${color}"></span>
+      <span>${esc(bot.title || bot.id)}</span>
+    </div>`;
+  });
+  
+  if (!otherBots.length) {
+    botListHtml = '<div style="font-size:0.85rem;color:var(--fg-secondary);padding:0.5rem 0;">No other Bots available.</div>';
+  }
+  
+  overlay.innerHTML = `<div class="handoff-dialog">
+    <h3>Send to another Bot</h3>
+    <div class="bot-list">${botListHtml}</div>
+    <div class="dialog-actions">
+      <button class="btn-run-secondary" onclick="closeHandoffDialog()">Cancel</button>
+    </div>
+  </div>`;
+  
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeHandoffDialog();
+  });
+}
+
+function closeHandoffDialog() {
+  const overlay = document.getElementById('handoff-dialog-overlay');
+  if (overlay) overlay.remove();
+}
+
+async function executeHandoff(toBot, runId) {
+  if (!currentBot || !currentSessionId) return;
+  // Get the run's task text
+  const runsData = await api('/runs?agent=' + encodeURIComponent(currentBot)).catch(() => ({runs: []}));
+  const run = (runsData.runs || []).find(r => r.id === runId);
+  const message = run ? (run.task || 'Please handle this task') : 'Please handle this task';
+  
+  try {
+    await api('/sessions/' + currentSessionId + '/handoff', {
+      method: 'POST',
+      body: { from_bot: currentBot, to_bot: toBot, message }
+    });
+    closeHandoffDialog();
+    if (currentSessionId) loadChatMessages(currentSessionId);
+  } catch(e) {
+    console.error('Failed to hand off:', e);
+    alert('Failed to hand off: ' + (typeof e === 'string' ? e : 'Unknown error'));
+  }
 }
 
 // ===================== Teach a Task =====================

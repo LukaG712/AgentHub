@@ -89,7 +89,19 @@ All 32 Grok feature tests pass. The backend API endpoints exist for all features
 7. **README updated**: Added Bot Memory and Memory Undo to features table and UI checklist
 
 ## Phase 5: Group Threads and Handoffs
-(Not in scope for this session)
+(COMPLETED)
+
+**Goal:** Multi-Bot group threads, bot-to-bot handoffs with "Send to another Bot" button, handoff system messages with colored dots, and loop prevention.
+
+### What was done
+1. **UI handoff message rendering**: Messages with `msg_type=handoff` render as styled system cards with colored dots for both Bots; `msg_type=handoff_reply` renders as a reply card showing the responding Bot's name and content
+2. **UI "Send to another Bot" button**: Added to completed run cards in `renderBotRun()`; opens a dialog listing other available Bots
+3. **UI handoff dialog**: Modal overlay with Bot list, color dots, and cancel button; `showHandoffDialog()`, `closeHandoffDialog()`, and `executeHandoff()` functions
+4. **UI group thread header**: When session has multiple `bot_ids`, the chat header shows participant avatars with overlapping circles and lists participant names
+5. **UI session data storage**: `window._currentSessionData` stores session data including `bot_ids`; `updateGroupThreadHeader()` updates the header on session load
+6. **CSS styling**: Added `.handoff-card`, `.handoff-reply-card`, `.group-participants`, `.btn-send-to-bot`, and `.handoff-dialog-*` styles
+7. **getBotColor function**: Added alias for `getAvatarColor` used by handoff cards and group header
+8. **README updated**: Added Group Threads and Handoffs to features table and UI checklist
 
 ## Phase 6: Approvals + Auto Review
 (Not in scope for this session)
