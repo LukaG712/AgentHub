@@ -41,10 +41,12 @@ class TestOllamaClientInit:
 class TestOllamaClientAvailability:
     """Test Ollama availability checking."""
 
-    def test_is_available_not_configured(self):
+    @patch("hub.ollama.requests.get")
+    def test_is_available_not_configured(self, mock_get):
         """Client should report unavailable when Ollama is not running."""
+        import requests
+        mock_get.side_effect = requests.ConnectionError("Connection refused")
         client = OllamaClient()
-        # Without a real Ollama server, this should return False
         assert client.is_available() is False
 
     @patch("hub.ollama.requests.get")
@@ -93,7 +95,8 @@ class TestOllamaClientAvailability:
 class TestRefinePrompt:
     """Test prompt refinement."""
 
-    def test_refine_prompt_unavailable_returns_original(self):
+    @patch.object(OllamaClient, "is_available", return_value=False)
+    def test_refine_prompt_unavailable_returns_original(self, mock_available):
         """Refinement should return original prompt when Ollama is unavailable."""
         client = OllamaClient()
         original = "Fix the bug"

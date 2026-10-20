@@ -256,6 +256,12 @@ def _get_agent_thread_lock(agent: str) -> threading.Lock:
         return _agent_thread_locks[agent]
 
 
+def clear_agent_locks() -> None:
+    """Replace all agent thread locks with fresh ones (for test cleanup)."""
+    with _agent_thread_locks_guard:
+        _agent_thread_locks.clear()
+
+
 class _FileLock:
     """Cross-process file lock using fcntl.flock (POSIX) or msvcrt.locking (Windows) + in-process thread lock."""
 

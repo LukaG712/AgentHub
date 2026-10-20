@@ -60,13 +60,34 @@ def client(tmp_path):
     from hub import memory as memory_module
     memory_module.close_connection()
 
+    # Clear queue state so workers don't carry over between tests
+    from hub import queue_manager as qm
+    qm.clear_all_queues()
+    # Use per-test queue state file so workers don't conflict
+    queue_state_file = tmp_path / "queue_state.json"
+
     with patch("hub.runner._RUNS_DIR", runs_dir), \
          patch("hub.runner._LOCKS_DIR", locks_dir), \
          patch("hub.runner._PROJECT_ROOT", tmp_path), \
-         patch("hub.skills._SKILLS_DIR", skills_dir):
+         patch("hub.skills._SKILLS_DIR", skills_dir), \
+         patch("hub.queue_manager._QUEUE_STATE_FILE", queue_state_file):
         from hub import api as api_module
         yield TestClient(api_module.app)
 
+    # Wait for any pending runs to finish before tearing down
+    import time as _time
+    from hub.runner import list_runs
+    for _ in range(60):
+        all_done = True
+        for run in list_runs():
+            if run.state in ("working", "queued"):
+                all_done = False
+                break
+        if all_done:
+            break
+        _time.sleep(0.2)
+    # Clean up queue state after each test
+    qm.clear_all_queues()
     memory_module.close_connection()
     if old_config is not None:
         os.environ["HUB_CONFIG"] = old_config
@@ -87,6 +108,29 @@ def client(tmp_path):
 
 
 HEADERS = {"Authorization": "Bearer test-secret-key"}
+
+
+def _wait_for_run(client, run_id, timeout=30):
+    """Poll /api/runs/{run_id} until the run is no longer 'working' or 'queued'."""
+    import time
+    start = time.monotonic()
+    while time.monotonic() - start < timeout:
+        resp = client.get(f"/api/runs/{run_id}", headers=HEADERS)
+        if resp.status_code == 200:
+            state = resp.json().get("state")
+            if state not in ("working", "queued"):
+                return True
+        elif resp.status_code == 404:
+            # Run not found — check if it was saved to disk
+            from hub.runner import get_run as _get_run
+            r = _get_run(run_id)
+            if r and r.state not in ("working", "queued"):
+                return True
+        time.sleep(0.2)
+    # Final check: look in runner's run index directly
+    from hub.runner import get_run as _get_run
+    r = _get_run(run_id)
+    return r is not None and r.state not in ("working", "queued")
 
 
 class TestAuth:
@@ -891,9 +935,8 @@ class TestSSEStreaming:
             json={"content": "start event task"},
         )
         run_id = dispatch.json()["run_id"]
-        # Wait for the run to complete (fake_agent is fast)
-        import time
-        time.sleep(2)
+        # Wait for the run to complete using bounded polling
+        assert _wait_for_run(client, run_id), "Run did not complete in time"
         # Connect to the stream — run should be done, so we get the final state
         resp = client.get(
             f"/api/sessions/{session_id}/stream",
@@ -913,13 +956,13 @@ class TestSSEStreaming:
         )
         session_id = create.json()["id"]
         # Dispatch and wait for completion
-        client.post(
+        dispatch = client.post(
             f"/api/sessions/{session_id}/messages",
             headers=HEADERS,
             json={"content": "replay task"},
         )
-        import time
-        time.sleep(2)
+        run_id = dispatch.json()["run_id"]
+        assert _wait_for_run(client, run_id), "Run did not complete in time"
         # Connect after run is done
         resp = client.get(
             f"/api/sessions/{session_id}/stream",
@@ -957,9 +1000,9 @@ class TestSSEStreaming:
         run_id_1 = d1["run_id"]
         run_id_2 = d2["run_id"]
         assert run_id_1 != run_id_2, "Run IDs must be different"
-        # Wait for both to complete
-        import time
-        time.sleep(3)
+        # Wait for both to complete using bounded polling
+        assert _wait_for_run(client, run_id_1), "Run 1 did not complete in time"
+        assert _wait_for_run(client, run_id_2), "Run 2 did not complete in time"
         # Stream session 1 — should only contain run_id_1
         resp1 = client.get(
             f"/api/sessions/{s1}/stream",
@@ -992,13 +1035,13 @@ class TestSSEStreaming:
             json={"title": "Failed Replay Test", "agent_id": "vault"},
         )
         session_id = create.json()["id"]
-        client.post(
+        dispatch = client.post(
             f"/api/sessions/{session_id}/messages",
             headers=HEADERS,
             json={"content": "fail task"},
         )
-        import time
-        time.sleep(2)
+        run_id = dispatch.json()["run_id"]
+        assert _wait_for_run(client, run_id), "Run did not complete in time"
         resp = client.get(
             f"/api/sessions/{session_id}/stream",
             cookies={"hub_api_key": "test-secret-key"},
@@ -1022,8 +1065,7 @@ class TestSSEStreaming:
             json={"content": "specific run task"},
         )
         run_id = dispatch.json()["run_id"]
-        import time
-        time.sleep(2)
+        assert _wait_for_run(client, run_id), "Run did not complete in time"
         # Stream using specific run_id
         resp = client.get(
             f"/api/sessions/{session_id}/stream",
@@ -1064,8 +1106,7 @@ class TestSSEStreaming:
             json={"content": "first overlapping task"},
         ).json()
         run_id_1 = d1["run_id"]
-        import time
-        time.sleep(2)
+        assert _wait_for_run(client, run_id_1), "Run 1 did not complete in time"
         # Second run in the same session
         d2 = client.post(
             f"/api/sessions/{session_id}/messages",
@@ -1073,8 +1114,8 @@ class TestSSEStreaming:
             json={"content": "second overlapping task"},
         ).json()
         run_id_2 = d2["run_id"]
-        # Wait longer for both queued runs to complete
-        time.sleep(4)
+        # Wait for the second run to complete
+        assert _wait_for_run(client, run_id_2), "Run 2 did not complete in time"
         # Stream run 1 specifically
         resp1 = client.get(
             f"/api/sessions/{session_id}/stream",

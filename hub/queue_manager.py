@@ -266,10 +266,18 @@ def _bot_worker_loop(bot_id: str) -> None:
 
 
 def clear_all_queues() -> None:
-    """Clear all queues (used for test teardown)."""
+    """Clear all queues and stop workers (used for test teardown)."""
     with _lock:
+        workers = list(_active_workers.values())
         _paused_bots.clear()
         _bot_queues.clear()
         _active_workers.clear()
         _current_active_runs.clear()
+        resume_events = list(_resume_events.values())
         _resume_events.clear()
+    # Wake up any paused bots so workers can exit
+    for ev in resume_events:
+        ev.set()
+    # Wait for workers to finish (briefly, to avoid hanging tests)
+    for w in workers:
+        w.join(timeout=2)

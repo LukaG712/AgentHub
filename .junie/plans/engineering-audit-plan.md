@@ -4,9 +4,18 @@ sessionId: session-261020-142657-1t2p
 
 # Desktop App, Portable EXE, Installer & Always-On VM Web Server
 
-## Current Session — Fix & Verify (2026-10-20)
+## Current Session — Fix Test Pipeline (2026-10-20)
 
 ### Issues Fixed
+1. **Duplicate CI workflows** — Deleted `tests.yml`, consolidated into `ci.yml` with fast required check + non-blocking compat matrix
+2. **No timeouts** — Added `timeout-minutes: 15` to all CI jobs, `pytest-timeout` with 60s per-test timeout
+3. **Hanging SSE tests** — Replaced `time.sleep()` with bounded polling via `_wait_for_run()` helper
+4. **Unmocked Ollama HTTP** — Added `@patch` decorators to `test_is_available_not_configured` and `test_refine_prompt_unavailable_returns_original`
+5. **Queue state leakage** — Added `clear_all_queues()` and `_QUEUE_STATE_FILE` patching in test fixtures
+6. **Stale agent locks** — Added `clear_agent_locks()` function in `hub/runner.py`
+7. **Worker thread cleanup** — Improved `clear_all_queues()` to join worker threads with timeout
+
+### Previous Fixes (2026-10-20)
 1. **CI lint failures** — Added ruff config to `pyproject.toml`, fixed `Run` import in `hub/api.py`, auto-fixed 43 style issues
 2. **Desktop authentication** — Replaced iframe approach with direct WebView navigation; cookie injected after navigation via Rust `eval()` so it's scoped to the server's origin
 3. **Desktop lifecycle** — Removed minimize-to-tray behavior; app now closes properly without affecting the VM backend
