@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from hub.runner import Run, _save_run, _load_run, list_runs, run_agent
+from hub.runner import Run, _load_run, _save_run, list_runs, run_agent
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ def _load_queue_state() -> None:
     if not _QUEUE_STATE_FILE.exists():
         return
     try:
-        with open(_QUEUE_STATE_FILE, "r", encoding="utf-8") as f:
+        with open(_QUEUE_STATE_FILE, encoding="utf-8") as f:
             state = json.load(f)
         with _lock:
             _paused_bots.clear()

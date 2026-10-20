@@ -320,8 +320,8 @@ class SSHProvider(AgentProvider):
         extra_args: Optional[List[str]] = None,
     ) -> ProviderRunResult:
         """Run an agent task on a remote host via SSH."""
-        from hub.remote import RemoteConfig, RemoteTarget, RemoteError, get_agent_remote_config
         from hub.config import load_config
+        from hub.remote import RemoteConfig, RemoteError, RemoteTarget, get_agent_remote_config
 
         config = load_config()
         # Find the agent that uses this provider

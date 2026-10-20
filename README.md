@@ -284,13 +284,19 @@ The database and configuration are preserved across updates.
 
 ## 🖥️ Desktop App (Windows)
 
-AgentHub Desktop is a lightweight Windows client that connects to the VM-hosted backend.
+AgentHub Desktop is a lightweight Windows client built with Tauri that connects to the VM-hosted backend. It uses the system WebView2 to load the remote AgentHub UI directly — no iframe, no local backend.
+
+### How It Works
+
+The desktop app navigates the WebView directly to your VM's AgentHub URL. After connection validation via the Rust backend, it injects the API key as a cookie scoped to the server's origin. All API calls and SSE streaming work natively through the WebView.
 
 ### Features
 
 - **First-run setup**: Enter your VM URL and API key
-- **Connection status**: Green/red indicator in title bar
-- **Auto-reconnect**: Periodic health checks every 30 seconds
+- **Direct WebView navigation**: No iframe — the remote UI loads natively
+- **Secure authentication**: API key stored in Tauri's store, injected as cookie after navigation
+- **Connection validation**: Rust backend checks `/api/health` before connecting
+- **Graceful close**: Closing the app does not affect the VM backend or running tasks
 - **Settings persistence**: Stored in `%APPDATA%\agent-hub-desktop\`
 - **No local backend**: Pure client — all work runs on the VM
 
@@ -309,14 +315,14 @@ npm run build
 
 **Build output:**
 - **Installer**: `src-tauri/target/release/bundle/nsis/AgentHub Desktop Setup X.X.X.exe`
-- **Portable**: `src-tauri/target/release/bundle/app/AgentHub Desktop_x64.zip`
+- **Portable**: Created by CI as `AgentHub-Portable-Windows-x64.zip`
 
 ### First-Run Flow
 
 1. App launches → shows settings page
 2. Enter VM URL (e.g., `http://192.168.1.100:8080`) and API key
-3. App validates connection via `/api/health`
-4. On success, loads the remote AgentHub UI
+3. App validates connection via `/api/health` (Rust backend, no CORS issues)
+4. On success, WebView navigates to the remote AgentHub UI with cookie auth
 5. On failure, shows error and allows retry
 
 ### Portable vs Installer

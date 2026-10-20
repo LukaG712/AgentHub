@@ -4,6 +4,18 @@ sessionId: session-261020-142657-1t2p
 
 # Desktop App, Portable EXE, Installer & Always-On VM Web Server
 
+## Current Session — Fix & Verify (2026-10-20)
+
+### Issues Fixed
+1. **CI lint failures** — Added ruff config to `pyproject.toml`, fixed `Run` import in `hub/api.py`, auto-fixed 43 style issues
+2. **Desktop authentication** — Replaced iframe approach with direct WebView navigation; cookie injected after navigation via Rust `eval()` so it's scoped to the server's origin
+3. **Desktop lifecycle** — Removed minimize-to-tray behavior; app now closes properly without affecting the VM backend
+4. **Bundle targets** — Removed macOS-only "app" target; kept NSIS installer only for Windows
+5. **CI workflow** — Updated `desktop-build.yml` to fail on missing artifacts, added portable zip generation
+6. **Tests workflow** — Added matrix build (Python 3.11-3.13, Windows + Linux)
+7. **Tauri config** — Fixed `devPath`/`frontendDist` to point to `../index.html`
+8. **Placeholder icon** — Created `icons/icon.png` for Tauri build
+
 ## Architecture Overview
 
 ```

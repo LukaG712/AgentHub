@@ -17,18 +17,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from hub import agents, memory, ollama, obsidian, providers, remote, skills
+from hub import agents, coordinator, memory, obsidian, ollama, providers, remote, skills
+from hub import routines as routines_engine
 from hub.config import load_config, save_config, set_primary_bot, validate_name
 from hub.runner import (
-    run_agent,
-    stop_run,
+    Run,
+    agent_status,
     get_run,
     list_runs,
-    agent_status,
     recover_stale_runs,
+    run_agent,
+    stop_run,
 )
-from hub import coordinator
-from hub import routines as routines_engine
 
 security = HTTPBearer(auto_error=False)
 
@@ -178,8 +178,8 @@ def _get_api_key() -> str:
 
 
 def _verify_token(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    request: Request = None,
 ) -> None:
     client_ip = request.client.host if request else "unknown"
     _check_auth_rate_limit(client_ip)
@@ -193,8 +193,8 @@ def _verify_token(
 
 
 def _verify_token_or_query(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    request: Request = None,
 ) -> None:
     """Verify token from Authorization header or cookie.
 

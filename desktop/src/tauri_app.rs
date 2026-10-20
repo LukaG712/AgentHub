@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
-use tauri::{Manager, WindowEvent};
+use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
 /// Global connection status tracker
@@ -49,30 +49,26 @@ pub fn run() {
             
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { .. } = event {
-                // Handle graceful shutdown
-            }
-        })
         .invoke_handler(tauri::generate_handler![
             get_settings,
             save_settings,
             check_connection,
+            navigate_to_server,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
-        .run(|app_handle, event| {
+        .run(|_app_handle, event| {
+            // Handle window close — just close, don't minimize to tray
             if let tauri::RunEvent::WindowEvent {
-                label,
-                event: WindowEvent::CloseRequested { .. },
+                event: WindowEvent::CloseRequested { api, .. },
+                ..
             } = event
             {
-                // Prevent closing if there are active tasks
-                if label == "main" {
-                    // Minimize to tray instead (if tray icon is added later)
-                    if let Some(window) = app_handle.get_webview_window(&label) {
-                        window.minimize().ok();
-                    }
+                // Prevent default and close properly
+                api.prevent_close();
+                // Exit the application cleanly
+                if let Some(window) = _app_handle.get_webview_window("main") {
+                    window.close().ok();
                 }
             }
         });
@@ -152,4 +148,34 @@ async fn check_connection(server_url: String, api_key: String) -> Result<serde_j
         *status = ConnectionStatus::Disconnected;
         Err(format!("Server returned status {}", response.status()))
     }
+}
+
+#[tauri::command]
+async fn navigate_to_server(
+    app: tauri::AppHandle,
+    server_url: String,
+    api_key: String,
+) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or("Main window not found".to_string())?;
+    
+    let clean_url = server_url.trim_end_matches('/').to_string();
+    
+    // Navigate the WebView directly to the server URL
+    // This avoids iframe cross-origin issues entirely
+    window
+        .navigate(clean_url.parse().map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    
+    // After navigation, inject the API key as a cookie for the remote origin.
+    // We use eval() to set the cookie in the context of the loaded page,
+    // so it's scoped to the server's origin.
+    let inject_cookie = format!(
+        r#"document.cookie = "hub_api_key={}; path=/; SameSite=Lax";"#,
+        api_key
+    );
+    window.eval(&inject_cookie).ok();
+    
+    Ok(())
 }

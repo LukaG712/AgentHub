@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from hub.config import load_config, NAME_RE
+from hub.config import NAME_RE, load_config
 
 
 def _bot_memory_path(bot_id: str) -> Path:

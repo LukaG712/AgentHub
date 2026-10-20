@@ -12,19 +12,19 @@ import pytest
 
 from hub.config import save_config
 from hub.runner import (
+    _LOCKS_DIR,
+    _RUNS_DIR,
     Run,
-    run_agent,
-    stop_run,
+    _check_429,
+    _ensure_dirs,
+    _extract_answer,
+    _parse_json_output,
+    _save_run,
     get_run,
     list_runs,
     recover_stale_runs,
-    _parse_json_output,
-    _extract_answer,
-    _check_429,
-    _save_run,
-    _ensure_dirs,
-    _RUNS_DIR,
-    _LOCKS_DIR,
+    run_agent,
+    stop_run,
 )
 
 # Skip POSIX-only tests on Windows
@@ -237,7 +237,7 @@ class TestRunAgent:
         """Test --no-wait fails immediately when agent is busy."""
         # This test is tricky — we need a running agent to hold the lock.
         # We'll simulate by holding the lock ourselves.
-        from hub.runner import _FileLock, _ensure_dirs
+        from hub.runner import _ensure_dirs, _FileLock
         _ensure_dirs()
 
         lock = _FileLock("vault")

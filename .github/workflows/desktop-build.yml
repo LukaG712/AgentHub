@@ -32,16 +32,33 @@ jobs:
         working-directory: desktop
         run: npm run build
 
-      - name: Upload portable artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: AgentHub-Portable-Windows-x64
-          path: desktop/src-tauri/target/release/bundle/app/*.zip
-          if-no-files-found: warn
+      - name: Verify installer artifact exists
+        run: |
+          $installer = Get-ChildItem -Path "desktop/src-tauri/target/release/bundle/nsis" -Filter "*.exe" -ErrorAction SilentlyContinue
+          if (-not $installer) {
+            Write-Error "No installer .exe found in bundle/nsis directory"
+            exit 1
+          }
+          Write-Host "Found installer: $($installer.Name)"
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: AgentHub-Setup-Windows-x64
           path: desktop/src-tauri/target/release/bundle/nsis/*.exe
-          if-no-files-found: warn
+          if-no-files-found: error
+
+      - name: Generate portable package
+        run: |
+          $bundleDir = "desktop/src-tauri/target/release/bundle/nsis"
+          $exeName = (Get-ChildItem $bundleDir -Filter "*.exe" | Select-Object -First 1).Name
+          $zipName = "AgentHub-Portable-Windows-x64.zip"
+          Compress-Archive -Path "desktop/src-tauri/target/release/agent-hub-desktop.exe" -DestinationPath "desktop/$zipName" -Force
+          Write-Host "Created portable package: $zipName"
+
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AgentHub-Portable-Windows-x64
+          path: desktop/AgentHub-Portable-Windows-x64.zip
+          if-no-files-found: error

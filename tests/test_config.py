@@ -7,16 +7,16 @@ from pathlib import Path
 import pytest
 
 from hub.config import (
-    validate_name,
-    load_config,
-    save_config,
-    resolve_command,
-    get_runner_config,
-    get_agent_config,
     add_agent,
-    update_agent,
     delete_agent,
+    get_agent_config,
     get_hub_timeout,
+    get_runner_config,
+    load_config,
+    resolve_command,
+    save_config,
+    update_agent,
+    validate_name,
 )
 
 

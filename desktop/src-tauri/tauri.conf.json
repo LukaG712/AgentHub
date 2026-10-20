@@ -5,8 +5,8 @@
   "build": {
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
-    "devUrl": "http://localhost:1420",
-    "spinner": false
+    "devPath": "../index.html",
+    "frontendDist": "../index.html"
   },
   "app": {
     "windows": [
@@ -27,18 +27,18 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "app"],
+    "targets": ["nsis"],
     "icon": [
       "icons/icon.png"
     ],
     "windows": {
       "nsis": {
+        "installDir": "$LOCALAPPDATA\\agent-hub-desktop",
+        "menu": true,
+        "perMachine": false,
         "installerIcon": "icons/icon.ico",
         "headerImage": "icons/header.bmp",
-        "sidebarImage": "icons/sidebar.bmp",
-        "installDir": "%LOCALAPPDATA%\\agent-hub-desktop",
-        "menu": true,
-        "perMachine": false
+        "sidebarImage": "icons/sidebar.bmp"
       }
     }
   }

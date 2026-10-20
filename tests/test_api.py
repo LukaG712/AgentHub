@@ -104,7 +104,7 @@ class TestAuth:
 
     def test_rate_limiting(self, client):
         """C4: Auth failures should be rate limited."""
-        from hub.api import _auth_failure_store, _auth_failure_lock
+        from hub.api import _auth_failure_lock, _auth_failure_store
         # Clear any existing failures
         with _auth_failure_lock:
             _auth_failure_store.clear()
@@ -118,7 +118,7 @@ class TestAuth:
 
     def test_cookie_auth(self, client):
         """C2: Cookie-based auth should work for SSE endpoints."""
-        from hub.api import _auth_failure_store, _auth_failure_lock
+        from hub.api import _auth_failure_lock, _auth_failure_store
         # Clear any existing failures
         with _auth_failure_lock:
             _auth_failure_store.clear()
@@ -136,7 +136,7 @@ class TestAuth:
 
     def test_query_param_auth_rejected(self, client):
         """C2: Query parameter auth should be rejected."""
-        from hub.api import _auth_failure_store, _auth_failure_lock
+        from hub.api import _auth_failure_lock, _auth_failure_store
         # Clear any existing failures
         with _auth_failure_lock:
             _auth_failure_store.clear()
@@ -725,8 +725,13 @@ class TestSSEStreaming:
 
     def test_sse_send_event_bounded_retention(self, client):
         """Test that _sse_send_event evicts oldest events when buffer is full."""
-        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
-            _sse_event_store, _sse_event_store_lock
+        from hub.api import (
+            _SSE_MAX_EVENTS,
+            _sse_event_store,
+            _sse_event_store_lock,
+            _sse_remove_buffer,
+            _sse_send_event,
+        )
         run_id = "test-full-buffer"
         # Temporarily lower the max for testing
         old_max = _SSE_MAX_EVENTS
@@ -753,9 +758,8 @@ class TestSSEStreaming:
 
     def test_sse_terminal_event_never_dropped(self, client):
         """Test that terminal events (complete, error, end) are never silently dropped."""
-        from hub.api import _sse_send_event, _sse_remove_buffer, \
-            _sse_event_store, _sse_event_store_lock
         import hub.api as api_mod
+        from hub.api import _sse_event_store, _sse_event_store_lock, _sse_remove_buffer, _sse_send_event
         run_id = "test-terminal"
         old_max = api_mod._SSE_MAX_EVENTS
         api_mod._SSE_MAX_EVENTS = 3
@@ -791,8 +795,7 @@ class TestSSEStreaming:
 
     def test_sse_multi_client_independent(self, client):
         """Test that multiple SSE clients each receive the full event stream."""
-        from hub.api import _sse_send_event, _sse_remove_buffer, \
-            _sse_event_store, _sse_event_store_lock
+        from hub.api import _sse_event_store, _sse_event_store_lock, _sse_remove_buffer, _sse_send_event
         run_id = "test-multi-client"
         try:
             # Simulate events being sent
@@ -821,7 +824,7 @@ class TestSSEStreaming:
 
     def test_sse_auth_via_cookie(self, client):
         """Test that SSE endpoint accepts token via cookie (C2 fix)."""
-        from hub.api import _auth_failure_store, _auth_failure_lock
+        from hub.api import _auth_failure_lock, _auth_failure_store
         with _auth_failure_lock:
             _auth_failure_store.clear()
         create = client.post(
@@ -840,7 +843,7 @@ class TestSSEStreaming:
 
     def test_sse_auth_rejects_bad_token(self, client):
         """Test that SSE endpoint rejects invalid cookie token."""
-        from hub.api import _auth_failure_store, _auth_failure_lock
+        from hub.api import _auth_failure_lock, _auth_failure_store
         with _auth_failure_lock:
             _auth_failure_store.clear()
         create = client.post(
@@ -1100,8 +1103,7 @@ class TestSSEStreaming:
 
     def test_sse_event_ids_monotonic(self, client):
         """Test that event IDs are monotonically increasing within a run."""
-        from hub.api import _sse_send_event, _sse_remove_buffer, \
-            _sse_event_store, _sse_event_store_lock
+        from hub.api import _sse_event_store, _sse_event_store_lock, _sse_remove_buffer, _sse_send_event
         run_id = "test-monotonic-ids"
         try:
             for i in range(10):
@@ -1118,9 +1120,14 @@ class TestSSEStreaming:
 
     def test_sse_cursor_survives_eviction(self, client):
         """Test that event ID cursors remain valid after events are evicted."""
-        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
-            _sse_event_store, _sse_event_store_lock
         import hub.api as api_mod
+        from hub.api import (
+            _SSE_MAX_EVENTS,
+            _sse_event_store,
+            _sse_event_store_lock,
+            _sse_remove_buffer,
+            _sse_send_event,
+        )
         run_id = "test-cursor-eviction"
         old_max = api_mod._SSE_MAX_EVENTS
         api_mod._SSE_MAX_EVENTS = 3
@@ -1154,9 +1161,14 @@ class TestSSEStreaming:
 
     def test_sse_retention_gap_notification(self, client):
         """Test that evicted_before_id is set when events are evicted."""
-        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
-            _sse_event_store, _sse_event_store_lock
         import hub.api as api_mod
+        from hub.api import (
+            _SSE_MAX_EVENTS,
+            _sse_event_store,
+            _sse_event_store_lock,
+            _sse_remove_buffer,
+            _sse_send_event,
+        )
         run_id = "test-retention-gap"
         old_max = api_mod._SSE_MAX_EVENTS
         api_mod._SSE_MAX_EVENTS = 3
@@ -1180,9 +1192,14 @@ class TestSSEStreaming:
 
     def test_sse_terminal_recovery_after_overflow(self, client):
         """Test that terminal state is recoverable even after many evictions."""
-        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
-            _sse_event_store, _sse_event_store_lock
         import hub.api as api_mod
+        from hub.api import (
+            _SSE_MAX_EVENTS,
+            _sse_event_store,
+            _sse_event_store_lock,
+            _sse_remove_buffer,
+            _sse_send_event,
+        )
         run_id = "test-terminal-recovery"
         old_max = api_mod._SSE_MAX_EVENTS
         api_mod._SSE_MAX_EVENTS = 3
@@ -1208,9 +1225,14 @@ class TestSSEStreaming:
 
     def test_sse_reconnect_after_eviction(self, client):
         """Test that a reconnecting client sees retention gap and remaining events."""
-        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
-            _sse_event_store, _sse_event_store_lock
         import hub.api as api_mod
+        from hub.api import (
+            _SSE_MAX_EVENTS,
+            _sse_event_store,
+            _sse_event_store_lock,
+            _sse_remove_buffer,
+            _sse_send_event,
+        )
         run_id = "test-reconnect"
         old_max = api_mod._SSE_MAX_EVENTS
         api_mod._SSE_MAX_EVENTS = 4
@@ -1244,9 +1266,14 @@ class TestSSEStreaming:
 
     def test_sse_multiple_clients_different_positions(self, client):
         """Test two clients at different cursor positions each get correct events."""
-        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
-            _sse_event_store, _sse_event_store_lock
         import hub.api as api_mod
+        from hub.api import (
+            _SSE_MAX_EVENTS,
+            _sse_event_store,
+            _sse_event_store_lock,
+            _sse_remove_buffer,
+            _sse_send_event,
+        )
         run_id = "test-diff-positions"
         old_max = api_mod._SSE_MAX_EVENTS
         api_mod._SSE_MAX_EVENTS = 5
@@ -1279,9 +1306,14 @@ class TestSSEStreaming:
 
     def test_sse_client_behind_evicted_event(self, client):
         """Test a client at cursor 0 when event 1 has already been evicted."""
-        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
-            _sse_event_store, _sse_event_store_lock
         import hub.api as api_mod
+        from hub.api import (
+            _SSE_MAX_EVENTS,
+            _sse_event_store,
+            _sse_event_store_lock,
+            _sse_remove_buffer,
+            _sse_send_event,
+        )
         run_id = "test-behind-evicted"
         old_max = api_mod._SSE_MAX_EVENTS
         api_mod._SSE_MAX_EVENTS = 3
@@ -1317,9 +1349,14 @@ class TestSSEStreaming:
 
     def test_sse_continued_overflow_updates_highest_evicted(self, client):
         """Test that continued buffer overflow updates the highest evicted ID correctly."""
-        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
-            _sse_event_store, _sse_event_store_lock
         import hub.api as api_mod
+        from hub.api import (
+            _SSE_MAX_EVENTS,
+            _sse_event_store,
+            _sse_event_store_lock,
+            _sse_remove_buffer,
+            _sse_send_event,
+        )
         run_id = "test-continued-overflow"
         old_max = api_mod._SSE_MAX_EVENTS
         api_mod._SSE_MAX_EVENTS = 3
@@ -1359,9 +1396,14 @@ class TestSSEStreaming:
         client advances cursor from snapshot IDs (not from the store), then
         fetches again — should get the events that arrived in between.
         """
-        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
-            _sse_event_store, _sse_event_store_lock
         import hub.api as api_mod
+        from hub.api import (
+            _SSE_MAX_EVENTS,
+            _sse_event_store,
+            _sse_event_store_lock,
+            _sse_remove_buffer,
+            _sse_send_event,
+        )
         run_id = "test-cursor-snapshot"
         old_max = api_mod._SSE_MAX_EVENTS
         api_mod._SSE_MAX_EVENTS = 100
@@ -1405,10 +1447,16 @@ class TestSSEStreaming:
         Verifies the lock can be acquired by a producer while a consumer
         would be suspended (simulated by checking lock state).
         """
-        from hub.api import _sse_send_event, _sse_remove_buffer, _SSE_MAX_EVENTS, \
-            _sse_event_store, _sse_event_store_lock
-        import hub.api as api_mod
         import threading
+
+        import hub.api as api_mod
+        from hub.api import (
+            _SSE_MAX_EVENTS,
+            _sse_event_store,
+            _sse_event_store_lock,
+            _sse_remove_buffer,
+            _sse_send_event,
+        )
         run_id = "test-lock-not-held"
         old_max = api_mod._SSE_MAX_EVENTS
         api_mod._SSE_MAX_EVENTS = 100

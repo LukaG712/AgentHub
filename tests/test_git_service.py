@@ -8,12 +8,12 @@ from pathlib import Path
 import pytest
 
 from hub.git_service import (
+    create_worktree,
+    get_git_diff,
+    get_git_root,
     get_git_status,
     is_git_repo,
-    get_git_root,
-    get_git_diff,
     list_worktrees,
-    create_worktree,
     remove_worktree,
 )
 

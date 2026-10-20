@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 import pytest
 
-from hub.config import save_config
 from hub import skills
+from hub.config import save_config
 
 
 @pytest.fixture

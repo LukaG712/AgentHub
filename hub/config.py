@@ -35,7 +35,7 @@ def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
     p = (path or get_config_path()).resolve()
     if not p.exists():
         return {"runners": {}, "agents": {}}
-    with open(p, "r", encoding="utf-8") as f:
+    with open(p, encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     if "runners" not in data:
         data["runners"] = {}

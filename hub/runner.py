@@ -10,10 +10,10 @@ import tempfile
 import threading
 import time
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Callable, Dict, List, Optional
 
 from hub.config import (
     get_config_path,
@@ -22,9 +22,10 @@ from hub.config import (
 )
 from hub.providers import (
     AgentPermissions,
-    get_provider,
     ensure_default_providers,
+    get_provider,
 )
+
 
 # Import skills lazily to avoid circular imports
 def _sync_agent_before_run(agent_name: str) -> None:
@@ -134,7 +135,7 @@ def _build_run_index() -> None:
             return
         for json_file in _RUNS_DIR.rglob("*.json"):
             try:
-                with open(json_file, "r", encoding="utf-8") as f:
+                with open(json_file, encoding="utf-8") as f:
                     data = json.load(f)
                 rid = data.get("id")
                 if rid:
@@ -153,7 +154,7 @@ def _load_run(run_id: str) -> Optional[Run]:
             return None
         for json_file in _RUNS_DIR.rglob("*.json"):
             try:
-                with open(json_file, "r", encoding="utf-8") as f:
+                with open(json_file, encoding="utf-8") as f:
                     data = json.load(f)
                 if data.get("id") == run_id:
                     return Run.from_dict(data)
@@ -161,7 +162,7 @@ def _load_run(run_id: str) -> Optional[Run]:
                 continue
         return None
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             data = json.load(f)
         return Run.from_dict(data)
     except (json.JSONDecodeError, KeyError, FileNotFoundError):
@@ -178,7 +179,7 @@ def _list_runs(agent: Optional[str] = None, state: Optional[str] = None) -> List
             continue
         for json_file in sorted(d.glob("*.json")):
             try:
-                with open(json_file, "r", encoding="utf-8") as f:
+                with open(json_file, encoding="utf-8") as f:
                     data = json.load(f)
                 run = Run.from_dict(data)
                 if state and run.state != state:
@@ -323,7 +324,7 @@ class _FileLock:
             try:
                 fcntl.flock(self._fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
                 return True
-            except (IOError, OSError):
+            except OSError:
                 self._fh.close()
                 self._fh = None
                 self._thread_lock.release()
@@ -340,7 +341,7 @@ class _FileLock:
             try:
                 msvcrt.locking(self._fh.fileno(), msvcrt.LK_NBLCK, size)
                 return True
-            except (IOError, OSError):
+            except OSError:
                 self._fh.close()
                 self._fh = None
                 self._thread_lock.release()

@@ -3,7 +3,7 @@
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -11,8 +11,8 @@ from hub.remote import (
     RemoteConfig,
     RemoteError,
     RemoteTarget,
-    get_remote_config,
     get_agent_remote_config,
+    get_remote_config,
 )
 
 

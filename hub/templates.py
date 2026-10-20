@@ -22,7 +22,7 @@ def list_templates() -> List[Dict[str, Any]]:
         return templates
     for yaml_file in sorted(_TEMPLATES_DIR.glob("*.yaml")):
         try:
-            with open(yaml_file, "r", encoding="utf-8") as f:
+            with open(yaml_file, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
             templates.append({
                 "name": data.get("name", yaml_file.stem),
@@ -43,7 +43,7 @@ def get_template(name: str) -> Optional[Dict[str, Any]]:
     if not path.exists():
         return None
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         return {
             "name": data.get("name", name),
