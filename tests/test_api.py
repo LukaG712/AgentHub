@@ -60,9 +60,11 @@ def client(tmp_path):
     from hub import memory as memory_module
     memory_module.close_connection()
 
-    # Clear queue state so workers don't carry over between tests
+    # Clear queue state and agent locks so workers don't carry over between tests
     from hub import queue_manager as qm
+    from hub.runner import clear_agent_locks
     qm.clear_all_queues()
+    clear_agent_locks()
     # Use per-test queue state file so workers don't conflict
     queue_state_file = tmp_path / "queue_state.json"
 
@@ -74,20 +76,25 @@ def client(tmp_path):
         from hub import api as api_module
         yield TestClient(api_module.app)
 
-    # Wait for any pending runs to finish before tearing down
-    import time as _time
-    from hub.runner import list_runs
-    for _ in range(60):
-        all_done = True
-        for run in list_runs():
-            if run.state in ("working", "queued"):
-                all_done = False
+        # Stop queue workers immediately so no new runs start.
+        qm.clear_all_queues()
+
+        # Wait briefly for any in-progress runs to finish before tearing down.
+        # Must stay inside the patched context so list_runs() reads the
+        # correct (temporary) runs directory.
+        import time as _time
+
+        from hub.runner import list_runs
+        for _ in range(15):
+            all_done = True
+            for run in list_runs():
+                if run.state in ("working", "queued"):
+                    all_done = False
+                    break
+            if all_done:
                 break
-        if all_done:
-            break
-        _time.sleep(0.2)
-    # Clean up queue state after each test
-    qm.clear_all_queues()
+            _time.sleep(0.1)
+
     memory_module.close_connection()
     if old_config is not None:
         os.environ["HUB_CONFIG"] = old_config
@@ -936,7 +943,7 @@ class TestSSEStreaming:
         )
         run_id = dispatch.json()["run_id"]
         # Wait for the run to complete using bounded polling
-        assert _wait_for_run(client, run_id), "Run did not complete in time"
+        assert _wait_for_run(client, run_id, timeout=10), "Run did not complete in time"
         # Connect to the stream — run should be done, so we get the final state
         resp = client.get(
             f"/api/sessions/{session_id}/stream",
@@ -962,7 +969,7 @@ class TestSSEStreaming:
             json={"content": "replay task"},
         )
         run_id = dispatch.json()["run_id"]
-        assert _wait_for_run(client, run_id), "Run did not complete in time"
+        assert _wait_for_run(client, run_id, timeout=10), "Run did not complete in time"
         # Connect after run is done
         resp = client.get(
             f"/api/sessions/{session_id}/stream",
@@ -1001,8 +1008,8 @@ class TestSSEStreaming:
         run_id_2 = d2["run_id"]
         assert run_id_1 != run_id_2, "Run IDs must be different"
         # Wait for both to complete using bounded polling
-        assert _wait_for_run(client, run_id_1), "Run 1 did not complete in time"
-        assert _wait_for_run(client, run_id_2), "Run 2 did not complete in time"
+        assert _wait_for_run(client, run_id_1, timeout=10), "Run 1 did not complete in time"
+        assert _wait_for_run(client, run_id_2, timeout=10), "Run 2 did not complete in time"
         # Stream session 1 — should only contain run_id_1
         resp1 = client.get(
             f"/api/sessions/{s1}/stream",
@@ -1041,7 +1048,7 @@ class TestSSEStreaming:
             json={"content": "fail task"},
         )
         run_id = dispatch.json()["run_id"]
-        assert _wait_for_run(client, run_id), "Run did not complete in time"
+        assert _wait_for_run(client, run_id, timeout=10), "Run did not complete in time"
         resp = client.get(
             f"/api/sessions/{session_id}/stream",
             cookies={"hub_api_key": "test-secret-key"},
@@ -1065,7 +1072,7 @@ class TestSSEStreaming:
             json={"content": "specific run task"},
         )
         run_id = dispatch.json()["run_id"]
-        assert _wait_for_run(client, run_id), "Run did not complete in time"
+        assert _wait_for_run(client, run_id, timeout=10), "Run did not complete in time"
         # Stream using specific run_id
         resp = client.get(
             f"/api/sessions/{session_id}/stream",
@@ -1106,7 +1113,7 @@ class TestSSEStreaming:
             json={"content": "first overlapping task"},
         ).json()
         run_id_1 = d1["run_id"]
-        assert _wait_for_run(client, run_id_1), "Run 1 did not complete in time"
+        assert _wait_for_run(client, run_id_1, timeout=10), "Run 1 did not complete in time"
         # Second run in the same session
         d2 = client.post(
             f"/api/sessions/{session_id}/messages",
@@ -1115,7 +1122,7 @@ class TestSSEStreaming:
         ).json()
         run_id_2 = d2["run_id"]
         # Wait for the second run to complete
-        assert _wait_for_run(client, run_id_2), "Run 2 did not complete in time"
+        assert _wait_for_run(client, run_id_2, timeout=10), "Run 2 did not complete in time"
         # Stream run 1 specifically
         resp1 = client.get(
             f"/api/sessions/{session_id}/stream",

@@ -25,24 +25,28 @@ _current_active_runs: Dict[str, Optional[Run]] = {}
 
 # H1: Persist queue state to survive restarts
 _QUEUE_STATE_FILE = Path(__file__).resolve().parent.parent / "data" / "queue_state.json"
+_queue_state_lock = threading.Lock()  # Prevent concurrent file writes on Windows
 
 
 def _save_queue_state() -> None:
-    """Persist queue state to disk (H1 fix)."""
-    try:
-        state = {
-            "paused_bots": list(_paused_bots),
-            "queues": {},
-        }
-        for bot_id, items in _bot_queues.items():
-            state["queues"][bot_id] = [item.to_dict() for item in items]
-        tmp = _QUEUE_STATE_FILE.with_suffix(".tmp")
-        tmp.parent.mkdir(parents=True, exist_ok=True)
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(state, f, indent=2)
-        os.replace(str(tmp), str(_QUEUE_STATE_FILE))
-    except Exception:
-        logger.exception("Failed to save queue state")
+    """Persist queue state to disk (H1 fix). Thread-safe via dedicated file lock."""
+    with _queue_state_lock:
+        try:
+            # Re-read current state under the main lock to avoid stale data
+            with _lock:
+                state = {
+                    "paused_bots": list(_paused_bots),
+                    "queues": {},
+                }
+                for bot_id, items in _bot_queues.items():
+                    state["queues"][bot_id] = [item.to_dict() for item in items]
+            tmp = _QUEUE_STATE_FILE.with_suffix(".tmp")
+            tmp.parent.mkdir(parents=True, exist_ok=True)
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2)
+            os.replace(str(tmp), str(_QUEUE_STATE_FILE))
+        except Exception:
+            logger.exception("Failed to save queue state")
 
 
 def _load_queue_state() -> None:
