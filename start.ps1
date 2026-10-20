@@ -165,6 +165,20 @@ if (-not $env:HUB_API_KEY) {
     exit 1
 }
 
+# -- Parse optional flags -----------------------------------------------
+$host = "0.0.0.0"
+$production = $false
+$argsList = $args
+$i = 0
+while ($i -lt $argsList.Count) {
+    switch ($argsList[$i]) {
+        "--host" { $host = $argsList[++$i]; }
+        "--no-reload" { $production = $true; }
+        "--production" { $host = "0.0.0.0"; $production = $true; }
+    }
+    $i++
+}
+
 # -- Get port from environment or default to 8080 -----------------------
 $port = if ($env:HUB_PORT) { [int]$env:HUB_PORT } else { 8080 }
 
@@ -175,7 +189,11 @@ if ($needsSetup) {
 }
 
 Write-Host ""
-Write-Host "Starting Agent Hub on port $port..." -ForegroundColor Green
+if ($production) {
+    Write-Host "Starting Agent Hub in production mode..." -ForegroundColor Green
+} else {
+    Write-Host "Starting Agent Hub with auto-reload..." -ForegroundColor Green
+}
 Write-Host "Dashboard: http://localhost:$port" -ForegroundColor Green
 Write-Host "Press Ctrl+C to stop." -ForegroundColor Green
 Write-Host ""
@@ -184,4 +202,8 @@ Write-Host ""
 Start-Process "http://localhost:$port"
 
 # -- Start uvicorn ------------------------------------------------------
-& $VENV_PYTHON -m uvicorn hub.api:app --host 0.0.0.0 --port $port --reload
+if ($production) {
+    & $VENV_PYTHON -m uvicorn hub.api:app --host $host --port $port
+} else {
+    & $VENV_PYTHON -m uvicorn hub.api:app --host $host --port $port --reload
+}

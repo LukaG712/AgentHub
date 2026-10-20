@@ -93,3 +93,20 @@ max_handoff_hops: 5
 
 # Data directory: where runs, locks, and Bot memory files are stored
 # data_dir: "data"
+
+# --- Network & CORS configuration ---
+# CORS controls which browsers can access the API from different origins.
+# For LAN access, add your VM's IP or hostname to the origins list.
+# cors:
+#   enabled: true
+#   origins:
+#     - "http://localhost:*"
+#     - "http://127.0.0.1:*"
+#     - "http://192.168.1.100:*"    # Your VM's LAN IP
+#     - "http://agent-hub.local:*"  # Optional: local DNS hostname
+
+# --- Server binding ---
+# The server binds to 127.0.0.1 by default (localhost only).
+# For LAN access, use:  agent-hub serve --host 0.0.0.0
+# For production mode (no auto-reload):  agent-hub serve --host 0.0.0.0 --port 8080
+# The start.sh and start.ps1 scripts support --production and --host flags.

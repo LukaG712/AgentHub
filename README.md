@@ -55,6 +55,11 @@ Everything you need to manage AI coding agents from one place:
 | 🌐 **Remote** | SSH execution | Dispatch agent runs to remote machines with automatic project sync |
 | 🖥️ **Dashboard** | Web UI | Browser-based interface for all agent management tasks |
 | ⚙️ **Background** | Service mode | Run as a systemd service (Linux) or via PowerShell (Windows) |
+| 🖥️ **Desktop App** | Windows client | Tauri-based desktop app that connects to the VM-hosted backend |
+| 📦 **Portable** | No-install build | Portable `.zip` distribution — no admin privileges required |
+| 📀 **Installer** | NSIS installer | Proper Windows installer with Start Menu shortcuts and clean uninstall |
+| 🏥 **Health API** | Monitoring | `GET /api/health` and `GET /api/ready` for systemd and load balancer checks |
+| 🌐 **CORS** | LAN access | Configurable CORS middleware for browser access from LAN devices |
 
 ## �- How it Works with JunieOrchestrator
 
@@ -148,6 +153,181 @@ The service runs as your user (not root) and reads the API key from `.env`.
 ### 🪟 Windows
 
 On Windows, run `.\start.ps1` in a console window or configure [Task Scheduler](https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-start-page) to keep it running.
+
+### Production Mode
+
+For production deployments (no auto-reload), use the `--production` flag:
+
+```bash
+./start.sh --production
+```
+
+```powershell
+.\start.ps1 --production
+```
+
+You can also customize the bind address:
+
+```bash
+./start.sh --host 0.0.0.0 --production    # LAN access, production mode
+./start.sh --host 127.0.0.1              # Localhost only, development mode
+```
+
+## 🖥️ VM Deployment
+
+AgentHub is designed to run as a persistent service on a Linux VM (Ubuntu/Debian), accessible from your local network.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    VM (Ubuntu/Debian)                    │
+│                                                          │
+│  systemd: agent-hub.service                              │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │  FastAPI (uvicorn) on 0.0.0.0:8080              │  │
+│  │  ┌───────────┐  ┌───────────┐  ┌────────────┐ │  │
+│  │  │ REST API  │  │ SSE Stream│  │ Static UI  │ │  │
+│  │  └───────────┘  └───────────┘  └────────────┘ │  │
+│  │  ┌───────────┐  ┌───────────┐  ┌────────────┐ │  │
+│  │  │ SQLite DB │  │ Run Queue │  │ Scheduler  │ │  │
+│  │  └───────────┘  └───────────┘  └────────────┘ │  │
+│  └──────────────────────────────────────────────────┘  │
+│                                                          │
+│  Data: data/hub.db, data/runs/, data/queue_state.json    │
+│  Config: hub.yaml, .env (HUB_API_KEY)                    │
+└─────────────────────────────────────────────────────────┘
+         ▲                    ▲                    ▲
+         │ HTTP/SSE           │ HTTP/SSE           │ HTTP
+┌────────┴──────┐   ┌────────┴───────┐   ┌────────┴────────┐
+│ Browser (LAN) │   │ Tauri Desktop  │   │ Other LAN device │
+│ vm-ip:8080    │   │ App (Windows)  │   │ Browser          │
+└───────────────┘   └────────────────┘   └─────────────────┘
+```
+
+### Deploy to VM
+
+1. **Clone and set up** on the VM:
+
+```bash
+git clone https://github.com/LukaG712/AgentHub.git && cd AgentHub
+./start.sh
+```
+
+2. **Install as systemd service**:
+
+```bash
+sudo ./install_service.sh
+```
+
+3. **Configure LAN access** in `hub.yaml`:
+
+```yaml
+cors:
+  enabled: true
+  origins:
+    - "http://localhost:*"
+    - "http://127.0.0.1:*"
+    - "http://192.168.1.100:*"    # Your VM's LAN IP
+```
+
+4. **Open firewall** (Ubuntu/Debian with UFW):
+
+```bash
+sudo ufw allow 8080/tcp
+```
+
+5. **Find your VM's IP**:
+
+```bash
+hostname -I | awk '{print $1}'
+```
+
+6. **Access from your network**: Open `http://<vm-ip>:8080` in any browser on your LAN.
+
+### Service Management
+
+```bash
+systemctl status agent-hub       # Check status
+journalctl -u agent-hub -f       # Live logs
+sudo systemctl restart agent-hub # Restart
+sudo systemctl stop agent-hub    # Stop
+```
+
+### Health Checks
+
+The service includes health and readiness endpoints:
+
+- `GET /api/health` — Returns `{"status": "ok", "version": "1.0.3"}` (unauthenticated)
+- `GET /api/ready` — Checks SQLite and config validity (returns 503 if not ready)
+
+### Backup & Restore
+
+```bash
+# Backup
+tar czf agent-hub-backup.tar.gz data/ hub.yaml .env
+
+# Restore
+tar xzf agent-hub-backup.tar.gz
+sudo systemctl restart agent-hub
+```
+
+### Update Procedure
+
+```bash
+cd /path/to/AgentHub
+git pull
+./start.sh --production    # Or: sudo systemctl restart agent-hub
+```
+
+The database and configuration are preserved across updates.
+
+## 🖥️ Desktop App (Windows)
+
+AgentHub Desktop is a lightweight Windows client that connects to the VM-hosted backend.
+
+### Features
+
+- **First-run setup**: Enter your VM URL and API key
+- **Connection status**: Green/red indicator in title bar
+- **Auto-reconnect**: Periodic health checks every 30 seconds
+- **Settings persistence**: Stored in `%APPDATA%\agent-hub-desktop\`
+- **No local backend**: Pure client — all work runs on the VM
+
+### Build from Source
+
+**Prerequisites:**
+- [Rust](https://rustup.rs/)
+- [Node.js](https://nodejs.org/) (for Tauri CLI)
+- WebView2 Runtime (pre-installed on Windows 10+)
+
+```powershell
+cd desktop
+npm install
+npm run build
+```
+
+**Build output:**
+- **Installer**: `src-tauri/target/release/bundle/nsis/AgentHub Desktop Setup X.X.X.exe`
+- **Portable**: `src-tauri/target/release/bundle/app/AgentHub Desktop_x64.zip`
+
+### First-Run Flow
+
+1. App launches → shows settings page
+2. Enter VM URL (e.g., `http://192.168.1.100:8080`) and API key
+3. App validates connection via `/api/health`
+4. On success, loads the remote AgentHub UI
+5. On failure, shows error and allows retry
+
+### Portable vs Installer
+
+| Feature | Portable | Installer |
+|---------|----------|-----------|
+| Installation | None — just extract | NSIS installer |
+| Admin required | No | No (per-user) |
+| Start Menu shortcut | No | Yes |
+| Settings location | `%APPDATA%` | `%APPDATA%` |
+| Uninstaller | Delete folder | Clean uninstaller |
 
 ## ⚙️ Configuration
 

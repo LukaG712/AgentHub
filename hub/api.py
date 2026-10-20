@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from hub import agents, memory, ollama, obsidian, providers, remote, skills
@@ -239,6 +240,33 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(title="Agent Hub", lifespan=lifespan)
 
+# CORS middleware — configurable via hub.yaml "cors" section
+# Default: allow localhost:* and the VM's own hostname for LAN browser access
+_default_cors_origins = [
+    "http://localhost:*",
+    "http://127.0.0.1:*",
+]
+
+def _get_cors_origins() -> List[str]:
+    """Get CORS allowed origins from config, falling back to defaults."""
+    try:
+        config = load_config()
+        cors_cfg = config.get("cors", {})
+        if cors_cfg.get("enabled", True):
+            origins = cors_cfg.get("origins", _default_cors_origins)
+            return origins
+    except Exception:
+        pass
+    return _default_cors_origins
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_get_cors_origins(),
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
+)
+
 
 def _validate_startup() -> Dict[str, Any]:
     """Validate configuration and return a status report."""
@@ -299,6 +327,37 @@ def _validate_startup() -> Dict[str, Any]:
         "providers": available_providers,
         "healthy": len([i for i in issues if i["severity"] == "error"]) == 0,
     }
+
+
+@app.get("/api/health")
+async def api_health():
+    """Health check endpoint — unauthenticated, safe for systemd/load balancer."""
+    return {"status": "ok", "version": "1.0.3"}
+
+
+@app.get("/api/ready")
+async def api_ready():
+    """Readiness check — verifies SQLite connectivity and config validity."""
+    issues = []
+    # Check SQLite connectivity
+    try:
+        memory.get_connection()
+        memory.close_connection()
+    except Exception as e:
+        issues.append({"component": "database", "error": str(e)})
+    # Check config validity
+    try:
+        config = load_config()
+        if not config.get("agents"):
+            issues.append({"component": "config", "warning": "No agents configured"})
+    except Exception as e:
+        issues.append({"component": "config", "error": str(e)})
+
+    ready = len([i for i in issues if "error" in i]) == 0
+    return JSONResponse(
+        status_code=200 if ready else 503,
+        content={"ready": ready, "issues": issues},
+    )
 
 
 @app.get("/api/status")

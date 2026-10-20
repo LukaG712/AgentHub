@@ -148,9 +148,29 @@ if [ "$needs_setup" -eq 1 ]; then
   echo ""
 fi
 
+# ── Parse optional flags ─────────────────────────────────────────────
+host="0.0.0.0"
+reload_flag=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --host)
+      host="$2"; shift 2 ;;
+    --no-reload)
+      reload_flag="--no-reload"; shift ;;
+    --production)
+      host="0.0.0.0"; reload_flag="--no-reload"; shift ;;
+    *)
+      shift ;;
+  esac
+done
+
 # ── Start the server ─────────────────────────────────────────────────
 echo ""
-echo "Starting Agent Hub …"
+if [ -n "$reload_flag" ]; then
+  echo "Starting Agent Hub in production mode …"
+else
+  echo "Starting Agent Hub with auto-reload …"
+fi
 echo "Dashboard: http://localhost:$port"
 echo "Press Ctrl+C to stop."
 echo ""
@@ -162,4 +182,8 @@ elif command -v open &>/dev/null; then
   open "http://localhost:$port" &>/dev/null &
 fi
 
-exec uvicorn hub.api:app --host 0.0.0.0 --port "$port" --reload
+if [ -n "$reload_flag" ]; then
+  exec uvicorn hub.api:app --host "$host" --port "$port"
+else
+  exec uvicorn hub.api:app --host "$host" --port "$port" --reload
+fi

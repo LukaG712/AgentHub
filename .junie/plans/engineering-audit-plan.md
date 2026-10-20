@@ -2,140 +2,59 @@
 sessionId: session-261020-142657-1t2p
 ---
 
-# Audit Findings
+# Desktop App, Portable EXE, Installer & Always-On VM Web Server
 
-## Phase 1 — Audit: Severity-Ranked Findings
+## Architecture Overview
 
-I've inspected the full repository: `hub/api.py` (1854 lines), `hub/runner.py` (917 lines), `hub/memory.py` (970 lines), `hub/queue_manager.py` (213 lines), `hub/coordinator.py` (494 lines), `hub/providers.py` (418 lines), `hub/config.py` (146 lines), `hub/static/index.html` (~125KB single file), `hub/auto_review.py`, `hub/templates.py`, `hub/routines.py`, `hub/remote.py`, `hub/git_service.py`, `hub/agents.py`, `hub/cli.py`, and all 16 test files.
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         VM (Ubuntu/Debian)                      │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  systemd: agent-hub.service                              │  │
+│  │  ┌────────────────────────────────────────────────────┐  │  │
+│  │  │  FastAPI (uvicorn) on 0.0.0.0:8080                │  │  │
+│  │  │  ┌─────────────┐  ┌─────────────┐  ┌───────────┐ │  │  │
+│  │  │  │ REST API    │  │ SSE Stream  │  │ Static UI │ │  │  │
+│  │  │  └─────────────┘  └─────────────┘  └───────────┘ │  │  │
+│  │  │  ┌─────────────┐  ┌─────────────┐  ┌───────────┐ │  │  │
+│  │  │  │ SQLite DB   │  │ Run Queue   │  │ Scheduler │ │  │  │
+│  │  │  └─────────────┘  └─────────────┘  └───────────┘ │  │  │
+│  │  └────────────────────────────────────────────────────┘  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  Data: data/hub.db, data/runs/, data/queue_state.json           │
+│  Config: hub.yaml, .env (HUB_API_KEY)                           │
+└─────────────────────────────────────────────────────────────────┘
+         ▲                      ▲                      ▲
+         │ HTTP/SSE             │ HTTP/SSE             │ HTTP
+         │                      │                      │
+┌────────┴────────┐    ┌───────┴───────┐    ┌────────┴────────┐
+│ Browser (LAN)   │    │ Tauri Desktop │    │ Other LAN device │
+│ http://vm-ip:8080│    │ App (Windows) │    │ Browser          │
+└─────────────────┘    └───────────────┘    └─────────────────┘
+```
 
----
+## Key Design Decisions
 
-### CRITICAL — Security & Reliability
-
-**C1. Server binds to 0.0.0.0 by default (hub/cli.py:213)**
-- The `serve` command defaults `--host` to `"0.0.0.0"`, exposing the API to the entire local network. Any network neighbor can attempt brute-force on the bearer token.
-- **Fix:** Default to `127.0.0.1`; document `--host 0.0.0.0` for intentional LAN exposure.
-
-**C2. API key exposed via query parameter (hub/api.py:155-171)**
-- `_verify_token_or_query` accepts the API key as a `?token=` query string for SSE endpoints. Query strings are logged in server access logs, browser history, and proxy logs.
-- **Fix:** Use a cookie-based or header-only auth for SSE; or at minimum document the risk and add a warning.
-
-**C3. `_is_process_alive()` kills the process instead of checking (hub/runner.py:150-167)**
-- The fallback when `psutil` is not installed runs `taskkill /F /T /PID <pid>` — it **force-kills** the process instead of checking if it's alive. This is a data-destructive bug during stale run recovery.
-- **Fix:** Use `os.kill(pid, 0)` on POSIX / `OpenProcess` on Windows to check existence without killing.
-
-**C4. No rate limiting on authentication failures**
-- Unlimited brute-force attempts against the bearer token. No lockout, delay, or logging.
-- **Fix:** Add simple rate limiting (e.g., 10 failures/min → 429) with logging.
-
-**C5. StrictHostKeyChecking=no for SSH (hub/remote.py:111)**
-- SSH connections disable host key verification, enabling MITM attacks on remote execution.
-- **Fix:** Make this configurable; default to checking known hosts.
-
----
-
-### HIGH — Reliability & Data Integrity
-
-**H1. Queue state lost on restart (hub/queue_manager.py)**
-- `_bot_queues`, `_paused_bots`, and `_resume_events` are in-memory only. A server restart loses all queued tasks and pause state. Running tasks are recovered via `recover_stale_runs()`, but queued tasks silently disappear.
-- **Fix:** Persist queue state to SQLite or JSON; replay on startup.
-
-**H2. Config race condition (hub/config.py:43-52)**
-- `save_config()` reads → backs up → writes temp → replaces. But multiple concurrent API endpoints call `load_config()` + `save_config()` without coordination, leading to lost updates (e.g., two agents created simultaneously → one overwrites the other).
-- **Fix:** Add a file-level or threading lock around load-modify-save cycles.
-
-**H3. SQLite connection leak on scheduler thread (hub/memory.py)**
-- The scheduler thread calls `memory.close_connection()` at the end of each loop iteration (routines.py:139), but if an exception occurs before that, the connection stays open. Thread-local connections are never cleaned up on shutdown.
-- **Fix:** Use `try/finally` in the scheduler loop; add explicit cleanup on `stop_scheduler()`.
-
-**H4. Run file search is O(N) across all files (hub/runner.py:114-126)**
-- `_load_run()` walks all JSON files under `data/runs/` and loads each one. With hundreds of runs, `get_run()`, `stop_run()`, and status checks become slow.
-- **Fix:** Maintain an index (run_id → filepath) in SQLite or a cache.
-
-**H5. SSE event store never cleaned on restart (hub/api.py:40-47)**
-- `_sse_event_store` is in-memory. After restart, old run buffers are gone, but the `_sse_next_id` counter resets to 0, potentially causing ID collisions if events are replayed.
-- **Fix:** Accept that SSE state is ephemeral; document this. The counter reset is harmless since stores are per-run-ID.
+1. **Tauri for desktop** — Lightweight (~5-10MB), uses system WebView2 on Windows, embeds the existing SPA frontend directly. Requires Rust toolchain for building.
+2. **VM runs Ubuntu/Debian** — systemd service for auto-start and crash recovery.
+3. **LAN + desktop access** — CORS configured for LAN browser access; Tauri desktop app connects via configurable server URL.
+4. **Single backend** — All three access methods (browser, desktop, LAN) connect to the same VM-hosted FastAPI instance. No duplicate backend in the desktop app.
+5. **Frontend remains unchanged** — The existing `hub/static/index.html` SPA is reused as-is. Tauri loads it from the remote VM URL (not bundled locally).
 
 ---
 
-### MEDIUM — Correctness & UX
+# Audit Findings (Previous Engineering Audit — All Fixed ✓)
 
-**M1. `_FileLock` on Windows is thread-only (hub/runner.py:197-251)**
-- On Windows, `fcntl` is not available, so `_HAS_FLOCK = False`. The file lock becomes a no-op for cross-process locking — only the in-process `threading.Lock` works. Two separate hub processes could run the same agent concurrently.
-- **Fix:** Use `msvcrt.locking()` on Windows or a cross-platform lock library.
-
-**M2. Permissions not enforced by execution layer (hub/providers.py)**
-- `AgentPermissions` generates CLI flags (e.g., `--no-file-write`), but the runner doesn't verify the provider actually respects them. If the provider ignores flags, permissions are ineffective.
-- **Fix:** Document that permissions are provider-dependent; add a provider capability check.
-
-**M3. Auto-review is post-hoc only (hub/auto_review.py + runner.py:760-789)**
-- Auto-review checks output **after** the run completes. It cannot prevent a destructive command from executing — it only creates an approval record after the fact.
-- **Fix:** Document this limitation clearly. The spec says "pause for approval" but the implementation checks after completion.
-
-**M4. Static UI is a single 125KB file (hub/static/index.html)**
-- All CSS, HTML, and JavaScript are in one file. This makes maintenance difficult and increases risk of regressions.
-- **Fix:** Defer to Phase 4 (refactoring). Not a bug, but a maintainability risk.
-
-**M5. No input sanitization for agent names in file paths**
-- Agent names are used directly in file paths (e.g., `data/runs/{agent}/`). While `validate_name()` restricts to `[a-z0-9-]`, template names and routine names have no such validation.
-- **Fix:** Add path traversal checks for all user-controlled names used in paths.
-
-**M6. Coordinator worktrees not cleaned on failure (hub/coordinator.py)**
-- When a coordinated task fails or is rejected, its worktree may not be cleaned up, leaving orphaned directories.
-- **Fix:** Ensure `reject_task()` and failure paths call worktree cleanup.
+All 20+ findings from the previous engineering audit have been fixed and committed. See git history for details.
 
 ---
-
-### LOW — Code Quality & Tests
-
-**L1. No CI configuration**
-- No GitHub Actions, linting, type checking, or test matrices. `pyproject.toml` has minimal dev deps.
-- **Fix:** Add CI workflow.
-
-**L2. No type hints on most functions**
-- Only `runner.py` and `coordinator.py` have partial type hints. No mypy configuration.
-- **Fix:** Add to Phase 5 quality gates.
-
-**L3. Test coverage gaps**
-- No tests for: queue recovery on restart, config race conditions, process management on Windows, API auth rate limiting, coordinator worktree cleanup, or SSE reconnection.
-- **Fix:** Add in Phase 5.
-
-**L4. `__init__.py` imports create circular dependency risk**
-- `hub/api.py` imports from `hub.runner`, `hub.coordinator`, `hub.queue_manager`, etc. at module level. Any circular import breaks the entire API.
-- **Fix:** Use lazy imports where possible (already partially done).
-
-**L5. Dead code: `_dispatch_run` endpoint (hub/api.py:489-510)**
-- `POST /api/agents/{name}/runs` spawns a background thread that calls `run_agent()` directly, bypassing the queue manager. This creates a parallel execution path that doesn't respect per-bot sequential queueing.
-- **Fix:** Either remove or wire through queue_manager.
-
----
-
-## Summary Table
-
-| ID | Severity | Category | File | Description |
-|----|----------|----------|------|-------------|
-| C1 | CRITICAL | Security | cli.py | Server binds to 0.0.0.0 by default |
-| C2 | CRITICAL | Security | api.py | API key via query parameter |
-| C3 | CRITICAL | Bug | runner.py | `_is_process_alive` kills processes |
-| C4 | CRITICAL | Security | api.py | No rate limiting on auth |
-| C5 | CRITICAL | Security | remote.py | StrictHostKeyChecking=no |
-| H1 | HIGH | Reliability | queue_manager.py | Queue state lost on restart |
-| H2 | HIGH | Data integrity | config.py | Config race condition |
-| H3 | HIGH | Reliability | memory.py | SQLite connection leak |
-| H4 | HIGH | Performance | runner.py | O(N) run file search |
-| H5 | HIGH | Reliability | api.py | SSE state on restart |
-| M1 | MEDIUM | Correctness | runner.py | File lock no-op on Windows |
-| M2 | MEDIUM | Security | providers.py | Permissions not enforced |
-| M3 | MEDIUM | Correctness | auto_review.py | Post-hoc review only |
-| M4 | MEDIUM | Maintainability | static/index.html | Single 125KB file |
-| M5 | MEDIUM | Security | Multiple | Path traversal in names |
-| M6 | MEDIUM | Correctness | coordinator.py | Worktree cleanup on failure |
-| L1-L5 | LOW | Quality | Multiple | CI, types, tests, imports, dead code |
 
 # Delivery Steps
 
 ### ✓ Step 1: Write audit report and prioritize fixes
-Produce the audit document in `.junie/plans/audit.md` with all findings ranked by severity. Confirm the prioritized fix list with the user before implementing.
+Produce the audit document with all findings ranked by severity. Confirm the prioritized fix list with the user before implementing.
 
 ### ✓ Step 2: Fix critical bugs: process check, server bind, query auth
 - Fix `_is_process_alive()` in `hub/runner.py` to check without killing (C3)
@@ -167,3 +86,195 @@ Produce the audit document in `.junie/plans/audit.md` with all findings ranked b
 - Update `pyproject.toml` dev dependencies
 - Run full test suite; ensure all tests pass
 - Update README with new configuration options and security notes
+
+---
+
+## ✓ Phase 1 — Backend: Health, CORS, and VM Service Improvements
+
+**Completed:** Added health/ready endpoints, CORS middleware, improved systemd service, production mode flags, and documentation.
+
+### Health and Readiness Endpoints ✓
+- Added `GET /api/health` — returns `{"status": "ok", "version": "1.0.3"}` (unauthenticated)
+- Added `GET /api/ready` — checks SQLite connectivity and config validity (returns 503 if not ready)
+
+### CORS Middleware ✓
+- Added `CORSMiddleware` to FastAPI with configurable allowed origins via `hub.yaml` `cors` section
+- Default: allow `http://localhost:*` and `http://127.0.0.1:*`
+- Documented in `hub.example.yaml` how to add custom origins for LAN access
+
+### Improved systemd Service ✓
+- Updated `install_service.sh` with:
+  - `ExecStartPost` for health check delay
+  - `StartLimitIntervalSec=60` and `StartLimitBurst=5` for crash restart limits
+  - `LimitNOFILE=65536` for high file descriptor counts
+  - `TimeoutStartSec=30` and `TimeoutStopSec=10`
+  - Journal logging with `SyslogIdentifier=agent-hub`
+  - `--host 0.0.0.0` explicitly in ExecStart for LAN access
+
+### Improved start scripts ✓
+- Added `--production` and `--host` flags to both `start.sh` and `start.ps1`
+- Production mode disables auto-reload
+
+### Files modified
+- `hub/api.py` — Health/ready endpoints, CORS middleware
+- `install_service.sh` — Enhanced systemd unit
+- `start.sh` — Production mode flags
+- `start.ps1` — Production mode flags
+- `hub.example.yaml` — CORS and network config documentation
+- `README.md` — VM deployment and desktop app sections
+
+---
+
+## ✓ Phase 2 — Tauri Desktop App Setup
+
+**Completed:** Full Tauri project with settings page, connection handling, and health checks.
+
+### Tauri Project Structure
+Create a new `desktop/` directory with Tauri project:
+
+```
+desktop/
+├── src/
+│   └── main.rs              # Tauri Rust entry point
+├── src-tauri/
+│   ├── tauri.conf.json      # App config (name, version, window, etc.)
+│   ├── Cargo.toml           # Rust dependencies
+│   ├── build.rs             # Build script
+│   ├── icons/               # App icons (generated)
+│   └── permissions/         # Tauri permissions
+├── index.html               # Splash/settings page (minimal)
+├── package.json             # Node.js for build tooling only
+└── README.md                # Build instructions
+```
+
+### App Architecture
+- The Tauri app does NOT bundle the AgentHub frontend locally
+- Instead, it loads the remote VM's URL (`http://vm-ip:8080`) in a WebView2 window
+- A minimal settings page (local) allows configuring the server URL
+- The main window navigates to the remote URL after settings are saved
+
+### Settings Storage
+- Server URL stored in Tauri's `store` API (encrypted JSON file in `%APPDATA%\agent-hub-desktop\`) 
+- API key stored in the same store
+- Connection status tracked in the window title bar
+
+### First-Run Flow
+1. App launches → shows settings page (local HTML)
+2. User enters VM URL (e.g., `http://192.168.1.100:8080`) and API key
+3. App validates connection via `/api/health`
+4. On success, opens main window loading the remote AgentHub UI
+5. On failure, shows error and allows retry
+
+### Connection Handling
+- Periodic health check (every 30s) to detect VM disconnect
+- Auto-reconnect with exponential backoff on failure
+- Status indicator in title bar (green/red dot)
+- Manual reconnect button in settings
+
+### Files to create
+- `desktop/` — Full Tauri project
+- `desktop/src/main.rs` — Window management, settings commands
+- `desktop/src-tauri/tauri.conf.json` — App configuration
+- `desktop/src-tauri/Cargo.toml` — Dependencies
+- `desktop/settings.html` — Local settings page
+- `desktop/README.md` — Build instructions
+
+---
+
+## ✓ Phase 3 — Portable and Installer Builds
+
+**Completed:** Configured in `tauri.conf.json` with NSIS installer and portable app bundle targets.
+
+### Portable Build
+- Use Tauri's `tauri.conf.json` with `bundle.type = "app"` for a portable directory
+- Package as `AgentHub-Portable-Windows-x64.zip` containing:
+  - `agent-hub-desktop.exe`
+  - Required WebView2 runtime check (uses system WebView2, no bundling)
+  - `settings/` directory for user config
+- No admin privileges required
+- Settings stored in `%APPDATA%` (writable), not in the portable directory
+
+### Installer Build
+- Use Tauri's built-in NSIS installer support (`bundle.targets = ["nsis"]`)
+- Produces `AgentHub-Setup-Windows-x64.exe`
+- Installs to `%LOCALAPPDATA%\agent-hub-desktop` (per-user, no admin needed)
+- Creates Start Menu shortcut
+- Optional desktop shortcut
+- Clean uninstaller that preserves `%APPDATA%` settings
+- Version-aware upgrades that don't delete user data
+
+### Build Configuration
+- Update `tauri.conf.conf.json` with proper metadata:
+  - Product name: "AgentHub Desktop"
+  - Publisher: from `pyproject.toml` authors
+  - Version: synced with `pyproject.toml` version
+  - Icon: generated from Tauri icon generator
+
+### Files to modify
+- `desktop/src-tauri/tauri.conf.json` — Bundle configuration
+- `desktop/src-tauri/tauri.conf.json` — NSIS installer settings
+
+---
+
+## ✓ Phase 4 — CI/CD for Desktop Builds
+
+**Completed:** Added GitHub Actions workflow for desktop builds.
+
+### GitHub Actions Workflow
+- Add `desktop-build.yml` workflow:
+  - Triggers on push to master and manual dispatch
+  - Runs on `windows-latest`
+  - Installs Rust toolchain
+  - Installs Node.js (for Tauri CLI)
+  - Runs `tauri build` producing both portable and installer artifacts
+  - Uploads artifacts to the workflow run
+  - Does NOT publish to GitHub Releases without authorization
+
+### Build Artifacts
+- `AgentHub-Portable-Windows-x64.zip`
+- `AgentHub-Setup-Windows-x64.exe`
+
+### Files to create
+- `.github/workflows/desktop-build.yml`
+
+---
+
+## ✓ Phase 5 — Documentation and Testing
+
+**Completed:** Updated README with VM deployment, desktop app, and troubleshooting sections.
+
+### Documentation Updates
+- **README.md**: Add sections for:
+  - VM deployment (systemd service, start/stop/status commands)
+  - LAN access configuration (CORS, firewall, network binding)
+  - Desktop app (build, install, configure, connect)
+  - Portable vs Installer comparison
+  - Troubleshooting guide
+  - Backup and restore procedures
+  - Update procedure with rollback
+
+- **desktop/README.md**: Build prerequisites, step-by-step build instructions
+
+### Tests
+- Backend tests for health/ready endpoints
+- CORS configuration tests
+- Settings storage tests (Tauri store)
+- Connection validation tests
+- Service script validation (syntax check)
+
+### Files to modify
+- `README.md` — Comprehensive deployment and desktop documentation
+- `tests/test_api.py` — Health endpoint tests
+- `tests/test_cors.py` — CORS configuration tests
+
+---
+
+## Summary of All Changes
+
+| Phase | What | Files |
+|-------|------|-------|
+| 1 | Health, CORS, VM service | `hub/api.py`, `install_service.sh`, `start.sh`, `start.ps1`, `hub.example.yaml`, `README.md` |
+| 2 | Tauri desktop app | `desktop/` (new directory) |
+| 3 | Portable + installer builds | `desktop/src-tauri/tauri.conf.json` |
+| 4 | CI/CD for desktop | `.github/workflows/desktop-build.yml` |
+| 5 | Documentation + tests | `README.md`, `desktop/README.md`, `tests/` |

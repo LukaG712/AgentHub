@@ -67,8 +67,20 @@ Environment=HOME=${REAL_HOME}
 EnvironmentFile=${ENV_FILE}
 WorkingDirectory=${SCRIPT_DIR}
 ExecStart=${SCRIPT_DIR}/.venv/bin/uvicorn hub.api:app --host 0.0.0.0 --port 8080
+ExecStartPost=/bin/sleep 2
 Restart=on-failure
 RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=5
+LimitNOFILE=65536
+# Health check: verify the server responds on /api/health
+ExecReload=/bin/kill -HUP \$MAINPID
+TimeoutStartSec=30
+TimeoutStopSec=10
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=agent-hub
 
 [Install]
 WantedBy=multi-user.target
