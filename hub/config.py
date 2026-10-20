@@ -119,3 +119,27 @@ def delete_agent(config: Dict[str, Any], name: str) -> Dict[str, Any]:
         raise KeyError(f"Agent '{name}' not found")
     del config["agents"][name]
     return config
+
+
+def get_primary_bot(config: Dict[str, Any]) -> Optional[str]:
+    """Get the primary bot name from config."""
+    return config.get("primary_bot")
+
+
+def set_primary_bot(config: Dict[str, Any], name: Optional[str]) -> Dict[str, Any]:
+    """Set or clear the primary bot in config.
+    
+    Args:
+        config: The config dictionary.
+        name: The agent name to set as primary, or None to clear.
+    
+    Returns:
+        The updated config dictionary.
+    """
+    if name is None:
+        config.pop("primary_bot", None)
+    else:
+        if name not in config.get("agents", {}):
+            raise KeyError(f"Agent '{name}' not found")
+        config["primary_bot"] = name
+    return config

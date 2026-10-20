@@ -138,7 +138,21 @@ All 32 Grok feature tests pass. The backend API endpoints exist for all features
 9. **README updated**: Added Plugins, Marketplace, and New Bot from Sentence to features table; updated checklist items; added Marketplace Page and New Bot Page sections
 
 ## Phase 8: Primary Bot + Notifications
-(Not in scope for this session)
+(COMPLETED)
+
+**Goal:** Primary Bot pinned at sidebar top with star badge, proactive daily check-in routine, and browser notifications when bots finish or fail.
+
+### What was done
+1. **Backend config**: Added `get_primary_bot()` and `set_primary_bot()` in `hub/config.py` to store the primary bot name in hub.yaml
+2. **Backend API**: Added `POST /api/primary-bot` endpoint to set/clear the primary bot; added `is_primary` flag to each agent in `/api/status`; added `primary_bot` field to status response
+3. **Proactive check-in**: When a bot is set as primary, automatically creates a "Daily Check-in" routine that reviews other bots' activity
+4. **UI star badge**: Added `★` star badge on the primary bot's avatar in the sidebar
+5. **UI sidebar pinning**: Primary bot pinned at the top of the sidebar under a "Primary" group label in both routine-based and fallback grouping modes
+6. **UI right panel**: Added "Set as Primary Bot" / "Clear as Primary" button in the right panel for the selected bot
+7. **UI toggle function**: `togglePrimaryBot()` calls the API and refreshes the sidebar and panel
+8. **CSS**: Added `.primary-star-badge` styles for the amber star
+9. **Notifications**: Added `requestNotificationPermission()` on app load; `showNotification()` function for browser notifications; triggered on run complete and run error via SSE events
+10. **README updated**: Added Primary Bot and Notifications to features table and UI checklist
 
 ---
 

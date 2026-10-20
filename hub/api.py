@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from hub import agents, memory, ollama, obsidian, providers, remote, skills
-from hub.config import load_config, save_config, validate_name
+from hub.config import load_config, save_config, set_primary_bot, validate_name
 from hub.runner import (
     run_agent,
     stop_run,
@@ -247,9 +247,11 @@ def _validate_startup() -> Dict[str, Any]:
 @app.get("/api/status")
 async def api_status(_auth: None = Depends(_verify_token)):
     config = load_config()
+    primary_bot = config.get("primary_bot")
     agent_list = []
     for name in config.get("agents", {}):
         status = agent_status(name)
+        status["is_primary"] = (name == primary_bot)
         # Add session-based info: last message preview and unread count
         try:
             sessions = memory.list_sessions(agent_id=name, limit=1)
@@ -277,6 +279,7 @@ async def api_status(_auth: None = Depends(_verify_token)):
     validation = _validate_startup()
     return {
         "agents": agent_list,
+        "primary_bot": primary_bot,
         "providers": validation["providers"],
         "issues": validation["issues"],
         "healthy": validation["healthy"],
@@ -357,6 +360,43 @@ async def api_update_agent(name: str, body: Dict[str, Any], _auth: None = Depend
         raise HTTPException(status_code=404, detail=f"Agent '{name}' not found")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/primary-bot")
+async def api_set_primary_bot(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
+    """Set or clear the primary bot."""
+    bot_name = body.get("bot_name")
+    config = load_config()
+    try:
+        config = set_primary_bot(config, bot_name)
+        save_config(config)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    # Create proactive check-in routine when setting a primary bot
+    if bot_name:
+        try:
+            _ensure_primary_checkin_routine(bot_name)
+        except Exception:
+            pass  # Don't fail if routine creation fails
+
+    return {"primary_bot": config.get("primary_bot")}
+
+
+def _ensure_primary_checkin_routine(bot_name: str) -> None:
+    """Create a daily check-in routine for the primary bot if it doesn't exist."""
+    existing = memory.list_routines(bot_id=bot_name)
+    for r in existing:
+        if r.get("name") == "Daily Check-in":
+            return  # Already exists
+    memory.create_routine(
+        bot_id=bot_name,
+        name="Daily Check-in",
+        task="Review recent activity from other bots and approvals. Post a brief summary of what needs attention.",
+        schedule_type="interval",
+        schedule_value="1d",
+        enabled=True,
+    )
 
 
 @app.delete("/api/agents/{name}")

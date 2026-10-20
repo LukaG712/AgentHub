@@ -490,6 +490,13 @@ input, textarea, select { font-family: inherit; }
   position: absolute; bottom: -1px; right: -1px;
   border: 2px solid var(--main-bg);
 }
+/* Primary bot star badge */
+.primary-star-badge {
+  position: absolute; top: -4px; right: -4px;
+  font-size: 12px; line-height: 1; color: #fbab18;
+  text-shadow: 0 0 3px rgba(251,171,24,0.5);
+  pointer-events: none;
+}
 /* Auto Review panel */
 .panel-auto-review-toggle {
   display: flex; flex-direction: column; gap: 0.4rem;
@@ -1219,6 +1226,9 @@ input, textarea, select { font-family: inherit; }
             <button id="panel-pause-btn" class="icon-btn" style="width:auto;padding:0.25rem 0.6rem;font-size:0.75rem;" onclick="toggleCurrentBotPause()">Pause</button>
             <span id="panel-bot-queue-status" style="font-size:0.75rem;color:var(--fg-secondary);"></span>
           </div>
+          <div id="panel-primary-bot-section" style="margin-top:0.5rem;">
+            <button id="panel-primary-btn" class="btn-sm" onclick="togglePrimaryBot()" style="display:none;"></button>
+          </div>
         </div>
         <div class="panel-section">
           <h3>Runner</h3>
@@ -1494,6 +1504,22 @@ function showApp() {
   loadAllAgents();
   setupComposer();
   setupRouter();
+  requestNotificationPermission();
+}
+
+// ===================== Notifications =====================
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function showNotification(title, body, type) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    const n = new Notification(title, { body, icon: '/favicon.ico' });
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch(e) { /* ignore */ }
 }
 
 // ===================== Router =====================
@@ -1636,6 +1662,9 @@ function renderBotList(filter) {
   // Check if any bot has a routine schedule
   const hasAnyRoutine = filtered.some(a => scheduleMap[a.name]);
 
+  // Find primary bot
+  const primaryBot = filtered.find(a => a.is_primary === true);
+
   let html = '';
   if (hasAnyRoutine) {
     // Group by routine schedule
@@ -1643,10 +1672,17 @@ function renderBotList(filter) {
     const unassigned = [];
     const working = filtered.filter(a => a.status === 'working' && !a.paused);
 
+    // Primary bot pinned at top (if not already in working)
+    if (primaryBot && !(primaryBot.status === 'working' && !primaryBot.paused)) {
+      html += `<div class="sidebar-section-label">Primary</div>`;
+      html += buildBotItem(primaryBot, false);
+    }
+
     // Working bots always appear first
     if (working.length > 0) {
       html += `<div class="sidebar-section-label">Working <span class="count">${working.length}</span></div>`;
       working.forEach(a => {
+        if (a.name === primaryBot.name) return; // already shown
         html += buildBotItem(a, true);
       });
     }
@@ -1687,17 +1723,25 @@ function renderBotList(filter) {
     const working = filtered.filter(a => a.status === 'working' && !a.paused);
     const recent = filtered.filter(a => a.status !== 'working' || a.paused);
 
+    // Primary bot pinned at top (if not already in working)
+    if (primaryBot && !(primaryBot.status === 'working' && !primaryBot.paused)) {
+      html += `<div class="sidebar-section-label">Primary</div>`;
+      html += buildBotItem(primaryBot, false);
+    }
+
     if (working.length > 0) {
       html += `<div class="sidebar-section-label">Working <span class="count">${working.length}</span></div>`;
     }
     working.forEach(a => {
+      if (a.name === primaryBot.name) return; // already shown
       html += buildBotItem(a, true);
     });
     if (recent.length > 0) {
-      if (working.length > 0) {
+      if (working.length > 0 || primaryBot) {
         html += `<div class="sidebar-section-label">Recent <span class="count">${recent.length}</span></div>`;
       }
       recent.forEach(a => {
+        if (a.name === primaryBot.name) return; // already shown
         html += buildBotItem(a, false);
       });
     }
@@ -1772,11 +1816,18 @@ function buildBotItem(a, isWorking) {
   const pendingApprovals = (a.pending_approvals || 0);
   const showApprovalBadge = pendingApprovals > 0;
 
+  // Primary bot star badge
+  const isPrimary = a.is_primary === true;
+  const primaryStar = isPrimary ? `<div class="primary-star-badge" title="Primary Bot">★</div>` : '';
+
   let avatarHTML = renderAvatarSVG(a.name, 44);
   // Wrap avatar with status badge and optional approval badge
   let badges = `<div class="bot-status-badge ${statusClass}" title="${statusLabel}"></div>`;
   if (showApprovalBadge) {
     badges += `<div class="approval-badge" title="${pendingApprovals} pending approval(s)"></div>`;
+  }
+  if (primaryStar) {
+    badges += primaryStar;
   }
   avatarHTML = `<div style="position:relative;flex-shrink:0;">
     ${avatarHTML}
@@ -2264,12 +2315,16 @@ function connectSSE(sessionId, runId) {
         setTimeout(() => {
           if (currentSessionId) loadChatMessages(currentSessionId);
         }, 500);
+        // Browser notification
+        showNotification('Bot finished', `${currentBot || 'A Bot'} has completed its task.`);
       } else if (evType === 'error') {
         finishBotRun(targetRunId, 'failed', data.reason || data.message || 'Run failed.');
         streamingOutput = '';
         chatStreaming = false;
         document.getElementById('send-btn').disabled = false;
         stopElapsedTimer(targetRunId);
+        // Browser notification
+        showNotification('Bot failed', `${currentBot || 'A Bot'} task has failed.`, 'error');
       } else if (evType === 'end' || evType === 'idle') {
         if (chatSSE) { chatSSE.close(); chatSSE = null; }
       }
@@ -2409,6 +2464,21 @@ function updateRightPanel(botName) {
     queueStatus.textContent = a.queue_length > 0 ? `${a.queue_length} queued` : '';
   }
 
+  // Primary bot button
+  const primaryBtn = document.getElementById('panel-primary-btn');
+  if (primaryBtn) {
+    const isPrimary = a && a.is_primary === true;
+    if (isPrimary) {
+      primaryBtn.textContent = '★ Clear as Primary';
+      primaryBtn.style.display = 'inline-block';
+      primaryBtn.style.color = 'var(--warning)';
+    } else {
+      primaryBtn.textContent = '☆ Set as Primary Bot';
+      primaryBtn.style.display = 'inline-block';
+      primaryBtn.style.color = 'var(--fg-secondary)';
+    }
+  }
+
   // Skills
   loadPanelSkills(botName);
 
@@ -2441,6 +2511,22 @@ async function toggleCurrentBotPause() {
     updateBotStatusInChat();
   } catch(e) {
     console.error('Failed to toggle pause:', e);
+  }
+}
+
+async function togglePrimaryBot() {
+  if (!currentBot) return;
+  const a = agents.find(x => x.name === currentBot);
+  const isPrimary = a && a.is_primary === true;
+  try {
+    await api('/primary-bot', {
+      method: 'POST',
+      body: { bot_name: isPrimary ? null : currentBot }
+    });
+    await pollStatus();
+    updateRightPanel(currentBot);
+  } catch(e) {
+    console.error('Failed to toggle primary bot:', e);
   }
 }
 

@@ -42,6 +42,8 @@ Everything you need to manage AI coding agents from one place:
 | 🔌 **Plugins** | Per-Bot plugins | Toggle plugins per Bot in the right panel; plugin definitions live in `hub.yaml` |
 | 🏪 **Marketplace** | Local Bot templates | Browse pre-configured Bot templates (Research, Night Shift, etc.) with search and category filters; click "Add" to create a Bot from a template |
 | ✨ **New Bot from Sentence** | AI-assisted creation | Describe what a Bot should do in a sentence and get an auto-generated name and config; choose from suggestion cards or create from scratch |
+| ⭐ **Primary Bot** | Go-to Bot | Mark one Bot as your Primary Bot — pinned at the top of the sidebar with a star badge; automatically gets a daily check-in routine that summarizes other Bots' activity |
+| 🔔 **Notifications** | Browser alerts | Browser notifications when a Bot finishes or fails; permission requested on first visit |
 | 📦 **Context** | Smart context assembly | Agents get relevant history, memories, and instructions automatically |
 | 🔌 **Providers** | Extensible backends | Junie CLI is the default; add more via the `AgentProvider` interface |
 | 🔒 **Permissions** | Per-agent controls | Toggle file read/write, command execution, Git ops, and network access |
@@ -555,6 +557,14 @@ Quality checklist for the messenger-style web UI:
 - [ ] "Auto Review" section in the right panel has a toggle to enable/disable auto-review
 - [ ] Pending approvals are listed in the right panel with Approve/Deny buttons
 - [ ] Approval resolved messages show green (approved) or red (denied) styling
+- [ ] Primary Bot shows a star badge (★) on its avatar in the sidebar
+- [ ] Primary Bot is pinned at the top of the sidebar under a "Primary" group label
+- [ ] Right panel shows "Set as Primary Bot" / "Clear as Primary" button for the selected Bot
+- [ ] Clicking "Set as Primary Bot" pins the Bot and creates a "Daily Check-in" routine
+- [ ] Clicking "Clear as Primary" removes the Primary Bot designation
+- [ ] Browser notification permission is requested on first visit
+- [ ] Browser notification appears when a Bot's task finishes
+- [ ] Browser notification appears when a Bot's task fails
 
 ### Chat Thread
 - [ ] Selecting a Bot loads its chat session (auto-creates session if none exists)
