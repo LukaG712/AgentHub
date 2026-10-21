@@ -4,7 +4,6 @@
   "build": {
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
-    "devPath": "../dist",
     "frontendDist": "../dist"
   },
   "app": {
