@@ -210,9 +210,9 @@ async def api_execute_template(template_id: str, body: Dict[str, Any], _auth: No
             provider = SpectraProvider()
             result = await provider.execute(task)
             return {"template_id": template_id, "status": "completed", "result": result}
-        elif service == "Ecton":
-            from hub.ecton_provider import EctonProvider
-            provider = EctonProvider()
+        elif service == "Polter":
+            from hub.polter_provider import PolterProvider
+            provider = PolterProvider()
             result = await provider.execute(task)
             return {"template_id": template_id, "status": "completed", "result": result}
         else:
@@ -243,9 +243,9 @@ async def _execute_template_pipeline(steps: List[Dict[str, Any]]) -> Dict[str, A
             result_data = await provider.execute(task)
             result = {"step": i, "service": service, "result": result_data}
             context[f"step{i}"] = str(result_data)[:2000]
-        elif service == "Ecton":
-            from hub.ecton_provider import EctonProvider
-            provider = EctonProvider()
+        elif service == "Polter":
+            from hub.polter_provider import PolterProvider
+            provider = PolterProvider()
             result_data = await provider.execute(task)
             result = {"step": i, "service": service, "result": result_data}
             context[f"step{i}"] = str(result_data)[:2000]

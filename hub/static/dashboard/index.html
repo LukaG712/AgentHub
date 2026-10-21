@@ -279,8 +279,8 @@ tr:hover td { background: var(--selected-row); }
         </div>
       </div>
       <div class="card" style="margin-top:1rem;">
-        <h3>Ecton Status</h3>
-        <div id="Ecton-status"></div>
+        <h3>Polter Status</h3>
+        <div id="Polter-status"></div>
       </div>
     </div>
 
@@ -398,7 +398,7 @@ tr:hover td { background: var(--selected-row); }
       <label>Runner Type</label>
       <select id="agent-runner">
         <option value="junie">Junie CLI</option>
-        <option value="Ecton">Ecton</option>
+        <option value="Polter">Polter</option>
         <option value="Spectra">Spectra</option>
       </select>
     </div>
@@ -419,7 +419,7 @@ tr:hover td { background: var(--selected-row); }
     <h3>Run Pipeline</h3>
     <div class="form-group">
       <label>Pipeline Steps (JSON)</label>
-      <textarea id="pipeline-steps" placeholder='[{"service":"Spectra","task":"SCRAPE:https://example.com"},{"service":"Ecton","task":"Analyze the scraped content"}]' style="min-height:120px;"></textarea>
+      <textarea id="pipeline-steps" placeholder='[{"service":"Spectra","task":"SCRAPE:https://example.com"},{"service":"Polter","task":"Analyze the scraped content"}]' style="min-height:120px;"></textarea>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="hideModal('pipeline-modal')">Cancel</button>
@@ -540,11 +540,11 @@ async function loadOverview() {
   const stats = document.getElementById('overview-stats');
   const health = document.getElementById('service-health');
   const recent = document.getElementById('recent-runs');
-  const Ecton = document.getElementById('Ecton-status');
+  const Polter = document.getElementById('Polter-status');
   stats.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   health.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   recent.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  Ecton.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  Polter.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
   try {
     const [dashboard, healthData] = await Promise.allSettled([
@@ -567,7 +567,7 @@ async function loadOverview() {
       <div class="stat-card"><div class="label">Agents</div><div class="value">${agentCount}</div></div>
       <div class="stat-card"><div class="label">Recent Runs</div><div class="value">${runCount}</div></div>
       <div class="stat-card"><div class="label">Schedules</div><div class="value">${scheduleCount}</div></div>
-      <div class="stat-card"><div class="label">Services</div><div class="value">3</div><div class="sub">Evershade Valley + Ecton + Spectra</div></div>
+      <div class="stat-card"><div class="label">Services</div><div class="value">3</div><div class="sub">Evershade Valley + Polter + Spectra</div></div>
     `;
 
     // Service Health
@@ -601,14 +601,14 @@ async function loadOverview() {
       recent.innerHTML = html;
     }
 
-    // Ecton Status
-    if (dashboard.status === 'fulfilled' && dashboard.value?.Ecton) {
-      const jh = dashboard.value.Ecton;
+    // Polter Status
+    if (dashboard.status === 'fulfilled' && dashboard.value?.Polter) {
+      const jh = dashboard.value.Polter;
       const st = jh.health === 'ok' ? 'ok' : jh.health === 'error' ? 'error' : 'warning';
       let html = `<span class="badge badge-${st}">${jh.health}</span>`;
       if (jh.workers?.length) html += ` <span style="font-size:0.85rem;color:var(--fg-secondary);">${jh.workers.length} workers</span>`;
       if (jh.queue) html += `<div style="font-size:0.85rem;color:var(--fg-secondary);margin-top:0.5rem;">Queue: ${jh.queue}</div>`;
-      Ecton.innerHTML = html;
+      Polter.innerHTML = html;
     }
 
   } catch(e) {
@@ -772,12 +772,12 @@ async function loadPipelines() {
   container.innerHTML = `
     <div class="card">
       <h3>Cross-Service Pipeline</h3>
-      <p style="margin-bottom:0.75rem;">Chain steps across Spectra, Ecton, and Evershade Valley.</p>
+      <p style="margin-bottom:0.75rem;">Chain steps across Spectra, Polter, and Evershade Valley.</p>
       <div class="form-group">
         <label>Pipeline Steps (JSON array)</label>
         <textarea id="inline-pipeline-steps" style="width:100%;min-height:120px;padding:0.6rem 0.8rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);background:var(--search-bg);color:var(--fg);font-size:0.9rem;font-family:monospace;" placeholder='[
   {"service": "Spectra", "task": "SCRAPE:https://example.com"},
-  {"service": "Ecton", "task": "Summarize the scraped content"},
+  {"service": "Polter", "task": "Summarize the scraped content"},
   {"service": "agent", "name": "researcher", "task": "Analyze the summary"}
 ]'></textarea>
       </div>

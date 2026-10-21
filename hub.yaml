@@ -1,6 +1,6 @@
 # ─── Runners ────────────────────────────────────────────────────────────────
 # "junie"     — Runs Junie CLI directly (local subprocess)
-# "Ecton"  — Delegates to Ecton service (worktree isolation, persistent storage)
+# "Polter"  — Delegates to Polter service (worktree isolation, persistent storage)
 # "Spectra" — Delegates to Spectra service (web scraping, crawling, search)
 
 runners:
@@ -54,8 +54,8 @@ agents:
 
   coder:
     title: "Code developer"
-    description: "Develops code with Git worktree isolation via Ecton."
-    runner: Ecton
+    description: "Develops code with Git worktree isolation via Polter."
+    runner: Polter
     project_dir: "/workspace/projects"
     skills: []
     guidelines: "Write clean, well-tested code. Use Git for version control."
@@ -71,7 +71,7 @@ agents:
 # website-builder:
 #   title: "Website builder"
 #   description: "Builds and edits static websites."
-#   runner: Ecton
+#   runner: Polter
 #   project_dir: "/workspace/website"
 #   skills: []
 #   guidelines: "Use plain HTML, CSS, and vanilla JavaScript. No build tools."
@@ -79,7 +79,7 @@ agents:
 # software-builder:
 #   title: "Software builder"
 #   description: "Develops Python applications and libraries."
-#   runner: Ecton
+#   runner: Polter
 #   project_dir: "/workspace/software"
 #   skills: []
 #   guidelines: "Write clean, well-tested Python. Follow PEP 8."

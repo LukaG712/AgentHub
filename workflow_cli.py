@@ -7,7 +7,7 @@ agents, runs, pipelines, schedules, and the entire platform from any terminal.
 Usage:
     workflow agents list
     workflow run my-agent "summarize the latest report"
-    workflow pipeline create --name "research" --steps Spectra:SEARCH:query,Ecton:TASK:code
+    workflow pipeline create --name "research" --steps Spectra:SEARCH:query,Polter:TASK:code
     workflow schedules list
     workflow search "error handling"
     workflow health
@@ -460,7 +460,7 @@ def cmd_search(args, client):
         return
     
     # Print results by service
-    for service in ["Spectra", "Ecton", "Evershade Valley"]:
+    for service in ["Spectra", "Polter", "Evershade Valley"]:
         results = data.get(service, [])
         if results:
             print(f"\n{service.upper()} ({len(results)} results):")
@@ -509,7 +509,7 @@ def cmd_services(args, client):
     """Check individual service health."""
     services = {
         "Evershade Valley": "/api/health",
-        "Ecton": "/api/Ecton/health",
+        "Polter": "/api/Polter/health",
         "Spectra": "/api/crawl/health",
     }
     
@@ -551,11 +551,11 @@ def cmd_dashboard(args, client):
     runs = Evershade Valley.get("runs", [])
     print(f"Evershade Valley: {len(agents)} agents, {len(runs)} runs")
     
-    # Ecton section
-    Ecton = data.get("Ecton", {})
-    workers = Ecton.get("workers", [])
-    queue = Ecton.get("queue", {})
-    print(f"Ecton: {len(workers)} workers, queue: {queue}")
+    # Polter section
+    Polter = data.get("Polter", {})
+    workers = Polter.get("workers", [])
+    queue = Polter.get("queue", {})
+    print(f"Polter: {len(workers)} workers, queue: {queue}")
     
     # Spectra section
     Spectra = data.get("Spectra", {})
@@ -689,7 +689,7 @@ def main(argv=None):
     
     p_agents_create = agents_sub.add_parser("create", help="Create a new agent")
     p_agents_create.add_argument("name", help="Agent name")
-    p_agents_create.add_argument("--runner", default="junie", help="Runner type (junie, Ecton, Spectra)")
+    p_agents_create.add_argument("--runner", default="junie", help="Runner type (junie, Polter, Spectra)")
     p_agents_create.add_argument("--title", help="Agent title")
     p_agents_create.add_argument("--skills", help="Comma-separated skills")
     p_agents_create.add_argument("--prompt", help="Agent prompt")
@@ -762,7 +762,7 @@ def main(argv=None):
     # ── Search ──
     p_search = subparsers.add_parser("search", help="Search across all services")
     p_search.add_argument("query", help="Search query")
-    p_search.add_argument("--service", help="Filter by service (Spectra, Ecton, Evershade Valley)")
+    p_search.add_argument("--service", help="Filter by service (Spectra, Polter, Evershade Valley)")
     p_search.set_defaults(func=cmd_search)
     
     # ── Health ──

@@ -1,4 +1,4 @@
-"""Route module: Ecton."""
+"""Route module: Polter."""
 
 from fastapi import Depends, HTTPException
 from hub.api.core import _verify_token
@@ -8,17 +8,17 @@ import json
 import time
 
 
-async def api_Ecton_tasks(
+async def api_Polter_tasks(
     project_id: Optional[str] = None,
     status: Optional[str] = None,
     limit: int = 50,
     _auth: None = Depends(_verify_token),
 ):
-    """Proxy: List tasks from Ecton."""
+    """Proxy: List tasks from Polter."""
     import os
     import httpx
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-    api_key = os.environ.get("Ecton_API_KEY", "")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    api_key = os.environ.get("Polter_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -35,15 +35,15 @@ async def api_Ecton_tasks(
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Ecton at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Polter at {base_url}")
 
 
-async def api_Ecton_workers(_auth: None = Depends(_verify_token)):
-    """Proxy: List active workers from Ecton."""
+async def api_Polter_workers(_auth: None = Depends(_verify_token)):
+    """Proxy: List active workers from Polter."""
     import os
     import httpx
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-    api_key = os.environ.get("Ecton_API_KEY", "")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    api_key = os.environ.get("Polter_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -54,15 +54,15 @@ async def api_Ecton_workers(_auth: None = Depends(_verify_token)):
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Ecton at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Polter at {base_url}")
 
 
-async def api_Ecton_queue(_auth: None = Depends(_verify_token)):
-    """Proxy: Get queue status from Ecton."""
+async def api_Polter_queue(_auth: None = Depends(_verify_token)):
+    """Proxy: Get queue status from Polter."""
     import os
     import httpx
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-    api_key = os.environ.get("Ecton_API_KEY", "")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    api_key = os.environ.get("Polter_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -73,15 +73,15 @@ async def api_Ecton_queue(_auth: None = Depends(_verify_token)):
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Ecton at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Polter at {base_url}")
 
 
-async def api_Ecton_projects(_auth: None = Depends(_verify_token)):
-    """Proxy: List registered projects from Ecton."""
+async def api_Polter_projects(_auth: None = Depends(_verify_token)):
+    """Proxy: List registered projects from Polter."""
     import os
     import httpx
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-    api_key = os.environ.get("Ecton_API_KEY", "")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    api_key = os.environ.get("Polter_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -92,15 +92,15 @@ async def api_Ecton_projects(_auth: None = Depends(_verify_token)):
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Ecton at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Polter at {base_url}")
 
 
-async def api_Ecton_create_project(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
-    """Proxy: Register a new project in Ecton."""
+async def api_Polter_create_project(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
+    """Proxy: Register a new project in Polter."""
     import os
     import httpx
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-    api_key = os.environ.get("Ecton_API_KEY", "")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    api_key = os.environ.get("Polter_API_KEY", "")
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -111,15 +111,15 @@ async def api_Ecton_create_project(body: Dict[str, Any], _auth: None = Depends(_
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Ecton at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Polter at {base_url}")
 
 
-async def api_Ecton_task_detail(task_id: str, _auth: None = Depends(_verify_token)):
-    """Proxy: Get a specific task detail from Ecton."""
+async def api_Polter_task_detail(task_id: str, _auth: None = Depends(_verify_token)):
+    """Proxy: Get a specific task detail from Polter."""
     import os
     import httpx
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-    api_key = os.environ.get("Ecton_API_KEY", "")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    api_key = os.environ.get("Polter_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -130,19 +130,19 @@ async def api_Ecton_task_detail(task_id: str, _auth: None = Depends(_verify_toke
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Ecton at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Polter at {base_url}")
 
 
-async def api_Ecton_sessions(
+async def api_Polter_sessions(
     task_id: Optional[str] = None,
     limit: int = 50,
     _auth: None = Depends(_verify_token),
 ):
-    """Proxy: List sessions from Ecton."""
+    """Proxy: List sessions from Polter."""
     import os
     import httpx
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-    api_key = os.environ.get("Ecton_API_KEY", "")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    api_key = os.environ.get("Polter_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -156,15 +156,15 @@ async def api_Ecton_sessions(
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Ecton at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Polter at {base_url}")
 
 
-async def api_Ecton_worker_detail(worker_id: str, _auth: None = Depends(_verify_token)):
-    """Proxy: Get a specific worker detail from Ecton."""
+async def api_Polter_worker_detail(worker_id: str, _auth: None = Depends(_verify_token)):
+    """Proxy: Get a specific worker detail from Polter."""
     import os
     import httpx
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-    api_key = os.environ.get("Ecton_API_KEY", "")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    api_key = os.environ.get("Polter_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -175,15 +175,15 @@ async def api_Ecton_worker_detail(worker_id: str, _auth: None = Depends(_verify_
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Ecton at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Polter at {base_url}")
 
 
-async def api_Ecton_chat(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
-    """Proxy: Execute a task via Ecton's OpenAI-compatible chat endpoint."""
+async def api_Polter_chat(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
+    """Proxy: Execute a task via Polter's OpenAI-compatible chat endpoint."""
     import os
     import httpx
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-    api_key = os.environ.get("Ecton_API_KEY", "")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    api_key = os.environ.get("Polter_API_KEY", "")
     messages = body.get("messages")
     if not messages:
         raise HTTPException(status_code=400, detail="messages are required")
@@ -198,19 +198,19 @@ async def api_Ecton_chat(body: Dict[str, Any], _auth: None = Depends(_verify_tok
                 f"{base_url}/v1/chat/completions", json=payload, headers=headers
             )
             if resp.status_code == 503:
-                raise HTTPException(status_code=503, detail="Ecton is busy. Please try again later.")
+                raise HTTPException(status_code=503, detail="Polter is busy. Please try again later.")
             if resp.status_code != 200:
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Ecton at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Polter at {base_url}")
 
 
-async def api_Ecton_health(_auth: None = Depends(_verify_token)):
-    """Proxy: Ecton health check (no Ecton auth required)."""
+async def api_Polter_health(_auth: None = Depends(_verify_token)):
+    """Proxy: Polter health check (no Polter auth required)."""
     import os
     import httpx
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(f"{base_url}/health")
@@ -218,15 +218,15 @@ async def api_Ecton_health(_auth: None = Depends(_verify_token)):
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Ecton at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Polter at {base_url}")
 
 
-async def api_Ecton_ready(_auth: None = Depends(_verify_token)):
-    """Proxy: Ecton readiness check."""
+async def api_Polter_ready(_auth: None = Depends(_verify_token)):
+    """Proxy: Polter readiness check."""
     import os
     import httpx
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-    api_key = os.environ.get("Ecton_API_KEY", "")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    api_key = os.environ.get("Polter_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -237,15 +237,15 @@ async def api_Ecton_ready(_auth: None = Depends(_verify_token)):
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Ecton at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Polter at {base_url}")
 
 
-async def api_Ecton_models(_auth: None = Depends(_verify_token)):
-    """Proxy: List available models from Ecton."""
+async def api_Polter_models(_auth: None = Depends(_verify_token)):
+    """Proxy: List available models from Polter."""
     import os
     import httpx
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-    api_key = os.environ.get("Ecton_API_KEY", "")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    api_key = os.environ.get("Polter_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -256,15 +256,15 @@ async def api_Ecton_models(_auth: None = Depends(_verify_token)):
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Ecton at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Polter at {base_url}")
 
 
-async def api_Ecton_submit_task(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
-    """Proxy: Submit a task via Ecton's chat endpoint and return the task ID for polling."""
+async def api_Polter_submit_task(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
+    """Proxy: Submit a task via Polter's chat endpoint and return the task ID for polling."""
     import os
     import httpx
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-    api_key = os.environ.get("Ecton_API_KEY", "")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    api_key = os.environ.get("Polter_API_KEY", "")
     messages = body.get("messages")
     if not messages:
         raise HTTPException(status_code=400, detail="messages are required")
@@ -279,20 +279,20 @@ async def api_Ecton_submit_task(body: Dict[str, Any], _auth: None = Depends(_ver
                 f"{base_url}/v1/chat/completions", json=payload, headers=headers
             )
             if resp.status_code == 503:
-                raise HTTPException(status_code=503, detail="Ecton is busy. Please try again later.")
+                raise HTTPException(status_code=503, detail="Polter is busy. Please try again later.")
             if resp.status_code != 200:
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Ecton at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Polter at {base_url}")
 
 
-async def api_Ecton_task_output(task_id: str, _auth: None = Depends(_verify_token)):
-    """Proxy: Get task output by task_id from Ecton (convenience wrapper)."""
+async def api_Polter_task_output(task_id: str, _auth: None = Depends(_verify_token)):
+    """Proxy: Get task output by task_id from Polter (convenience wrapper)."""
     import os
     import httpx
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-    api_key = os.environ.get("Ecton_API_KEY", "")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    api_key = os.environ.get("Polter_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -311,7 +311,7 @@ async def api_Ecton_task_output(task_id: str, _auth: None = Depends(_verify_toke
                 "diff_summary": data.get("diff_summary", ""),
             }
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Ecton at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Polter at {base_url}")
 
 
 # ─── Unified Dashboard ──────────────────────────────────────────────────────
@@ -319,18 +319,18 @@ async def api_Ecton_task_output(task_id: str, _auth: None = Depends(_verify_toke
 
 
 def register(app):
-    """Register Ecton routes with the FastAPI app."""
-    app.get("/api/Ecton/tasks")(api_Ecton_tasks)
-    app.get("/api/Ecton/workers")(api_Ecton_workers)
-    app.get("/api/Ecton/queue")(api_Ecton_queue)
-    app.get("/api/Ecton/projects")(api_Ecton_projects)
-    app.post("/api/Ecton/projects")(api_Ecton_create_project)
-    app.get("/api/Ecton/tasks/{task_id}")(api_Ecton_task_detail)
-    app.get("/api/Ecton/sessions")(api_Ecton_sessions)
-    app.get("/api/Ecton/workers/{worker_id}")(api_Ecton_worker_detail)
-    app.post("/api/Ecton/chat")(api_Ecton_chat)
-    app.get("/api/Ecton/health")(api_Ecton_health)
-    app.get("/api/Ecton/ready")(api_Ecton_ready)
-    app.get("/api/Ecton/models")(api_Ecton_models)
-    app.post("/api/Ecton/tasks")(api_Ecton_submit_task)
-    app.get("/api/Ecton/tasks/{task_id}/output")(api_Ecton_task_output)
+    """Register Polter routes with the FastAPI app."""
+    app.get("/api/Polter/tasks")(api_Polter_tasks)
+    app.get("/api/Polter/workers")(api_Polter_workers)
+    app.get("/api/Polter/queue")(api_Polter_queue)
+    app.get("/api/Polter/projects")(api_Polter_projects)
+    app.post("/api/Polter/projects")(api_Polter_create_project)
+    app.get("/api/Polter/tasks/{task_id}")(api_Polter_task_detail)
+    app.get("/api/Polter/sessions")(api_Polter_sessions)
+    app.get("/api/Polter/workers/{worker_id}")(api_Polter_worker_detail)
+    app.post("/api/Polter/chat")(api_Polter_chat)
+    app.get("/api/Polter/health")(api_Polter_health)
+    app.get("/api/Polter/ready")(api_Polter_ready)
+    app.get("/api/Polter/models")(api_Polter_models)
+    app.post("/api/Polter/tasks")(api_Polter_submit_task)
+    app.get("/api/Polter/tasks/{task_id}/output")(api_Polter_task_output)

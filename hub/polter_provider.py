@@ -1,13 +1,13 @@
-"""Ecton provider — delegates agent execution to the Ecton service.
+"""Polter provider — delegates agent execution to the Polter service.
 
-This provider sends tasks to a running Ecton HTTP service instead of
-invoking the Junie CLI directly.  Ecton provides Git worktree isolation,
+This provider sends tasks to a running Polter HTTP service instead of
+invoking the Junie CLI directly.  Polter provides Git worktree isolation,
 persistent task storage, and structured changed-file reporting.
 
 Configuration via environment variables:
-    Ecton_URL     — Base URL of the Ecton service (default: http://localhost:8000)
-    Ecton_API_KEY — Bearer token for authentication
-    Ecton_TIMEOUT — Per-task timeout in seconds (default: 1800)
+    Polter_URL     — Base URL of the Polter service (default: http://localhost:8000)
+    Polter_API_KEY — Bearer token for authentication
+    Polter_TIMEOUT — Per-task timeout in seconds (default: 1800)
 
 The task format is detected automatically:
     - If the task starts with "TASK:", it submits a task and returns immediately.
@@ -31,32 +31,32 @@ from hub.providers import AgentPermissions, AgentProvider, ProviderRunResult
 logger = logging.getLogger(__name__)
 
 
-class EctonProvider(AgentProvider):
-    """Provider that delegates task execution to a Ecton HTTP service.
+class PolterProvider(AgentProvider):
+    """Provider that delegates task execution to a Polter HTTP service.
 
-    Ecton handles worktree isolation, Junie CLI execution, and changed-file
+    Polter handles worktree isolation, Junie CLI execution, and changed-file
     detection.  This provider simply forwards the task and translates the
     result back to the Evershade Valley ProviderRunResult format.
     """
 
     @property
     def name(self) -> str:
-        return "Ecton"
+        return "Polter"
 
     def _get_base_url(self) -> str:
-        return os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
+        return os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
 
     def _get_api_key(self) -> str:
-        return os.environ.get("Ecton_API_KEY", "")
+        return os.environ.get("Polter_API_KEY", "")
 
     def check_available(self) -> bool:
-        """Check if the Ecton service is reachable."""
+        """Check if the Polter service is reachable."""
         try:
             with httpx.Client(timeout=5.0) as client:
                 resp = client.get(f"{self._get_base_url()}/health")
                 return resp.status_code == 200
         except Exception as e:
-            logger.warning(f"Ecton health check failed: {e}")
+            logger.warning(f"Polter health check failed: {e}")
             return False
 
     def build_command(
@@ -67,7 +67,7 @@ class EctonProvider(AgentProvider):
         extra_args: Optional[List[str]] = None,
     ) -> List[str]:
         """Build a placeholder command — execution happens via HTTP."""
-        return ["Ecton", "execute", "--task", task, "--project", project_dir]
+        return ["Polter", "execute", "--task", task, "--project", project_dir]
 
     def _parse_task(self, task: str) -> tuple[str, str]:
         """Parse the task string to determine the operation and target.
@@ -96,7 +96,7 @@ class EctonProvider(AgentProvider):
         timeout: int = 1800,
         extra_args: Optional[List[str]] = None,
     ) -> ProviderRunResult:
-        """Execute a task via the Ecton HTTP service.
+        """Execute a task via the Polter HTTP service.
 
         Supports multiple operations:
         - Default: synchronous chat completion
@@ -156,19 +156,19 @@ class EctonProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output="",
-                error=f"Cannot connect to Ecton at {base_url}: {e}",
+                error=f"Cannot connect to Polter at {base_url}: {e}",
             )
         except httpx.TimeoutException as e:
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output="",
-                error=f"Ecton request timed out after {timeout}s: {e}",
+                error=f"Polter request timed out after {timeout}s: {e}",
             )
         except Exception as e:
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output="",
-                error=f"Ecton execution failed: {e}",
+                error=f"Polter execution failed: {e}",
             )
 
     async def _chat(
@@ -193,14 +193,14 @@ class EctonProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output="",
-                error="Ecton is busy. Please try again later.",
+                error="Polter is busy. Please try again later.",
             )
 
         if resp.status_code != 200:
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Ecton returned HTTP {resp.status_code}: {resp.text}",
+                error=f"Polter returned HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -209,7 +209,7 @@ class EctonProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=str(data),
-                error="No choices in Ecton response",
+                error="No choices in Polter response",
             )
 
         message = choices[0].get("message", {})
@@ -242,14 +242,14 @@ class EctonProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output="",
-                error="Ecton is busy. Please try again later.",
+                error="Polter is busy. Please try again later.",
             )
 
         if resp.status_code != 200:
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Ecton returned HTTP {resp.status_code}: {resp.text}",
+                error=f"Polter returned HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -273,7 +273,7 @@ class EctonProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Ecton returned HTTP {resp.status_code}: {resp.text}",
+                error=f"Polter returned HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -320,7 +320,7 @@ class EctonProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Ecton returned HTTP {resp.status_code}: {resp.text}",
+                error=f"Polter returned HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -360,7 +360,7 @@ class EctonProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Ecton returned HTTP {resp.status_code}: {resp.text}",
+                error=f"Polter returned HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -379,7 +379,7 @@ class EctonProvider(AgentProvider):
 # Auto-register the provider
 def _register() -> None:
     from hub.providers import register_provider
-    register_provider(EctonProvider())
+    register_provider(PolterProvider())
 
 
 _register()

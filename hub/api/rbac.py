@@ -309,9 +309,9 @@ async def _process_job(job_id: str):
             with _job_queue_lock:
                 job["result"] = result
 
-        elif task_type == "Ecton":
-            from hub.ecton_provider import EctonProvider
-            provider = EctonProvider()
+        elif task_type == "Polter":
+            from hub.polter_provider import PolterProvider
+            provider = PolterProvider()
             task = payload.get("task", "")
             result = await provider.execute(task)
             with _job_queue_lock:

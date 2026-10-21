@@ -15,16 +15,16 @@ import uuid
 async def api_dashboard(_auth: None = Depends(_verify_token)):
     """Unified dashboard aggregating status from all three services.
 
-    Returns a single view of Evershade Valley agents, Ecton workers and queue,
+    Returns a single view of Evershade Valley agents, Polter workers and queue,
     and Spectra health — useful for monitoring the entire platform.
     """
     import asyncio
     import os
     import httpx
 
-    async def _Ecton_dashboard():
-        base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-        api_key = os.environ.get("Ecton_API_KEY", "")
+    async def _Polter_dashboard():
+        base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+        api_key = os.environ.get("Polter_API_KEY", "")
         headers = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
@@ -66,18 +66,18 @@ async def api_dashboard(_auth: None = Depends(_verify_token)):
             "recent_runs": [r.to_dict() for r in recent_runs],
         }
 
-    Ecton, Spectra, evershade_valley = await asyncio.gather(
-        _Ecton_dashboard(), _Spectra_dashboard(), _evershade_valley_dashboard()
+    Polter, Spectra, evershade_valley = await asyncio.gather(
+        _Polter_dashboard(), _Spectra_dashboard(), _evershade_valley_dashboard()
     )
 
     return {
         "Evershade Valley": evershade_valley,
-        "Ecton": Ecton,
+        "Polter": Polter,
         "Spectra": Spectra,
     }
 
 
-# ─── Ecton Streaming Chat ────────────────────────────────────────────────
+# ─── Polter Streaming Chat ────────────────────────────────────────────────
 
 
 async def api_create_pipeline(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
@@ -85,7 +85,7 @@ async def api_create_pipeline(body: Dict[str, Any], _auth: None = Depends(_verif
 
     A pipeline chains multiple steps that can use different services:
     - "Spectra" steps: web research via Spectra
-    - "Ecton" steps: coding tasks via Ecton
+    - "Polter" steps: coding tasks via Polter
     - "agent" steps: local Evershade Valley agents
 
     Example body:
@@ -96,7 +96,7 @@ async def api_create_pipeline(body: Dict[str, Any], _auth: None = Depends(_verif
                 "task": "SEARCH: latest Python async best practices"
             },
             {
-                "service": "Ecton",
+                "service": "Polter",
                 "task": "Create a summary document of the research findings"
             }
         ]
@@ -173,9 +173,9 @@ async def api_create_pipeline(body: Dict[str, Any], _auth: None = Depends(_verif
                 step_result["status"] = "error"
                 step_result["error"] = str(e)
 
-        elif service == "Ecton":
-            base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-            api_key = os.environ.get("Ecton_API_KEY", "")
+        elif service == "Polter":
+            base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+            api_key = os.environ.get("Polter_API_KEY", "")
             headers = {"Content-Type": "application/json"}
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
@@ -252,7 +252,7 @@ def _parse_Spectra_task(task: str) -> tuple[str, str]:
 async def api_unified_search(q: str, _auth: None = Depends(_verify_token)):
     """Unified search across all three services.
 
-    Searches Spectra for web content, Ecton for tasks and projects,
+    Searches Spectra for web content, Polter for tasks and projects,
     and Evershade Valley for agents and runs.
 
     Query parameters:
@@ -265,7 +265,7 @@ async def api_unified_search(q: str, _auth: None = Depends(_verify_token)):
 
     services_param = os.environ.get("SEARCH_SERVICES", "all").lower()
     search_Spectra = services_param in ("all", "Spectra")
-    search_Ecton = services_param in ("all", "Ecton")
+    search_Polter = services_param in ("all", "Polter")
     search_evershade_valley = services_param in ("all", "Evershade Valley")
 
     async def _search_Spectra():
@@ -286,11 +286,11 @@ async def api_unified_search(q: str, _auth: None = Depends(_verify_token)):
         except Exception as e:
             return {"service": "Spectra", "error": str(e)}
 
-    async def _search_Ecton():
-        if not search_Ecton:
-            return {"service": "Ecton", "results": []}
-        base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-        api_key = os.environ.get("Ecton_API_KEY", "")
+    async def _search_Polter():
+        if not search_Polter:
+            return {"service": "Polter", "results": []}
+        base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+        api_key = os.environ.get("Polter_API_KEY", "")
         headers = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
@@ -313,9 +313,9 @@ async def api_unified_search(q: str, _auth: None = Depends(_verify_token)):
                         project_str = json.dumps(p).lower()
                         if q_lower in project_str:
                             results.append({"type": "project", "data": p})
-                return {"service": "Ecton", "results": results}
+                return {"service": "Polter", "results": results}
         except Exception as e:
-            return {"service": "Ecton", "error": str(e)}
+            return {"service": "Polter", "error": str(e)}
 
     async def _search_evershade_valley():
         if not search_evershade_valley:
@@ -336,13 +336,13 @@ async def api_unified_search(q: str, _auth: None = Depends(_verify_token)):
             pass
         return {"service": "Evershade Valley", "results": results}
 
-    Spectra_results, Ecton_results, evershade_valley_results = await asyncio.gather(
-        _search_Spectra(), _search_Ecton(), _search_evershade_valley()
+    Spectra_results, Polter_results, evershade_valley_results = await asyncio.gather(
+        _search_Spectra(), _search_Polter(), _search_evershade_valley()
     )
 
     return {
         "query": q,
-        "results": [Spectra_results, Ecton_results, evershade_valley_results],
+        "results": [Spectra_results, Polter_results, evershade_valley_results],
     }
 
 
@@ -360,7 +360,7 @@ async def api_batch_execute(body: Dict[str, Any], _auth: None = Depends(_verify_
         "tasks": [
             {"service": "Spectra", "task": "SEARCH: latest Python news"},
             {"service": "Spectra", "task": "SEARCH: latest Rust news"},
-            {"service": "Ecton", "task": "Compare Python vs Rust performance"}
+            {"service": "Polter", "task": "Compare Python vs Rust performance"}
         ]
     }
     """
@@ -411,9 +411,9 @@ async def api_batch_execute(body: Dict[str, Any], _auth: None = Depends(_verify_
                     else:
                         result["status"] = "error"
                         result["error"] = resp.text
-            elif service == "Ecton":
-                base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-                api_key = os.environ.get("Ecton_API_KEY", "")
+            elif service == "Polter":
+                base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+                api_key = os.environ.get("Polter_API_KEY", "")
                 headers = {"Content-Type": "application/json"}
                 if api_key:
                     headers["Authorization"] = f"Bearer {api_key}"
@@ -461,7 +461,7 @@ async def api_batch_execute(body: Dict[str, Any], _auth: None = Depends(_verify_
     }
 
 
-# ─── Ecton Task Output Stream ────────────────────────────────────────────
+# ─── Polter Task Output Stream ────────────────────────────────────────────
 
 
 

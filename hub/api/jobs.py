@@ -27,7 +27,7 @@ async def api_submit_job(body: Dict[str, Any], _auth: None = Depends(_verify_tok
         "metadata": {"source": "webhook"}
     }
 
-    Job types: run_agent, pipeline, Spectra, Ecton, webhook
+    Job types: run_agent, pipeline, Spectra, Polter, webhook
     """
     job_type = body.get("type", "").strip()
     if not job_type:
@@ -231,7 +231,7 @@ _cache_ttl_config: Dict[str, int] = {
     "/api/search": 60,
     "/api/analytics/overview": 120,
     "/api/services/status": 30,
-    "/api/Ecton/tasks": 10,
+    "/api/Polter/tasks": 10,
     "/api/agents": 300,
 }
 _cache_ttl_lock = threading.Lock()

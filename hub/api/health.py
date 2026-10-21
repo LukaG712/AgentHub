@@ -32,17 +32,17 @@ import httpx
 import time
 
 
-async def api_Ecton_health():
-    """Check if the Ecton service is reachable."""
+async def api_Polter_health():
+    """Check if the Polter service is reachable."""
     import os
     import httpx
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(f"{base_url}/health")
-            return {"service": "Ecton", "status": "ok" if resp.status_code == 200 else "error", "url": base_url}
+            return {"service": "Polter", "status": "ok" if resp.status_code == 200 else "error", "url": base_url}
     except Exception as e:
-        return {"service": "Ecton", "status": "unreachable", "error": str(e), "url": base_url}
+        return {"service": "Polter", "status": "unreachable", "error": str(e), "url": base_url}
 
 
 async def api_Spectra_health():
@@ -61,12 +61,12 @@ async def api_Spectra_health():
 async def api_integration_health():
     """Check health of all integrated services."""
     import asyncio
-    Ecton_task = asyncio.create_task(api_Ecton_health())
+    Polter_task = asyncio.create_task(api_Polter_health())
     Spectra_task = asyncio.create_task(api_Spectra_health())
-    Ecton_status, Spectra_status = await asyncio.gather(Ecton_task, Spectra_task)
+    Polter_status, Spectra_status = await asyncio.gather(Polter_task, Spectra_task)
     return {
         "Evershade Valley": {"status": "ok", "version": "1.0.3"},
-        "Ecton": Ecton_status,
+        "Polter": Polter_status,
         "Spectra": Spectra_status,
     }
 
@@ -109,7 +109,7 @@ async def api_health():
     downstream = {}
     import httpx
     for service_name, env_var, default_url in [
-        ("Ecton", "Ecton_URL", "http://localhost:8000"),
+        ("Polter", "Polter_URL", "http://localhost:8000"),
         ("Spectra", "Spectra_URL", "http://localhost:3000"),
     ]:
         base_url = os.environ.get(env_var, default_url).rstrip("/")
@@ -332,7 +332,7 @@ def _get_ollama_client() -> Optional[ollama.OllamaClient]:
 
 def register(app):
     """Register health routes with the FastAPI app."""
-    app.get("/api/integration/Ecton/health")(api_Ecton_health)
+    app.get("/api/integration/Polter/health")(api_Polter_health)
     app.get("/api/integration/Spectra/health")(api_Spectra_health)
     app.get("/api/integration/health")(api_integration_health)
     app.get("/api/health")(api_health)

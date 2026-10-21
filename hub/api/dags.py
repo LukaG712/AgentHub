@@ -23,7 +23,7 @@ async def api_create_dag(body: Dict[str, Any], _auth: None = Depends(_verify_tok
         "name": "Research Pipeline",
         "tasks": {
             "scrape": {"service": "Spectra", "task": "SCRAPE:https://example.com"},
-            "analyze": {"service": "Ecton", "task": "Analyze content", "depends_on": ["scrape"]},
+            "analyze": {"service": "Polter", "task": "Analyze content", "depends_on": ["scrape"]},
             "summarize": {"service": "agent", "agent": "vault", "task": "Summarize", "depends_on": ["analyze"]}
         }
     }
@@ -175,9 +175,9 @@ async def api_execute_dag(dag_id: str, _auth: None = Depends(_verify_token)):
                 provider = SpectraProvider()
                 result_data = await provider.execute(task)
                 return {"status": "completed", "result": result_data}
-            elif service == "Ecton":
-                from hub.ecton_provider import EctonProvider
-                provider = EctonProvider()
+            elif service == "Polter":
+                from hub.polter_provider import PolterProvider
+                provider = PolterProvider()
                 result_data = await provider.execute(task)
                 return {"status": "completed", "result": result_data}
             elif service == "agent":

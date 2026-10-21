@@ -29,7 +29,7 @@ async def api_create_tenant(body: Dict[str, Any], _auth: None = Depends(_verify_
             "max_runs_per_day": 1000,
             "max_api_keys": 5
         },
-        "allowed_services": ["Spectra", "Ecton", "agent"]
+        "allowed_services": ["Spectra", "Polter", "agent"]
     }
     """
     name = body.get("name", "").strip()
@@ -42,7 +42,7 @@ async def api_create_tenant(body: Dict[str, Any], _auth: None = Depends(_verify_
         "name": name,
         "description": body.get("description", ""),
         "limits": body.get("limits", {}),
-        "allowed_services": body.get("allowed_services", ["Spectra", "Ecton", "agent"]),
+        "allowed_services": body.get("allowed_services", ["Spectra", "Polter", "agent"]),
         "created_at": datetime.now().isoformat(),
         "active": True,
         "resource_count": 0,

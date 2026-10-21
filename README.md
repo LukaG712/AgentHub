@@ -59,14 +59,14 @@ Everything you need to manage AI coding agents from one place:
 | 🌐 **CORS** | LAN access | Configurable CORS middleware for browser access from LAN devices |
 | 📋 **Task Manager** | Built-in app | Simple task list at `/app/` with create, complete, delete, and filter — no setup needed |
 
-## 🔗 How it Works with Ecton & Spectra
+## 🔗 How it Works with Polter & Spectra
 
 Evershade Valley is the central dashboard that can work standalone or integrate with companion services:
 
 | Component | Role | Port |
 |-----------|------|------|
 | **Evershade Valley** | 🏠 Dashboard — manage agents, chat, skills, memory, routines | `8080` |
-| **Ecton** | ⚙️ Execution engine — Git worktree isolation, persistent task storage | `8000` |
+| **Polter** | ⚙️ Execution engine — Git worktree isolation, persistent task storage | `8000` |
 | **Spectra** | 🌐 Web scraping — scrape, crawl, search, and map websites | `3000` |
 
 **Three runner types:**
@@ -74,7 +74,7 @@ Evershade Valley is the central dashboard that can work standalone or integrate 
 | Runner | Description |
 |--------|-------------|
 | `junie` | Runs Junie CLI directly via local subprocess |
-| `Ecton` | Delegates to Ecton for worktree isolation and task persistence |
+| `Polter` | Delegates to Polter for worktree isolation and task persistence |
 | `Spectra` | Delegates to Spectra for web scraping, crawling, and search |
 
 **Unified deployment:** All three services can be started together with a single `docker compose up` from the parent `Workflow/` directory.

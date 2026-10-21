@@ -12,7 +12,7 @@ __all__ = ["create_app", "app", "register_all_routes"]
 _ROUTE_MODULES = [
     "health", "agents", "runs", "sessions", "memories", "skills", "routines",
     "coordinator", "bots", "obsidian", "ollama", "git", "remote", "crawl",
-    "ecton", "pipeline", "schedules", "streaming", "webhooks",
+    "polter", "pipeline", "schedules", "streaming", "webhooks",
     "notifications", "analytics", "export_import", "api_keys", "services",
     "websocket", "rate_limits", "audit", "templates", "approvals", "files",
     "rbac", "jobs", "cache", "message_bus", "feature_flags", "deployments",

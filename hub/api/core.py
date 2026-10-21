@@ -551,7 +551,7 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(
         title="Agent Hub",
-        description="Unified Workflow orchestration platform — central API for agents, pipelines, and cross-service integration with Ecton and Spectra.",
+        description="Unified Workflow orchestration platform — central API for agents, pipelines, and cross-service integration with Polter and Spectra.",
         version="1.0.3",
         docs_url="/docs",
         redoc_url="/redoc",

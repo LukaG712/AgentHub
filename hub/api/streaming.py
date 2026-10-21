@@ -13,14 +13,14 @@ import threading
 import time
 
 
-async def api_Ecton_chat_stream(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
-    """Proxy: Execute a task via Ecton's chat endpoint with SSE streaming."""
+async def api_Polter_chat_stream(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
+    """Proxy: Execute a task via Polter's chat endpoint with SSE streaming."""
     import os
     import httpx
     from fastapi.responses import StreamingResponse
 
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-    api_key = os.environ.get("Ecton_API_KEY", "")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    api_key = os.environ.get("Polter_API_KEY", "")
     messages = body.get("messages")
     if not messages:
         raise HTTPException(status_code=400, detail="messages are required")
@@ -37,7 +37,7 @@ async def api_Ecton_chat_stream(body: Dict[str, Any], _auth: None = Depends(_ver
                     "POST", f"{base_url}/v1/chat/completions", json=payload, headers=headers
                 ) as resp:
                     if resp.status_code == 503:
-                        yield f"data: {{\"error\": \"Ecton is busy. Please try again later.\"}}\n\n"
+                        yield f"data: {{\"error\": \"Polter is busy. Please try again later.\"}}\n\n"
                         return
                     if resp.status_code != 200:
                         err_text = await resp.aread()
@@ -47,7 +47,7 @@ async def api_Ecton_chat_stream(body: Dict[str, Any], _auth: None = Depends(_ver
                         if line:
                             yield f"{line}\n\n"
         except httpx.ConnectError:
-            yield f'data: {{"error": "Cannot connect to Ecton at {base_url}"}}\n\n'
+            yield f'data: {{"error": "Cannot connect to Polter at {base_url}"}}\n\n'
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -301,9 +301,9 @@ async def _scheduled_pipeline_runner(pipeline_id: str):
                             else:
                                 step_result["status"] = "error"
                                 step_result["error"] = resp.text
-                    elif service == "Ecton":
-                        base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-                        api_key = os.environ.get("Ecton_API_KEY", "")
+                    elif service == "Polter":
+                        base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+                        api_key = os.environ.get("Polter_API_KEY", "")
                         headers = {"Content-Type": "application/json"}
                         if api_key:
                             headers["Authorization"] = f"Bearer {api_key}"
@@ -353,8 +353,8 @@ async def _scheduled_pipeline_runner(pipeline_id: str):
         await asyncio.sleep(10)  # Check every 10 seconds
 
 
-async def api_Ecton_task_stream(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
-    """Submit a task to Ecton and stream its output via SSE.
+async def api_Polter_task_stream(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
+    """Submit a task to Polter and stream its output via SSE.
 
     The task is submitted, then polled until completion with real-time
     progress updates streamed to the client.
@@ -369,8 +369,8 @@ async def api_Ecton_task_stream(body: Dict[str, Any], _auth: None = Depends(_ver
     import httpx
     from fastapi.responses import StreamingResponse
 
-    base_url = os.environ.get("Ecton_URL", "http://localhost:8000").rstrip("/")
-    api_key = os.environ.get("Ecton_API_KEY", "")
+    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    api_key = os.environ.get("Polter_API_KEY", "")
     task_content = body.get("task", "")
     project = body.get("project", "")
 
@@ -425,7 +425,7 @@ async def api_Ecton_task_stream(body: Dict[str, Any], _auth: None = Depends(_ver
                 yield f'data: {{"event": "timeout", "task_id": "{task_id}"}}\n\n'
 
         except httpx.ConnectError:
-            yield f'data: {{"event": "error", "message": "Cannot connect to Ecton at {base_url}"}}\n\n'
+            yield f'data: {{"event": "error", "message": "Cannot connect to Polter at {base_url}"}}\n\n'
         except Exception as e:
             yield f'data: {{"event": "error", "message": "{str(e)}"}}\n\n'
 
@@ -435,6 +435,6 @@ async def api_Ecton_task_stream(body: Dict[str, Any], _auth: None = Depends(_ver
 
 def register(app):
     """Register streaming routes with the FastAPI app."""
-    app.post("/api/Ecton/chat/stream")(api_Ecton_chat_stream)
+    app.post("/api/Polter/chat/stream")(api_Polter_chat_stream)
     app.post("/api/crawl/stream")(api_crawl_stream)
-    app.post("/api/Ecton/task/stream")(api_Ecton_task_stream)
+    app.post("/api/Polter/task/stream")(api_Polter_task_stream)

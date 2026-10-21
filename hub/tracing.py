@@ -1,7 +1,7 @@
 """OpenTelemetry distributed tracing configuration.
 
 Sets up automatic tracing for FastAPI routes and outgoing HTTPX requests,
-enabling end-to-end tracing across Evershade Valley → Ecton → Spectra.
+enabling end-to-end tracing across Evershade Valley → Polter → Spectra.
 
 Configuration via environment variables:
     OTEL_SERVICE_NAME: Service identifier (default: "Evershade Valley")

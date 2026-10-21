@@ -350,7 +350,7 @@ async def api_crawl_agent_cancel(job_id: str, _auth: None = Depends(_verify_toke
         raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
 
 
-# ─── Ecton proxy endpoints ───────────────────────────────────────────────
+# ─── Polter proxy endpoints ───────────────────────────────────────────────
 
 
 async def api_crawl_health(_auth: None = Depends(_verify_token)):
