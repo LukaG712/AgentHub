@@ -16,8 +16,6 @@ jobs:
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
 
       - name: Install Node.js
         uses: actions/setup-node@v5
@@ -32,22 +30,19 @@ jobs:
         working-directory: desktop
         env:
           CI: true
-        run: |
-          npx tauri build --target x86_64-pc-windows-msvc 2>&1 | Tee-Object -FilePath build.log
+        run: npx tauri build
 
       - name: Show build output on failure
         if: failure()
         run: |
-          Write-Host "=== Build log ==="
-          Get-Content -Path "desktop/build.log" -ErrorAction SilentlyContinue
           Write-Host "=== Checking build artifacts ==="
-          Get-ChildItem -Path "desktop/src-tauri/target/x86_64-pc-windows-msvc/release" -ErrorAction SilentlyContinue | Select-Object Name, Length
+          Get-ChildItem -Path "desktop/src-tauri/target/release" -ErrorAction SilentlyContinue | Select-Object Name, Length
           Write-Host "=== Checking bundle directory ==="
-          Get-ChildItem -Path "desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length
+          Get-ChildItem -Path "desktop/src-tauri/target/release/bundle" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length
 
       - name: Verify installer artifact exists
         run: |
-          $installer = Get-ChildItem -Path "desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis" -Filter "*.exe" -ErrorAction SilentlyContinue
+          $installer = Get-ChildItem -Path "desktop/src-tauri/target/release/bundle/nsis" -Filter "*.exe" -ErrorAction SilentlyContinue
           if (-not $installer) {
             Write-Error "No installer .exe found in bundle/nsis directory"
             exit 1
@@ -58,15 +53,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AgentHub-Setup-Windows-x64
-          path: desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          path: desktop/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
 
       - name: Generate portable package
         run: |
-          $exePath = "desktop/src-tauri/target/x86_64-pc-windows-msvc/release/agent-hub-desktop.exe"
+          $exePath = "desktop/src-tauri/target/release/agent-hub-desktop.exe"
           if (-not (Test-Path $exePath)) {
             Write-Host "=== Binary not found, listing release directory ==="
-            Get-ChildItem -Path "desktop/src-tauri/target/x86_64-pc-windows-msvc/release" -Filter "*.exe" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "$($_.Name) ($($_.Length) bytes)" }
+            Get-ChildItem -Path "desktop/src-tauri/target/release" -Filter "*.exe" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "$($_.Name) ($($_.Length) bytes)" }
             exit 1
           }
           $zipName = "AgentHub-Portable-Windows-x64.zip"
