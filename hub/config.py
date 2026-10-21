@@ -76,8 +76,8 @@ def resolve_command(
     result = []
     for i, part in enumerate(command):
         if i == 0 and part == "junie" and junie_bin:
-            # On Windows, if JUNIE_BIN is a .py file, prepend python
-            if sys.platform == "win32" and junie_bin.endswith(".py"):
+            # If JUNIE_BIN is a .py file, prepend python interpreter
+            if junie_bin.endswith(".py"):
                 result.append(sys.executable)
                 result.append(junie_bin)
             else:

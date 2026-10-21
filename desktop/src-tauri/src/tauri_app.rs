@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
-use tauri::Manager;
+use tauri::{Manager, WindowEvent};
 use tauri_plugin_store::StoreExt;
 
 /// Global connection status tracker

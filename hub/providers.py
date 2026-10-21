@@ -152,7 +152,7 @@ class JunieProvider(AgentProvider):
         """Check if Junie CLI is available."""
         junie_bin = os.environ.get("JUNIE_BIN")
         if junie_bin:
-            if sys.platform == "win32" and junie_bin.endswith(".py"):
+            if junie_bin.endswith(".py"):
                 return os.path.isfile(junie_bin)
             return shutil.which(junie_bin) is not None or os.path.isfile(junie_bin)
         return shutil.which("junie") is not None
@@ -165,7 +165,7 @@ class JunieProvider(AgentProvider):
         if binary_name == "junie":
             junie_bin = os.environ.get("JUNIE_BIN")
             if junie_bin:
-                if sys.platform == "win32" and junie_bin.endswith(".py"):
+                if junie_bin.endswith(".py"):
                     return [sys.executable, junie_bin]
                 return [junie_bin]
             # On Windows, resolve to full path so .bat/.cmd files work with subprocess

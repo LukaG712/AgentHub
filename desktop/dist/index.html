@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentHub Desktop</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #settingsPage {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 2rem;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        }
+        
+        .settings-card {
+            background: #0f3460;
+            border-radius: 12px;
+            padding: 2.5rem;
+            max-width: 450px;
+            width: 100%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .settings-card h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            color: #e94560;
+        }
+        
+        .settings-card p {
+            color: #aaa;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+            color: #ccc;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: #1a1a2e;
+            color: #eee;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #e94560;
+        }
+        
+        .form-group input::placeholder {
+            color: #666;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 0.85rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #e94560;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #c81e45;
+        }
+        
+        .btn-primary:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        
+        .error-message {
+            color: #e94560;
+            font-size: 0.85rem;
+            margin-top: 1rem;
+            text-align: center;
+            display: none;
+        }
+        
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-dot.connected {
+            background: #4caf50;
+        }
+        
+        .status-dot.disconnected {
+            background: #e94560;
+        }
+        
+        .status-dot.checking {
+            background: #ff9800;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        /* Status bar shown during settings before navigation */
+        .status-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 32px;
+            background: #0f3460;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 0 1rem;
+            z-index: 1000;
+            font-size: 0.8rem;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <!-- Status bar shown briefly during connection -->
+    <div class="status-bar" id="statusBar">
+        <span class="status-dot checking" id="statusDot"></span>
+        <span id="statusText">Connecting...</span>
+    </div>
+    
+    <!-- Settings Page (first run or manual settings) -->
+    <div id="settingsPage">
+        <div class="settings-card">
+            <h1>AgentHub Desktop</h1>
+            <p>Enter your AgentHub server details to get started. The desktop app will connect directly to your VM-hosted AgentHub instance.</p>
+            
+            <div class="form-group">
+                <label for="serverUrl">Server URL</label>
+                <input 
+                    type="url" 
+                    id="serverUrl" 
+                    placeholder="http://192.168.1.100:8080"
+                    value=""
+                >
+            </div>
+            
+            <div class="form-group">
+                <label for="apiKey">API Key</label>
+                <input 
+                    type="password" 
+                    id="apiKey" 
+                    placeholder="Your API key from .env file"
+                    value=""
+                >
+            </div>
+            
+            <button class="btn btn-primary" id="connectBtn" onclick="connect()">
+                Connect
+            </button>
+            
+            <div class="error-message" id="errorMessage"></div>
+        </div>
+    </div>
+    
+    <script>
+        const { invoke } = window.__TAURI__.core;
+        const { getCurrent } = window.__TAURI__.window;
+        
+        // Load saved settings on startup
+        async function loadSettings() {
+            try {
+                const settings = await invoke('get_settings');
+                if (settings.serverUrl) {
+                    document.getElementById('serverUrl').value = settings.serverUrl;
+                }
+                if (settings.apiKey) {
+                    document.getElementById('apiKey').value = settings.apiKey;
+                }
+                
+                // If we have a server URL, try to connect automatically
+                if (settings.serverUrl && settings.apiKey) {
+                    await connect();
+                } else {
+                    showSettingsPage();
+                }
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+                showSettingsPage();
+            }
+        }
+        
+        // Connect to the server
+        async function connect() {
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const connectBtn = document.getElementById('connectBtn');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            if (!serverUrl || !apiKey) {
+                showError('Please enter both server URL and API key.');
+                return;
+            }
+            
+            // Validate URL format
+            try {
+                new URL(serverUrl);
+            } catch (e) {
+                showError('Please enter a valid URL (e.g., http://192.168.1.100:8080).');
+                return;
+            }
+            
+            connectBtn.disabled = true;
+            connectBtn.textContent = 'Connecting...';
+            errorMessage.style.display = 'none';
+            
+            // Show status bar
+            const statusBar = document.getElementById('statusBar');
+            statusBar.style.display = 'flex';
+            updateStatus('checking', 'Connecting...');
+            
+            try {
+                // Save settings
+                await invoke('save_settings', { serverUrl, apiKey });
+                
+                // Check connection using the Rust backend (avoids CORS issues)
+                const health = await invoke('check_connection', { serverUrl, apiKey });
+                
+                if (health.status === 'ok') {
+                    updateStatus('connected', 'Connected');
+                    
+                    // Navigate the WebView directly to the server
+                    // The Rust backend will inject the API key cookie after navigation
+                    // so it's scoped to the server's origin
+                    await invoke('navigate_to_server', { serverUrl, apiKey });
+                    
+                    // Start periodic health checks in background
+                    startHealthChecks(serverUrl, apiKey);
+                }
+            } catch (error) {
+                const msg = error.message || error.toString();
+                if (msg.includes('Authentication failed') || msg.includes('401')) {
+                    showError('Authentication failed. Please check your API key.');
+                    updateStatus('disconnected', 'Auth Error');
+                } else if (msg.includes('Network') || msg.includes('connection') || msg.includes('failed to connect')) {
+                    showError('Cannot reach the server. Please check the URL and ensure AgentHub is running on the VM.');
+                    updateStatus('disconnected', 'Disconnected');
+                } else {
+                    showError(msg || 'Failed to connect to server.');
+                    updateStatus('disconnected', 'Disconnected');
+                }
+            } finally {
+                connectBtn.disabled = false;
+                connectBtn.textContent = 'Connect';
+            }
+        }
+        
+        // Show settings page
+        function showSettingsPage() {
+            const settingsPage = document.getElementById('settingsPage');
+            settingsPage.style.display = 'flex';
+        }
+        
+        // Start periodic health checks
+        function startHealthChecks(serverUrl, apiKey) {
+            // Health checks run in the background via Rust
+            // If connection is lost, we can't do much in the WebView
+            // since it's now showing the remote page
+            setInterval(async () => {
+                try {
+                    await invoke('check_connection', { serverUrl, apiKey });
+                } catch (error) {
+                    console.warn('Health check failed:', error);
+                    // Could show a notification here if we had a tray icon
+                }
+            }, 30000); // Every 30 seconds
+        }
+        
+        // Update connection status indicator
+        function updateStatus(status, text) {
+            const dot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            dot.className = `status-dot ${status}`;
+            statusText.textContent = text;
+            
+            // Update window title
+            const window = getCurrent();
+            window.setTitle(`${text} - AgentHub Desktop`);
+        }
+        
+        // Show error message
+        function showError(message) {
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+        
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', loadSettings);
+    </script>
+</body>
+</html>

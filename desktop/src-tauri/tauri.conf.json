@@ -1,12 +1,11 @@
 {
   "productName": "AgentHub Desktop",
   "version": "1.0.3",
-  "identifier": "com.agenthub.desktop",
   "build": {
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
-    "devPath": "../index.html",
-    "frontendDist": "../index.html"
+    "devPath": "../dist",
+    "frontendDist": "../dist"
   },
   "app": {
     "windows": [
@@ -28,6 +27,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "identifier": "com.agenthub.desktop",
     "icon": [
       "icons/icon.png"
     ],
@@ -35,10 +35,7 @@
       "nsis": {
         "installDir": "$LOCALAPPDATA\\agent-hub-desktop",
         "menu": true,
-        "perMachine": false,
-        "installerIcon": "icons/icon.ico",
-        "headerImage": "icons/header.bmp",
-        "sidebarImage": "icons/sidebar.bmp"
+        "perMachine": false
       }
     }
   }
