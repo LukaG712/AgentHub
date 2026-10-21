@@ -32,11 +32,14 @@ jobs:
         working-directory: desktop
         env:
           CI: true
-        run: npx tauri build --target x86_64-pc-windows-msvc
+        run: |
+          npx tauri build --target x86_64-pc-windows-msvc 2>&1 | Tee-Object -FilePath build.log
 
       - name: Show build output on failure
         if: failure()
         run: |
+          Write-Host "=== Build log ==="
+          Get-Content -Path "desktop/build.log" -ErrorAction SilentlyContinue
           Write-Host "=== Checking build artifacts ==="
           Get-ChildItem -Path "desktop/src-tauri/target/x86_64-pc-windows-msvc/release" -ErrorAction SilentlyContinue | Select-Object Name, Length
           Write-Host "=== Checking bundle directory ==="
