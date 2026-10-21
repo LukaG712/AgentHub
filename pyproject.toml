@@ -67,7 +67,9 @@ select = [
 ]
 ignore = [
     "UP006", # Use X | None for type annotations (keep typing.Optional for clarity)
+    "UP007", # Use X | Y for type annotations (keep Optional for clarity)
     "UP035", # typing.Dict deprecated (keep Dict for now, migrate later)
+    "UP038", # Use X | Y in isinstance (keep tuple for clarity)
     "UP039", # typing.List deprecated (keep List for now, migrate later)
     "UP045", # Use X | None for type annotations (keep Optional for clarity)
     "UP017", # Use datetime.UTC (keep datetime.timezone.utc for compatibility)
@@ -77,14 +79,13 @@ ignore = [
     "F401",  # Unused imports (many are for re-export or future use)
     "F841",  # Unused variables (common in tests)
     "F811",  # Redefinition (common in test classes)
-    "RUF059", # Unused loop variables (common in tests)
     "W293",  # Blank line contains whitespace
     "W291",  # Trailing whitespace
     "E402",  # Module level import not at top of file (lazy imports in api.py)
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["F401", "F841", "F811", "RUF059", "E402"]
+"tests/*" = ["F401", "F841", "F811", "E402"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

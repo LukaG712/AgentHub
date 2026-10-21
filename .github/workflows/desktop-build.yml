@@ -12,21 +12,19 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Rust stable
-        uses: rust-lang/setup-rust@v1
-        with:
-          toolchain: stable
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
 
       - name: Install dependencies
         working-directory: desktop
-        run: npm install
+        run: npm ci
 
       - name: Build desktop app
         working-directory: desktop
@@ -50,8 +48,6 @@ jobs:
 
       - name: Generate portable package
         run: |
-          $bundleDir = "desktop/src-tauri/target/release/bundle/nsis"
-          $exeName = (Get-ChildItem $bundleDir -Filter "*.exe" | Select-Object -First 1).Name
           $zipName = "AgentHub-Portable-Windows-x64.zip"
           Compress-Archive -Path "desktop/src-tauri/target/release/agent-hub-desktop.exe" -DestinationPath "desktop/$zipName" -Force
           Write-Host "Created portable package: $zipName"

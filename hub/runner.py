@@ -111,7 +111,16 @@ def _save_run(run: Run) -> Path:
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(run.to_dict(), f, indent=2)
-        os.replace(tmp_path, str(filepath))
+        # Retry os.replace on Windows where file locks can cause transient PermissionErrors
+        for attempt in range(5):
+            try:
+                os.replace(tmp_path, str(filepath))
+                break
+            except PermissionError:
+                if attempt < 4:
+                    time.sleep(0.05 * (attempt + 1))
+                else:
+                    raise
     except Exception:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
@@ -223,7 +232,7 @@ def _is_process_alive_windows(pid: int) -> bool:
 
     kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
     handle = kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
-    if handle is None or handle == INVALID_HANDLE_VALUE:
+    if handle is None or handle == 0 or handle == INVALID_HANDLE_VALUE:
         return False
     kernel32.CloseHandle(handle)
     return True
@@ -299,13 +308,19 @@ class _FileLock:
             if _HAS_FLOCK:
                 fcntl.flock(self._fh.fileno(), fcntl.LOCK_UN)
             elif _HAS_MSVCRT:
-                self._fh.seek(0)
-                size = self._fh.seek(0, 2)
-                if size == 0:
-                    size = 4
-                msvcrt.locking(self._fh.fileno(), msvcrt.LK_UNLCK, size)
+                try:
+                    self._fh.seek(0)
+                    size = self._fh.seek(0, 2)
+                    if size == 0:
+                        size = 4
+                    msvcrt.locking(self._fh.fileno(), msvcrt.LK_UNLCK, size)
+                except (OSError, PermissionError):
+                    pass  # Lock already released or handle closed
         finally:
-            self._fh.close()
+            try:
+                self._fh.close()
+            except (OSError, ValueError):
+                pass  # Already closed
             self._fh = None
 
     def acquire(self) -> bool:
