@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
-use tauri::{Manager, WindowEvent};
+use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
 /// Global connection status tracker
@@ -30,15 +30,15 @@ impl std::fmt::Display for ConnectionStatus {
 
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
             let store = app.store("settings.json")?;
-            
+
             // Check if this is first run (no server URL configured)
             let has_server_url = store.get("serverUrl").is_some();
-            
+
             let main_window = app.get_webview_window("main").unwrap();
-            
+
             if !has_server_url {
                 // Show settings page on first run
                 main_window.eval(r#"
@@ -46,7 +46,7 @@ pub fn run() {
                     document.getElementById('mainFrame').style.display = 'none';
                 "#).ok();
             }
-            
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -55,23 +55,8 @@ pub fn run() {
             check_connection,
             navigate_to_server,
         ])
-        .build(tauri::generate_context!())
-        .expect("error while running tauri application")
-        .run(|_app_handle, event| {
-            // Handle window close — just close, don't minimize to tray
-            if let tauri::RunEvent::WindowEvent {
-                event: WindowEvent::CloseRequested { api, .. },
-                ..
-            } = event
-            {
-                // Prevent default and close properly
-                api.prevent_close();
-                // Exit the application cleanly
-                if let Some(window) = _app_handle.get_webview_window("main") {
-                    window.close().ok();
-                }
-            }
-        });
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
 
 #[tauri::command]
