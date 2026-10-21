@@ -119,7 +119,7 @@ class RemoteTarget:
         if not self.config.strict_host_key_checking:
             args.extend(["-o", "UserKnownHostsFile=/dev/null"])
         if self.config.key_path:
-            key = str(Path(self.config.key_path).expanduser().resolve())
+            key = str(Path(self.config.key_path).expanduser())
             args.extend(["-i", key])
         return args
 
@@ -256,11 +256,14 @@ class RemoteTarget:
         """
         remote_dir = self.config.remote_project
         local_resolved = str(Path(local_project_dir).expanduser().resolve())
+        local_original = str(Path(local_project_dir).expanduser())
 
         parts = []
         for part in local_command:
-            # Replace project directory references
+            # Replace project directory references (try both resolved and original paths)
             replaced = part.replace(local_resolved, remote_dir)
+            if local_original != local_resolved:
+                replaced = replaced.replace(local_original, remote_dir)
             # Escape single quotes
             replaced = replaced.replace("'", "'\\''")
             parts.append(f"'{replaced}'" if any(c in replaced for c in " $&|;(){}[]<>!#") else replaced)
