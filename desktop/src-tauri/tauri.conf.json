@@ -11,15 +11,13 @@
         "title": "AgentHub Desktop",
         "width": 1200,
         "height": 800,
-        "minWidth": 800,
-        "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
         "center": true
       }
     ],
     "security": {
-      "csp": "default-src 'self' http://*; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://* ws://* wss://*; img-src 'self' data: http://*; media-src 'self' http://*; frame-src http://*;"
+      "csp": null
     }
   },
   "bundle": {
@@ -27,9 +25,6 @@
     "targets": ["nsis"],
     "icon": [
       "icons/icon.ico"
-    ],
-    "windows": {
-      "nsis": {}
-    }
+    ]
   }
 }
