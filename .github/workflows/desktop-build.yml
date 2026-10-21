@@ -30,7 +30,8 @@ jobs:
         working-directory: desktop
         env:
           CI: true
-        run: npx tauri build
+          RUST_BACKTRACE: 1
+        run: npx tauri build --verbose
 
       - name: Show build output on failure
         if: failure()
