@@ -1,13 +1,13 @@
-"""Polter provider — delegates agent execution to the Polter service.
+"""Slinker provider — delegates agent execution to the Slinker service.
 
-This provider sends tasks to a running Polter HTTP service instead of
-invoking the Junie CLI directly.  Polter provides Git worktree isolation,
+This provider sends tasks to a running Slinker HTTP service instead of
+invoking the Junie CLI directly.  Slinker provides Git worktree isolation,
 persistent task storage, and structured changed-file reporting.
 
 Configuration via environment variables:
-    Polter_URL     — Base URL of the Polter service (default: http://localhost:8000)
-    Polter_API_KEY — Bearer token for authentication
-    Polter_TIMEOUT — Per-task timeout in seconds (default: 1800)
+    Slinker_URL     — Base URL of the Slinker service (default: http://localhost:8000)
+    Slinker_API_KEY — Bearer token for authentication
+    Slinker_TIMEOUT — Per-task timeout in seconds (default: 1800)
 
 The task format is detected automatically:
     - If the task starts with "TASK:", it submits a task and returns immediately.
@@ -31,32 +31,32 @@ from hub.providers import AgentPermissions, AgentProvider, ProviderRunResult
 logger = logging.getLogger(__name__)
 
 
-class PolterProvider(AgentProvider):
-    """Provider that delegates task execution to a Polter HTTP service.
+class SlinkerProvider(AgentProvider):
+    """Provider that delegates task execution to a Slinker HTTP service.
 
-    Polter handles worktree isolation, Junie CLI execution, and changed-file
+    Slinker handles worktree isolation, Junie CLI execution, and changed-file
     detection.  This provider simply forwards the task and translates the
-    result back to the Evershade Valley ProviderRunResult format.
+    result back to the Greenie ProviderRunResult format.
     """
 
     @property
     def name(self) -> str:
-        return "Polter"
+        return "Slinker"
 
     def _get_base_url(self) -> str:
-        return os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+        return os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
 
     def _get_api_key(self) -> str:
-        return os.environ.get("Polter_API_KEY", "")
+        return os.environ.get("Slinker_API_KEY", "")
 
     def check_available(self) -> bool:
-        """Check if the Polter service is reachable."""
+        """Check if the Slinker service is reachable."""
         try:
             with httpx.Client(timeout=5.0) as client:
                 resp = client.get(f"{self._get_base_url()}/health")
                 return resp.status_code == 200
         except Exception as e:
-            logger.warning(f"Polter health check failed: {e}")
+            logger.warning(f"Slinker health check failed: {e}")
             return False
 
     def build_command(
@@ -67,7 +67,7 @@ class PolterProvider(AgentProvider):
         extra_args: Optional[List[str]] = None,
     ) -> List[str]:
         """Build a placeholder command — execution happens via HTTP."""
-        return ["Polter", "execute", "--task", task, "--project", project_dir]
+        return ["Slinker", "execute", "--task", task, "--project", project_dir]
 
     def _parse_task(self, task: str) -> tuple[str, str]:
         """Parse the task string to determine the operation and target.
@@ -96,7 +96,7 @@ class PolterProvider(AgentProvider):
         timeout: int = 1800,
         extra_args: Optional[List[str]] = None,
     ) -> ProviderRunResult:
-        """Execute a task via the Polter HTTP service.
+        """Execute a task via the Slinker HTTP service.
 
         Supports multiple operations:
         - Default: synchronous chat completion
@@ -156,19 +156,19 @@ class PolterProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output="",
-                error=f"Cannot connect to Polter at {base_url}: {e}",
+                error=f"Cannot connect to Slinker at {base_url}: {e}",
             )
         except httpx.TimeoutException as e:
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output="",
-                error=f"Polter request timed out after {timeout}s: {e}",
+                error=f"Slinker request timed out after {timeout}s: {e}",
             )
         except Exception as e:
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output="",
-                error=f"Polter execution failed: {e}",
+                error=f"Slinker execution failed: {e}",
             )
 
     async def _chat(
@@ -193,14 +193,14 @@ class PolterProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output="",
-                error="Polter is busy. Please try again later.",
+                error="Slinker is busy. Please try again later.",
             )
 
         if resp.status_code != 200:
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Polter returned HTTP {resp.status_code}: {resp.text}",
+                error=f"Slinker returned HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -209,7 +209,7 @@ class PolterProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=str(data),
-                error="No choices in Polter response",
+                error="No choices in Slinker response",
             )
 
         message = choices[0].get("message", {})
@@ -242,14 +242,14 @@ class PolterProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output="",
-                error="Polter is busy. Please try again later.",
+                error="Slinker is busy. Please try again later.",
             )
 
         if resp.status_code != 200:
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Polter returned HTTP {resp.status_code}: {resp.text}",
+                error=f"Slinker returned HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -273,7 +273,7 @@ class PolterProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Polter returned HTTP {resp.status_code}: {resp.text}",
+                error=f"Slinker returned HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -320,7 +320,7 @@ class PolterProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Polter returned HTTP {resp.status_code}: {resp.text}",
+                error=f"Slinker returned HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -360,7 +360,7 @@ class PolterProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Polter returned HTTP {resp.status_code}: {resp.text}",
+                error=f"Slinker returned HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -379,7 +379,7 @@ class PolterProvider(AgentProvider):
 # Auto-register the provider
 def _register() -> None:
     from hub.providers import register_provider
-    register_provider(PolterProvider())
+    register_provider(SlinkerProvider())
 
 
 _register()

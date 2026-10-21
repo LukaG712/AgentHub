@@ -1,4 +1,4 @@
-"""Structured JSON logging configuration for Evershade Valley.
+"""Structured JSON logging configuration for Greenie.
 
 Provides JSON-formatted logs with request context, timing, and correlation IDs
 for queryable log aggregation and cross-service debugging.
@@ -31,7 +31,7 @@ class JSONFormatter(logging.Formatter):
             log_data["request_id"] = record.request_id
 
         # Add service context
-        log_data["service"] = "Evershade Valley"
+        log_data["service"] = "Greenie"
 
         # Add exception info if present
         if record.exc_info and record.exc_info[0] is not None:

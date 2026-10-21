@@ -15,16 +15,16 @@ import uuid
 async def api_dashboard(_auth: None = Depends(_verify_token)):
     """Unified dashboard aggregating status from all three services.
 
-    Returns a single view of Evershade Valley agents, Polter workers and queue,
-    and Spectra health — useful for monitoring the entire platform.
+    Returns a single view of Greenie agents, Slinker workers and queue,
+    and Trapper health — useful for monitoring the entire platform.
     """
     import asyncio
     import os
     import httpx
 
-    async def _Polter_dashboard():
-        base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
-        api_key = os.environ.get("Polter_API_KEY", "")
+    async def _Slinker_dashboard():
+        base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
+        api_key = os.environ.get("Slinker_API_KEY", "")
         headers = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
@@ -45,8 +45,8 @@ async def api_dashboard(_auth: None = Depends(_verify_token)):
         except Exception as e:
             return {"health": "unreachable", "error": str(e)}
 
-    async def _Spectra_dashboard():
-        base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
+    async def _Trapper_dashboard():
+        base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(f"{base_url}/health")
@@ -66,37 +66,37 @@ async def api_dashboard(_auth: None = Depends(_verify_token)):
             "recent_runs": [r.to_dict() for r in recent_runs],
         }
 
-    Polter, Spectra, evershade_valley = await asyncio.gather(
-        _Polter_dashboard(), _Spectra_dashboard(), _evershade_valley_dashboard()
+    Slinker, Trapper, evershade_valley = await asyncio.gather(
+        _Slinker_dashboard(), _Trapper_dashboard(), _evershade_valley_dashboard()
     )
 
     return {
-        "Evershade Valley": evershade_valley,
-        "Polter": Polter,
-        "Spectra": Spectra,
+        "Greenie": evershade_valley,
+        "Slinker": Slinker,
+        "Trapper": Trapper,
     }
 
 
-# ─── Polter Streaming Chat ────────────────────────────────────────────────
+# ─── Slinker Streaming Chat ────────────────────────────────────────────────
 
 
 async def api_create_pipeline(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
     """Create and execute a cross-service pipeline.
 
     A pipeline chains multiple steps that can use different services:
-    - "Spectra" steps: web research via Spectra
-    - "Polter" steps: coding tasks via Polter
-    - "agent" steps: local Evershade Valley agents
+    - "Trapper" steps: web research via Trapper
+    - "Slinker" steps: coding tasks via Slinker
+    - "agent" steps: local Greenie agents
 
     Example body:
     {
         "steps": [
             {
-                "service": "Spectra",
+                "service": "Trapper",
                 "task": "SEARCH: latest Python async best practices"
             },
             {
-                "service": "Polter",
+                "service": "Slinker",
                 "task": "Create a summary document of the research findings"
             }
         ]
@@ -128,15 +128,15 @@ async def api_create_pipeline(body: Dict[str, Any], _auth: None = Depends(_verif
 
         step_result = {"step": i, "service": service}
 
-        if service == "Spectra":
-            base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-            api_key = os.environ.get("Spectra_API_KEY", "")
+        if service == "Trapper":
+            base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+            api_key = os.environ.get("Trapper_API_KEY", "")
             headers = {"Content-Type": "application/json"}
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
 
             # Parse operation from task
-            op, target = _parse_Spectra_task(task)
+            op, target = _parse_Trapper_task(task)
 
             try:
                 async with httpx.AsyncClient(timeout=120.0) as client:
@@ -173,9 +173,9 @@ async def api_create_pipeline(body: Dict[str, Any], _auth: None = Depends(_verif
                 step_result["status"] = "error"
                 step_result["error"] = str(e)
 
-        elif service == "Polter":
-            base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
-            api_key = os.environ.get("Polter_API_KEY", "")
+        elif service == "Slinker":
+            base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
+            api_key = os.environ.get("Slinker_API_KEY", "")
             headers = {"Content-Type": "application/json"}
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
@@ -235,8 +235,8 @@ async def api_create_pipeline(body: Dict[str, Any], _auth: None = Depends(_verif
     }
 
 
-def _parse_Spectra_task(task: str) -> tuple[str, str]:
-    """Parse an Spectra task string to determine the operation and target."""
+def _parse_Trapper_task(task: str) -> tuple[str, str]:
+    """Parse an Trapper task string to determine the operation and target."""
     task_upper = task.upper().strip()
     prefixes = ["SCRAPE:", "CRAWL:", "SEARCH:", "MAP:", "BATCH:", "INTERACT:", "EXTRACT:", "AGENT:"]
     for prefix in prefixes:
@@ -246,14 +246,14 @@ def _parse_Spectra_task(task: str) -> tuple[str, str]:
     return "search", task
 
 
-# ─── Spectra SSE Job Streaming ────────────────────────────────────────────
+# ─── Trapper SSE Job Streaming ────────────────────────────────────────────
 
 
 async def api_unified_search(q: str, _auth: None = Depends(_verify_token)):
     """Unified search across all three services.
 
-    Searches Spectra for web content, Polter for tasks and projects,
-    and Evershade Valley for agents and runs.
+    Searches Trapper for web content, Slinker for tasks and projects,
+    and Greenie for agents and runs.
 
     Query parameters:
     - q: Search query string
@@ -264,15 +264,15 @@ async def api_unified_search(q: str, _auth: None = Depends(_verify_token)):
     import httpx
 
     services_param = os.environ.get("SEARCH_SERVICES", "all").lower()
-    search_Spectra = services_param in ("all", "Spectra")
-    search_Polter = services_param in ("all", "Polter")
-    search_evershade_valley = services_param in ("all", "Evershade Valley")
+    search_Trapper = services_param in ("all", "Trapper")
+    search_Slinker = services_param in ("all", "Slinker")
+    search_evershade_valley = services_param in ("all", "Greenie")
 
-    async def _search_Spectra():
-        if not search_Spectra:
-            return {"service": "Spectra", "results": []}
-        base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-        api_key = os.environ.get("Spectra_API_KEY", "")
+    async def _search_Trapper():
+        if not search_Trapper:
+            return {"service": "Trapper", "results": []}
+        base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+        api_key = os.environ.get("Trapper_API_KEY", "")
         headers = {"Content-Type": "application/json"}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
@@ -281,16 +281,16 @@ async def api_unified_search(q: str, _auth: None = Depends(_verify_token)):
                 resp = await client.post(f"{base_url}/search", json={"query": q}, headers=headers)
                 if resp.status_code == 200:
                     data = resp.json()
-                    return {"service": "Spectra", "results": data.get("data", [])}
-                return {"service": "Spectra", "error": "Search failed"}
+                    return {"service": "Trapper", "results": data.get("data", [])}
+                return {"service": "Trapper", "error": "Search failed"}
         except Exception as e:
-            return {"service": "Spectra", "error": str(e)}
+            return {"service": "Trapper", "error": str(e)}
 
-    async def _search_Polter():
-        if not search_Polter:
-            return {"service": "Polter", "results": []}
-        base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
-        api_key = os.environ.get("Polter_API_KEY", "")
+    async def _search_Slinker():
+        if not search_Slinker:
+            return {"service": "Slinker", "results": []}
+        base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
+        api_key = os.environ.get("Slinker_API_KEY", "")
         headers = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
@@ -313,13 +313,13 @@ async def api_unified_search(q: str, _auth: None = Depends(_verify_token)):
                         project_str = json.dumps(p).lower()
                         if q_lower in project_str:
                             results.append({"type": "project", "data": p})
-                return {"service": "Polter", "results": results}
+                return {"service": "Slinker", "results": results}
         except Exception as e:
-            return {"service": "Polter", "error": str(e)}
+            return {"service": "Slinker", "error": str(e)}
 
     async def _search_evershade_valley():
         if not search_evershade_valley:
-            return {"service": "Evershade Valley", "results": []}
+            return {"service": "Greenie", "results": []}
         results = []
         q_lower = q.lower()
         try:
@@ -334,15 +334,15 @@ async def api_unified_search(q: str, _auth: None = Depends(_verify_token)):
                     results.append({"type": "run", "data": rd})
         except Exception as e:
             pass
-        return {"service": "Evershade Valley", "results": results}
+        return {"service": "Greenie", "results": results}
 
-    Spectra_results, Polter_results, evershade_valley_results = await asyncio.gather(
-        _search_Spectra(), _search_Polter(), _search_evershade_valley()
+    Trapper_results, Slinker_results, evershade_valley_results = await asyncio.gather(
+        _search_Trapper(), _search_Slinker(), _search_evershade_valley()
     )
 
     return {
         "query": q,
-        "results": [Spectra_results, Polter_results, evershade_valley_results],
+        "results": [Trapper_results, Slinker_results, evershade_valley_results],
     }
 
 
@@ -358,9 +358,9 @@ async def api_batch_execute(body: Dict[str, Any], _auth: None = Depends(_verify_
     Example body:
     {
         "tasks": [
-            {"service": "Spectra", "task": "SEARCH: latest Python news"},
-            {"service": "Spectra", "task": "SEARCH: latest Rust news"},
-            {"service": "Polter", "task": "Compare Python vs Rust performance"}
+            {"service": "Trapper", "task": "SEARCH: latest Python news"},
+            {"service": "Trapper", "task": "SEARCH: latest Rust news"},
+            {"service": "Slinker", "task": "Compare Python vs Rust performance"}
         ]
     }
     """
@@ -383,13 +383,13 @@ async def api_batch_execute(body: Dict[str, Any], _auth: None = Depends(_verify_
             return result
 
         try:
-            if service == "Spectra":
-                base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-                api_key = os.environ.get("Spectra_API_KEY", "")
+            if service == "Trapper":
+                base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+                api_key = os.environ.get("Trapper_API_KEY", "")
                 headers = {"Content-Type": "application/json"}
                 if api_key:
                     headers["Authorization"] = f"Bearer {api_key}"
-                op, target = _parse_Spectra_task(task)
+                op, target = _parse_Trapper_task(task)
                 async with httpx.AsyncClient(timeout=120.0) as client:
                     if op in ("scrape",):
                         resp = await client.post(f"{base_url}/scrape", json={"url": target}, headers=headers)
@@ -411,9 +411,9 @@ async def api_batch_execute(body: Dict[str, Any], _auth: None = Depends(_verify_
                     else:
                         result["status"] = "error"
                         result["error"] = resp.text
-            elif service == "Polter":
-                base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
-                api_key = os.environ.get("Polter_API_KEY", "")
+            elif service == "Slinker":
+                base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
+                api_key = os.environ.get("Slinker_API_KEY", "")
                 headers = {"Content-Type": "application/json"}
                 if api_key:
                     headers["Authorization"] = f"Bearer {api_key}"
@@ -461,7 +461,7 @@ async def api_batch_execute(body: Dict[str, Any], _auth: None = Depends(_verify_
     }
 
 
-# ─── Polter Task Output Stream ────────────────────────────────────────────
+# ─── Slinker Task Output Stream ────────────────────────────────────────────
 
 
 

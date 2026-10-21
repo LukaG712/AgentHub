@@ -55,7 +55,7 @@ async def api_create_template(body: Dict[str, Any], _auth: None = Depends(_verif
         "description": "Crawl a URL and summarize the content",
         "type": "pipeline",
         "steps": [
-            {"service": "Spectra", "task": "SCRAPE:{{url}}"},
+            {"service": "Trapper", "task": "SCRAPE:{{url}}"},
             {"service": "agent", "agent": "vault", "task": "Summarize: {{result}}"}
         ],
         "variables": ["url"],
@@ -205,14 +205,14 @@ async def api_execute_template(template_id: str, body: Dict[str, Any], _auth: No
         if service == "agent" and agent:
             run = run_agent(agent, task)
             return {"template_id": template_id, "run_id": run.id, "status": "started"}
-        elif service == "Spectra":
-            from hub.spectra_provider import SpectraProvider
-            provider = SpectraProvider()
+        elif service == "Trapper":
+            from hub.Trapper_provider import TrapperProvider
+            provider = TrapperProvider()
             result = await provider.execute(task)
             return {"template_id": template_id, "status": "completed", "result": result}
-        elif service == "Polter":
-            from hub.polter_provider import PolterProvider
-            provider = PolterProvider()
+        elif service == "Slinker":
+            from hub.Slinker_provider import SlinkerProvider
+            provider = SlinkerProvider()
             result = await provider.execute(task)
             return {"template_id": template_id, "status": "completed", "result": result}
         else:
@@ -237,15 +237,15 @@ async def _execute_template_pipeline(steps: List[Dict[str, Any]]) -> Dict[str, A
         if service == "agent" and agent:
             run = run_agent(agent, task)
             result = {"step": i, "service": service, "run_id": run.id}
-        elif service == "Spectra":
-            from hub.spectra_provider import SpectraProvider
-            provider = SpectraProvider()
+        elif service == "Trapper":
+            from hub.Trapper_provider import TrapperProvider
+            provider = TrapperProvider()
             result_data = await provider.execute(task)
             result = {"step": i, "service": service, "result": result_data}
             context[f"step{i}"] = str(result_data)[:2000]
-        elif service == "Polter":
-            from hub.polter_provider import PolterProvider
-            provider = PolterProvider()
+        elif service == "Slinker":
+            from hub.Slinker_provider import SlinkerProvider
+            provider = SlinkerProvider()
             result_data = await provider.execute(task)
             result = {"step": i, "service": service, "result": result_data}
             context[f"step{i}"] = str(result_data)[:2000]

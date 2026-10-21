@@ -1,4 +1,4 @@
-"""Evershade Valley API package.
+"""Greenie API package.
 
 Imports all route modules and registers them with the FastAPI app.
 Each route module exposes a `register(app)` function.
@@ -12,7 +12,7 @@ __all__ = ["create_app", "app", "register_all_routes"]
 _ROUTE_MODULES = [
     "health", "agents", "runs", "sessions", "memories", "skills", "routines",
     "coordinator", "bots", "obsidian", "ollama", "git", "remote", "crawl",
-    "polter", "pipeline", "schedules", "streaming", "webhooks",
+    "Slinker", "pipeline", "schedules", "streaming", "webhooks",
     "notifications", "analytics", "export_import", "api_keys", "services",
     "websocket", "rate_limits", "audit", "templates", "approvals", "files",
     "rbac", "jobs", "cache", "message_bus", "feature_flags", "deployments",

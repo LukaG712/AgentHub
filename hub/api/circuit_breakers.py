@@ -85,7 +85,7 @@ async def api_set_circuit_config(body: Dict[str, Any], _auth: None = Depends(_ve
 
     Example body:
     {
-        "service": "Spectra",
+        "service": "Trapper",
         "failure_threshold": 5,
         "recovery_timeout": 60,
         "success_threshold": 3

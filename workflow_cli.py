@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """workflow — Command-line interface for the Unified Workflow platform.
 
-A standalone CLI tool that connects to the Evershade Valley REST API to manage
+A standalone CLI tool that connects to the Greenie REST API to manage
 agents, runs, pipelines, schedules, and the entire platform from any terminal.
 
 Usage:
     workflow agents list
     workflow run my-agent "summarize the latest report"
-    workflow pipeline create --name "research" --steps Spectra:SEARCH:query,Polter:TASK:code
+    workflow pipeline create --name "research" --steps Trapper:SEARCH:query,Slinker:TASK:code
     workflow schedules list
     workflow search "error handling"
     workflow health
@@ -460,7 +460,7 @@ def cmd_search(args, client):
         return
     
     # Print results by service
-    for service in ["Spectra", "Polter", "Evershade Valley"]:
+    for service in ["Trapper", "Slinker", "Greenie"]:
         results = data.get(service, [])
         if results:
             print(f"\n{service.upper()} ({len(results)} results):")
@@ -508,9 +508,9 @@ def cmd_health(args, client):
 def cmd_services(args, client):
     """Check individual service health."""
     services = {
-        "Evershade Valley": "/api/health",
-        "Polter": "/api/Polter/health",
-        "Spectra": "/api/crawl/health",
+        "Greenie": "/api/health",
+        "Slinker": "/api/Slinker/health",
+        "Trapper": "/api/crawl/health",
     }
     
     if args.json:
@@ -545,22 +545,22 @@ def cmd_dashboard(args, client):
     
     print("=== Unified Workflow Dashboard ===\n")
     
-    # Evershade Valley section
-    Evershade Valley = data.get("Evershade Valley", {})
-    agents = Evershade Valley.get("agents", [])
-    runs = Evershade Valley.get("runs", [])
-    print(f"Evershade Valley: {len(agents)} agents, {len(runs)} runs")
+    # Greenie section
+    Greenie = data.get("Greenie", {})
+    agents = Greenie.get("agents", [])
+    runs = Greenie.get("runs", [])
+    print(f"Greenie: {len(agents)} agents, {len(runs)} runs")
     
-    # Polter section
-    Polter = data.get("Polter", {})
-    workers = Polter.get("workers", [])
-    queue = Polter.get("queue", {})
-    print(f"Polter: {len(workers)} workers, queue: {queue}")
+    # Slinker section
+    Slinker = data.get("Slinker", {})
+    workers = Slinker.get("workers", [])
+    queue = Slinker.get("queue", {})
+    print(f"Slinker: {len(workers)} workers, queue: {queue}")
     
-    # Spectra section
-    Spectra = data.get("Spectra", {})
-    oc_status = Spectra.get("status", "unknown")
-    print(f"Spectra: {oc_status}")
+    # Trapper section
+    Trapper = data.get("Trapper", {})
+    oc_status = Trapper.get("status", "unknown")
+    print(f"Trapper: {oc_status}")
 
 
 # ─── Batch Command ───────────────────────────────────────────────────────────
@@ -689,7 +689,7 @@ def main(argv=None):
     
     p_agents_create = agents_sub.add_parser("create", help="Create a new agent")
     p_agents_create.add_argument("name", help="Agent name")
-    p_agents_create.add_argument("--runner", default="junie", help="Runner type (junie, Polter, Spectra)")
+    p_agents_create.add_argument("--runner", default="junie", help="Runner type (junie, Slinker, Trapper)")
     p_agents_create.add_argument("--title", help="Agent title")
     p_agents_create.add_argument("--skills", help="Comma-separated skills")
     p_agents_create.add_argument("--prompt", help="Agent prompt")
@@ -762,7 +762,7 @@ def main(argv=None):
     # ── Search ──
     p_search = subparsers.add_parser("search", help="Search across all services")
     p_search.add_argument("query", help="Search query")
-    p_search.add_argument("--service", help="Filter by service (Spectra, Polter, Evershade Valley)")
+    p_search.add_argument("--service", help="Filter by service (Trapper, Slinker, Greenie)")
     p_search.set_defaults(func=cmd_search)
     
     # ── Health ──

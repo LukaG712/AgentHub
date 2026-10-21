@@ -1,7 +1,7 @@
 # ─── Runners ────────────────────────────────────────────────────────────────
 # "junie"     — Runs Junie CLI directly (local subprocess)
-# "Polter"  — Delegates to Polter service (worktree isolation, persistent storage)
-# "Spectra" — Delegates to Spectra service (web scraping, crawling, search)
+# "Slinker"  — Delegates to Slinker service (worktree isolation, persistent storage)
+# "Trapper" — Delegates to Trapper service (web scraping, crawling, search)
 
 runners:
   junie:
@@ -37,7 +37,7 @@ agents:
   researcher:
     title: "Web researcher"
     description: "Scrapes websites, searches the web, and crawls sites for information."
-    runner: Spectra
+    runner: Trapper
     project_dir: "/workspace/research"
     skills: []
     guidelines: |
@@ -54,8 +54,8 @@ agents:
 
   coder:
     title: "Code developer"
-    description: "Develops code with Git worktree isolation via Polter."
-    runner: Polter
+    description: "Develops code with Git worktree isolation via Slinker."
+    runner: Slinker
     project_dir: "/workspace/projects"
     skills: []
     guidelines: "Write clean, well-tested code. Use Git for version control."
@@ -71,7 +71,7 @@ agents:
 # website-builder:
 #   title: "Website builder"
 #   description: "Builds and edits static websites."
-#   runner: Polter
+#   runner: Slinker
 #   project_dir: "/workspace/website"
 #   skills: []
 #   guidelines: "Use plain HTML, CSS, and vanilla JavaScript. No build tools."
@@ -79,7 +79,7 @@ agents:
 # software-builder:
 #   title: "Software builder"
 #   description: "Develops Python applications and libraries."
-#   runner: Polter
+#   runner: Slinker
 #   project_dir: "/workspace/software"
 #   skills: []
 #   guidelines: "Write clean, well-tested Python. Follow PEP 8."

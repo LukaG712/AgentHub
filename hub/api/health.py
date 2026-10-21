@@ -32,46 +32,46 @@ import httpx
 import time
 
 
-async def api_Polter_health():
-    """Check if the Polter service is reachable."""
+async def api_Slinker_health():
+    """Check if the Slinker service is reachable."""
     import os
     import httpx
-    base_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
+    base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(f"{base_url}/health")
-            return {"service": "Polter", "status": "ok" if resp.status_code == 200 else "error", "url": base_url}
+            return {"service": "Slinker", "status": "ok" if resp.status_code == 200 else "error", "url": base_url}
     except Exception as e:
-        return {"service": "Polter", "status": "unreachable", "error": str(e), "url": base_url}
+        return {"service": "Slinker", "status": "unreachable", "error": str(e), "url": base_url}
 
 
-async def api_Spectra_health():
-    """Check if the Spectra service is reachable."""
+async def api_Trapper_health():
+    """Check if the Trapper service is reachable."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(f"{base_url}/health")
-            return {"service": "Spectra", "status": "ok" if resp.status_code == 200 else "error", "url": base_url}
+            return {"service": "Trapper", "status": "ok" if resp.status_code == 200 else "error", "url": base_url}
     except Exception as e:
-        return {"service": "Spectra", "status": "unreachable", "error": str(e), "url": base_url}
+        return {"service": "Trapper", "status": "unreachable", "error": str(e), "url": base_url}
 
 
 async def api_integration_health():
     """Check health of all integrated services."""
     import asyncio
-    Polter_task = asyncio.create_task(api_Polter_health())
-    Spectra_task = asyncio.create_task(api_Spectra_health())
-    Polter_status, Spectra_status = await asyncio.gather(Polter_task, Spectra_task)
+    Slinker_task = asyncio.create_task(api_Slinker_health())
+    Trapper_task = asyncio.create_task(api_Trapper_health())
+    Slinker_status, Trapper_status = await asyncio.gather(Slinker_task, Trapper_task)
     return {
-        "Evershade Valley": {"status": "ok", "version": "1.0.3"},
-        "Polter": Polter_status,
-        "Spectra": Spectra_status,
+        "Greenie": {"status": "ok", "version": "1.0.3"},
+        "Slinker": Slinker_status,
+        "Trapper": Trapper_status,
     }
 
 
-# ─── Spectra proxy endpoints ──────────────────────────────────────────────
+# ─── Trapper proxy endpoints ──────────────────────────────────────────────
 
 
 async def api_health():
@@ -86,7 +86,7 @@ async def api_health():
     health = {
         "status": "ok",
         "version": "1.0.3",
-        "service": "Evershade Valley",
+        "service": "Greenie",
     }
 
     # Database status
@@ -109,8 +109,8 @@ async def api_health():
     downstream = {}
     import httpx
     for service_name, env_var, default_url in [
-        ("Polter", "Polter_URL", "http://localhost:8000"),
-        ("Spectra", "Spectra_URL", "http://localhost:3000"),
+        ("Slinker", "Slinker_URL", "http://localhost:8000"),
+        ("Trapper", "Trapper_URL", "http://localhost:3000"),
     ]:
         base_url = os.environ.get(env_var, default_url).rstrip("/")
         try:
@@ -332,8 +332,8 @@ def _get_ollama_client() -> Optional[ollama.OllamaClient]:
 
 def register(app):
     """Register health routes with the FastAPI app."""
-    app.get("/api/integration/Polter/health")(api_Polter_health)
-    app.get("/api/integration/Spectra/health")(api_Spectra_health)
+    app.get("/api/integration/Slinker/health")(api_Slinker_health)
+    app.get("/api/integration/Trapper/health")(api_Trapper_health)
     app.get("/api/integration/health")(api_integration_health)
     app.get("/api/health")(api_health)
     app.get("/api/ready")(api_ready)

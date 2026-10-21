@@ -100,13 +100,13 @@ async def api_github_webhook(request: Request):
                         task = task.replace("{{context}}", accumulated_context[:1000])
                         
                         # Execute step
-                        if service == "Spectra":
-                            from hub.spectra_provider import SpectraProvider
-                            provider = SpectraProvider()
+                        if service == "Trapper":
+                            from hub.Trapper_provider import TrapperProvider
+                            provider = TrapperProvider()
                             result = await provider.run(task)
-                        elif service in ("Polter", "junie"):
-                            from hub.polter_provider import PolterProvider
-                            provider = PolterProvider()
+                        elif service in ("Slinker", "junie"):
+                            from hub.Slinker_provider import SlinkerProvider
+                            provider = SlinkerProvider()
                             result = await provider.run(task)
                         else:
                             result = {"status": "error", "message": f"Unknown service: {service}"}
@@ -219,13 +219,13 @@ async def api_gitlab_webhook(request: Request):
                         task = task.replace("{{url}}", ctx.get("url", ""))
                         task = task.replace("{{context}}", accumulated_context[:1000])
                         
-                        if service == "Spectra":
-                            from hub.spectra_provider import SpectraProvider
-                            provider = SpectraProvider()
+                        if service == "Trapper":
+                            from hub.Trapper_provider import TrapperProvider
+                            provider = TrapperProvider()
                             result = await provider.run(task)
-                        elif service in ("Polter", "junie"):
-                            from hub.polter_provider import PolterProvider
-                            provider = PolterProvider()
+                        elif service in ("Slinker", "junie"):
+                            from hub.Slinker_provider import SlinkerProvider
+                            provider = SlinkerProvider()
                             result = await provider.run(task)
                         else:
                             result = {"status": "error", "message": f"Unknown service: {service}"}
@@ -262,7 +262,7 @@ async def api_github_webhook_config(request: Request, _auth: None = Depends(_ver
             {
                 "events": ["push", "pull_request"],
                 "actions": ["opened", "synchronized"],
-                "steps": [{"service": "Polter", "task": "Review {{commit_message}}"}]
+                "steps": [{"service": "Slinker", "task": "Review {{commit_message}}"}]
             }
         ]
     }
@@ -297,7 +297,7 @@ async def api_gitlab_webhook_config(request: Request, _auth: None = Depends(_ver
             {
                 "events": ["Merge Request Hook"],
                 "actions": ["open", "update"],
-                "steps": [{"service": "Polter", "task": "Review {{commit_message}}"}]
+                "steps": [{"service": "Slinker", "task": "Review {{commit_message}}"}]
             }
         ]
     }

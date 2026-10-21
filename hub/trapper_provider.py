@@ -1,11 +1,11 @@
-"""Spectra provider — delegates web scraping tasks to the Spectra service.
+"""Trapper provider — delegates web scraping tasks to the Trapper service.
 
-This provider sends scraping, crawling, and search tasks to a running Spectra
+This provider sends scraping, crawling, and search tasks to a running Trapper
 HTTP service.  It returns the scraped content as the agent's answer.
 
 Configuration via environment variables:
-    Spectra_URL     — Base URL of the Spectra service (default: http://localhost:3000)
-    Spectra_API_KEY — Bearer token for authentication
+    Trapper_URL     — Base URL of the Trapper service (default: http://localhost:3000)
+    Trapper_API_KEY — Bearer token for authentication
 
 The task format is detected automatically:
     - If the task starts with "SCRAPE:", it scrapes a single URL.
@@ -33,8 +33,8 @@ from hub.providers import AgentPermissions, AgentProvider, ProviderRunResult
 logger = logging.getLogger(__name__)
 
 
-class SpectraProvider(AgentProvider):
-    """Provider that delegates web scraping tasks to an Spectra HTTP service.
+class TrapperProvider(AgentProvider):
+    """Provider that delegates web scraping tasks to an Trapper HTTP service.
 
     Supports scraping single pages, crawling sites, searching the web, and
     mapping site URLs.  The task string is parsed to determine the operation.
@@ -42,22 +42,22 @@ class SpectraProvider(AgentProvider):
 
     @property
     def name(self) -> str:
-        return "Spectra"
+        return "Trapper"
 
     def _get_base_url(self) -> str:
-        return os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
+        return os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
 
     def _get_api_key(self) -> str:
-        return os.environ.get("Spectra_API_KEY", "")
+        return os.environ.get("Trapper_API_KEY", "")
 
     def check_available(self) -> bool:
-        """Check if the Spectra service is reachable."""
+        """Check if the Trapper service is reachable."""
         try:
             with httpx.Client(timeout=5.0) as client:
                 resp = client.get(f"{self._get_base_url()}/health")
                 return resp.status_code == 200
         except Exception as e:
-            logger.warning(f"Spectra health check failed: {e}")
+            logger.warning(f"Trapper health check failed: {e}")
             return False
 
     def build_command(
@@ -68,7 +68,7 @@ class SpectraProvider(AgentProvider):
         extra_args: Optional[List[str]] = None,
     ) -> List[str]:
         """Build a placeholder command — execution happens via HTTP."""
-        return ["Spectra", "scrape", "--task", task]
+        return ["Trapper", "scrape", "--task", task]
 
     def _parse_task(self, task: str) -> tuple[str, str]:
         """Parse the task string to determine the operation and target.
@@ -105,7 +105,7 @@ class SpectraProvider(AgentProvider):
         timeout: int = 1800,
         extra_args: Optional[List[str]] = None,
     ) -> ProviderRunResult:
-        """Execute a web scraping task via the Spectra HTTP service."""
+        """Execute a web scraping task via the Trapper HTTP service."""
         api_key = self._get_api_key()
         base_url = self._get_base_url()
 
@@ -163,19 +163,19 @@ class SpectraProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output="",
-                error=f"Cannot connect to Spectra at {base_url}: {e}",
+                error=f"Cannot connect to Trapper at {base_url}: {e}",
             )
         except httpx.TimeoutException as e:
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output="",
-                error=f"Spectra request timed out: {e}",
+                error=f"Trapper request timed out: {e}",
             )
         except Exception as e:
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output="",
-                error=f"Spectra execution failed: {e}",
+                error=f"Trapper execution failed: {e}",
             )
 
     async def _scrape(
@@ -198,7 +198,7 @@ class SpectraProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Spectra scrape failed with HTTP {resp.status_code}: {resp.text}",
+                error=f"Trapper scrape failed with HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -259,7 +259,7 @@ class SpectraProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Spectra crawl failed with HTTP {resp.status_code}: {resp.text}",
+                error=f"Trapper crawl failed with HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -345,7 +345,7 @@ class SpectraProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Spectra search failed with HTTP {resp.status_code}: {resp.text}",
+                error=f"Trapper search failed with HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -401,7 +401,7 @@ class SpectraProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Spectra map failed with HTTP {resp.status_code}: {resp.text}",
+                error=f"Trapper map failed with HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -470,7 +470,7 @@ class SpectraProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Spectra batch failed with HTTP {resp.status_code}: {resp.text}",
+                error=f"Trapper batch failed with HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -563,7 +563,7 @@ class SpectraProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Spectra interact failed with HTTP {resp.status_code}: {resp.text}",
+                error=f"Trapper interact failed with HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -618,7 +618,7 @@ class SpectraProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Spectra extract failed with HTTP {resp.status_code}: {resp.text}",
+                error=f"Trapper extract failed with HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -698,7 +698,7 @@ class SpectraProvider(AgentProvider):
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output=resp.text,
-                error=f"Spectra agent failed with HTTP {resp.status_code}: {resp.text}",
+                error=f"Trapper agent failed with HTTP {resp.status_code}: {resp.text}",
             )
 
         data = resp.json()
@@ -759,7 +759,7 @@ class SpectraProvider(AgentProvider):
 # Auto-register the provider
 def _register() -> None:
     from hub.providers import register_provider
-    register_provider(SpectraProvider())
+    register_provider(TrapperProvider())
 
 
 _register()

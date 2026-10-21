@@ -1,4 +1,4 @@
-"""Core infrastructure for the Evershade Valley API.
+"""Core infrastructure for the Greenie API.
 
 This module contains shared infrastructure used by all route modules:
 - In-memory stores with thread-safe locks
@@ -551,7 +551,7 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(
         title="Agent Hub",
-        description="Unified Workflow orchestration platform — central API for agents, pipelines, and cross-service integration with Polter and Spectra.",
+        description="Unified Workflow orchestration platform — central API for agents, pipelines, and cross-service integration with Slinker and Trapper.",
         version="1.0.3",
         docs_url="/docs",
         redoc_url="/redoc",

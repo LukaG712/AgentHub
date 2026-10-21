@@ -162,8 +162,8 @@ async def api_rotate_api_key(key_id: str, _auth: None = Depends(_verify_token)):
 
 # Service health history
 _service_health: Dict[str, List[Dict[str, Any]]] = {
-    "Polter": [],
-    "Spectra": [],
+    "Slinker": [],
+    "Trapper": [],
 }
 _service_health_lock = threading.Lock()
 

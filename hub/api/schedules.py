@@ -18,8 +18,8 @@ async def api_create_schedule(body: Dict[str, Any], _auth: None = Depends(_verif
         "name": "Daily research digest",
         "schedule": "0 9 * * *",  // Every day at 9 AM
         "steps": [
-            {"service": "Spectra", "task": "SEARCH: latest AI news"},
-            {"service": "Polter", "task": "Summarize the research findings"}
+            {"service": "Trapper", "task": "SEARCH: latest AI news"},
+            {"service": "Slinker", "task": "Summarize the research findings"}
         ]
     }
     """

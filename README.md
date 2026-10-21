@@ -59,27 +59,27 @@ Everything you need to manage AI coding agents from one place:
 | 🌐 **CORS** | LAN access | Configurable CORS middleware for browser access from LAN devices |
 | 📋 **Task Manager** | Built-in app | Simple task list at `/app/` with create, complete, delete, and filter — no setup needed |
 
-## 🔗 How it Works with Polter & Spectra
+## 🔗 How it Works with Slinker & Trapper
 
-Evershade Valley is the central dashboard that can work standalone or integrate with companion services:
+Greenie is the central dashboard that can work standalone or integrate with companion services:
 
 | Component | Role | Port |
 |-----------|------|------|
-| **Evershade Valley** | 🏠 Dashboard — manage agents, chat, skills, memory, routines | `8080` |
-| **Polter** | ⚙️ Execution engine — Git worktree isolation, persistent task storage | `8000` |
-| **Spectra** | 🌐 Web scraping — scrape, crawl, search, and map websites | `3000` |
+| **Greenie** | 🏠 Dashboard — manage agents, chat, skills, memory, routines | `8080` |
+| **Slinker** | ⚙️ Execution engine — Git worktree isolation, persistent task storage | `8000` |
+| **Trapper** | 🌐 Web scraping — scrape, crawl, search, and map websites | `3000` |
 
 **Three runner types:**
 
 | Runner | Description |
 |--------|-------------|
 | `junie` | Runs Junie CLI directly via local subprocess |
-| `Polter` | Delegates to Polter for worktree isolation and task persistence |
-| `Spectra` | Delegates to Spectra for web scraping, crawling, and search |
+| `Slinker` | Delegates to Slinker for worktree isolation and task persistence |
+| `Trapper` | Delegates to Trapper for web scraping, crawling, and search |
 
 **Unified deployment:** All three services can be started together with a single `docker compose up` from the parent `Workflow/` directory.
 
-> 💡 **You can use Evershade Valley on its own** — the web dashboard lets you send tasks directly without any companion services.
+> 💡 **You can use Greenie on its own** — the web dashboard lets you send tasks directly without any companion services.
 
 ## 🚀 Quick Start
 
@@ -88,13 +88,13 @@ Getting started takes **one command** — it clones the repo, sets up everything
 ### 🐧 Linux / macOS
 
 ```bash
-git clone https://github.com/LukaG712/Evershade Valley.git && cd Evershade Valley && ./start.sh
+git clone https://github.com/LukaG712/Greenie.git && cd Greenie && ./start.sh
 ```
 
 ### 🪟 Windows (PowerShell)
 
 ```powershell
-git clone https://github.com/LukaG712/Evershade Valley.git; cd Evershade Valley; .\start.ps1
+git clone https://github.com/LukaG712/Greenie.git; cd Greenie; .\start.ps1
 ```
 
 ### What happens next?
@@ -114,7 +114,7 @@ Enter the displayed API key when prompted in the browser, then edit `hub.yaml` t
 
 ### 🪟 Windows .exe (no Python required)
 
-Don't want to install Python? Download `agent-hub.exe` from the [latest release](https://github.com/LukaG712/Evershade Valley/releases/latest):
+Don't want to install Python? Download `agent-hub.exe` from the [latest release](https://github.com/LukaG712/Greenie/releases/latest):
 
 1. Download `agent-hub.exe` and `hub.example.yaml`
 2. Copy `hub.example.yaml` → `hub.yaml` and configure your agents
@@ -137,7 +137,7 @@ Make sure these three things are set up:
 
 ## ⚙️ Running in the Background
 
-Want Evershade Valley to keep running after you close your terminal?
+Want Greenie to keep running after you close your terminal?
 
 ### 🐧 Linux (Systemd Service)
 
@@ -182,7 +182,7 @@ You can also customize the bind address:
 
 ## 🖥️ VM Deployment
 
-Evershade Valley is designed to run as a persistent service on a Linux VM (Ubuntu/Debian), accessible from your local network.
+Greenie is designed to run as a persistent service on a Linux VM (Ubuntu/Debian), accessible from your local network.
 
 ### Architecture
 
@@ -217,7 +217,7 @@ Evershade Valley is designed to run as a persistent service on a Linux VM (Ubunt
 1. **Clone and set up** on the VM:
 
 ```bash
-git clone https://github.com/LukaG712/Evershade Valley.git && cd Evershade Valley
+git clone https://github.com/LukaG712/Greenie.git && cd Greenie
 ./start.sh
 ```
 
@@ -282,7 +282,7 @@ sudo systemctl restart agent-hub
 ### Update Procedure
 
 ```bash
-cd /path/to/Evershade Valley
+cd /path/to/Greenie
 git pull
 ./start.sh --production    # Or: sudo systemctl restart agent-hub
 ```
@@ -339,7 +339,7 @@ agents:
 
 ### 🔑 Environment Variables
 
-Settings that control how Evershade Valley runs. Store sensitive values like your API key in the `.env` file.
+Settings that control how Greenie runs. Store sensitive values like your API key in the `.env` file.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -351,7 +351,7 @@ Settings that control how Evershade Valley runs. Store sensitive values like you
 
 ### 🦙 Ollama Integration (Optional)
 
-Ollama adds AI-powered prompt refinement, summarization, and task decomposition using a **local** LLM. It is **completely optional** — Evershade Valley works perfectly without it.
+Ollama adds AI-powered prompt refinement, summarization, and task decomposition using a **local** LLM. It is **completely optional** — Greenie works perfectly without it.
 
 **Setup in 3 steps:**
 
@@ -427,7 +427,7 @@ Enable or disable skills for any agent from the **web dashboard** or **CLI**. Sk
 
 ### 📋 Task Manager App
 
-Evershade Valley includes a built-in task manager accessible at **`/app/`** — no setup required. It's a simple, persistent task list that shares your API key authentication with the rest of the hub.
+Greenie includes a built-in task manager accessible at **`/app/`** — no setup required. It's a simple, persistent task list that shares your API key authentication with the rest of the hub.
 
 **Features:**
 
@@ -489,7 +489,7 @@ If the hub was killed while an agent was running, simply restart the service —
 
 ## 🔒 Safety & Security
 
-Evershade Valley is designed to be safe to run on your local machine. Here's how it protects you:
+Greenie is designed to be safe to run on your local machine. Here's how it protects you:
 
 | Protection | How it works |
 |------------|--------------|
@@ -503,7 +503,7 @@ Evershade Valley is designed to be safe to run on your local machine. Here's how
 | 🔐 **SSH host key checking** | SSH connections verify host keys by default — set `strict_host_key_checking: false` in `hub.yaml` to disable |
 | ✅ **Name validation** | Agent and skill names must match `^[a-z0-9][a-z0-9-]{0,40}$` — no special characters |
 | 🛡️ **Path safety** | Skill paths are verified to stay within the skills directory — no escaping |
-| 🌿 **Git safety** | Evershade Valley never discards your changes, resets branches, or merges automatically |
+| 🌿 **Git safety** | Greenie never discards your changes, resets branches, or merges automatically |
 | ✅ **Coordinator approval** | Multi-agent tasks require explicit approval before changes are marked complete |
 | 🔇 **Secret filtering** | API keys and tokens are never logged or returned to the frontend |
 | 🧱 **Context isolation** | Conversation history from one session never leaks into another session or project |
@@ -593,7 +593,7 @@ Run agents on a remote machine (e.g., a Proxmox VM) via SSH. The project is sync
 
 ## 🌿 Git Integration
 
-Evershade Valley provides Git status inspection and safe worktree management — **your working tree is never modified**.
+Greenie provides Git status inspection and safe worktree management — **your working tree is never modified**.
 
 ### 📊 Git Status
 
@@ -614,7 +614,7 @@ The `/api/git/worktrees` endpoint lets you create and remove isolated Git worktr
 
 | Guarantee | What it means |
 |-----------|---------------|
-| 🛡️ **No data loss** | Evershade Valley never discards your changes, resets branches, or merges automatically |
+| 🛡️ **No data loss** | Greenie never discards your changes, resets branches, or merges automatically |
 | 🧹 **Clean cleanup** | Worktrees are automatically cleaned up after rejected tasks |
 | ✅ **Explicit approval** | A worker's changes must be approved before being marked complete |
 
@@ -656,7 +656,7 @@ PENDING → WAITING (on dependencies) → RUNNING → NEEDS_APPROVAL → COMPLET
 
 ## ⚡ Real-Time Streaming
 
-Evershade Valley streams agent output to your browser in real time using **Server-Sent Events (SSE)**. As the agent produces output, each line appears immediately — no waiting for the run to complete.
+Greenie streams agent output to your browser in real time using **Server-Sent Events (SSE)**. As the agent produces output, each line appears immediately — no waiting for the run to complete.
 
 **Key features:**
 

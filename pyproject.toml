@@ -32,9 +32,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/LukaG712/AgentHub"
-Repository = "https://github.com/LukaG712/AgentHub"
-Changelog = "https://github.com/LukaG712/AgentHub/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/LukaG712/Greenie"
+Repository = "https://github.com/LukaG712/Greenie"
+Changelog = "https://github.com/LukaG712/Greenie/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [

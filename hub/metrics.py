@@ -59,7 +59,7 @@ http_active_requests = Gauge(
     registry=registry,
 )
 
-# ─── Evershade Valley-specific Metrics ───────────────────────────────────────────────
+# ─── Greenie-specific Metrics ───────────────────────────────────────────────
 
 evershade_valley_runs_total = Counter(
     "evershade_valley_runs_total",

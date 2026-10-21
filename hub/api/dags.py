@@ -22,8 +22,8 @@ async def api_create_dag(body: Dict[str, Any], _auth: None = Depends(_verify_tok
     {
         "name": "Research Pipeline",
         "tasks": {
-            "scrape": {"service": "Spectra", "task": "SCRAPE:https://example.com"},
-            "analyze": {"service": "Polter", "task": "Analyze content", "depends_on": ["scrape"]},
+            "scrape": {"service": "Trapper", "task": "SCRAPE:https://example.com"},
+            "analyze": {"service": "Slinker", "task": "Analyze content", "depends_on": ["scrape"]},
             "summarize": {"service": "agent", "agent": "vault", "task": "Summarize", "depends_on": ["analyze"]}
         }
     }
@@ -170,14 +170,14 @@ async def api_execute_dag(dag_id: str, _auth: None = Depends(_verify_token)):
                 task = task.replace(f"{{{{{dep_id}}}}}", str(dep_result)[:2000])
 
         try:
-            if service == "Spectra":
-                from hub.spectra_provider import SpectraProvider
-                provider = SpectraProvider()
+            if service == "Trapper":
+                from hub.Trapper_provider import TrapperProvider
+                provider = TrapperProvider()
                 result_data = await provider.execute(task)
                 return {"status": "completed", "result": result_data}
-            elif service == "Polter":
-                from hub.polter_provider import PolterProvider
-                provider = PolterProvider()
+            elif service == "Slinker":
+                from hub.Slinker_provider import SlinkerProvider
+                provider = SlinkerProvider()
                 result_data = await provider.execute(task)
                 return {"status": "completed", "result": result_data}
             elif service == "agent":

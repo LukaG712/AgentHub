@@ -10,11 +10,11 @@ import time
 
 
 async def api_crawl_scrape(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
-    """Proxy: Scrape a single URL via Spectra."""
+    """Proxy: Scrape a single URL via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     url = body.get("url")
     if not url:
         raise HTTPException(status_code=400, detail="url is required")
@@ -30,15 +30,15 @@ async def api_crawl_scrape(body: Dict[str, Any], _auth: None = Depends(_verify_t
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 async def api_crawl_start(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
-    """Proxy: Start a crawl job via Spectra."""
+    """Proxy: Start a crawl job via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     url = body.get("url")
     if not url:
         raise HTTPException(status_code=400, detail="url is required")
@@ -54,15 +54,15 @@ async def api_crawl_start(body: Dict[str, Any], _auth: None = Depends(_verify_to
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 async def api_crawl_status(job_id: str, _auth: None = Depends(_verify_token)):
-    """Proxy: Check crawl job status via Spectra."""
+    """Proxy: Check crawl job status via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -73,15 +73,15 @@ async def api_crawl_status(job_id: str, _auth: None = Depends(_verify_token)):
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 async def api_crawl_search(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
-    """Proxy: Search the web via Spectra."""
+    """Proxy: Search the web via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     query = body.get("query")
     if not query:
         raise HTTPException(status_code=400, detail="query is required")
@@ -97,15 +97,15 @@ async def api_crawl_search(body: Dict[str, Any], _auth: None = Depends(_verify_t
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 async def api_crawl_map(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
-    """Proxy: Map URLs on a site via Spectra."""
+    """Proxy: Map URLs on a site via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     url = body.get("url")
     if not url:
         raise HTTPException(status_code=400, detail="url is required")
@@ -121,15 +121,15 @@ async def api_crawl_map(body: Dict[str, Any], _auth: None = Depends(_verify_toke
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 async def api_crawl_batch(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
-    """Proxy: Start a batch scrape job via Spectra."""
+    """Proxy: Start a batch scrape job via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     urls = body.get("urls")
     if not urls or not isinstance(urls, list):
         raise HTTPException(status_code=400, detail="urls list is required")
@@ -145,15 +145,15 @@ async def api_crawl_batch(body: Dict[str, Any], _auth: None = Depends(_verify_to
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 async def api_crawl_batch_status(job_id: str, _auth: None = Depends(_verify_token)):
-    """Proxy: Check batch scrape job status via Spectra."""
+    """Proxy: Check batch scrape job status via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -164,15 +164,15 @@ async def api_crawl_batch_status(job_id: str, _auth: None = Depends(_verify_toke
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 async def api_crawl_batch_cancel(job_id: str, _auth: None = Depends(_verify_token)):
-    """Proxy: Cancel a batch scrape job via Spectra."""
+    """Proxy: Cancel a batch scrape job via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -183,15 +183,15 @@ async def api_crawl_batch_cancel(job_id: str, _auth: None = Depends(_verify_toke
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 async def api_crawl_cancel(job_id: str, _auth: None = Depends(_verify_token)):
-    """Proxy: Cancel a crawl job via Spectra."""
+    """Proxy: Cancel a crawl job via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -202,15 +202,15 @@ async def api_crawl_cancel(job_id: str, _auth: None = Depends(_verify_token)):
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 async def api_crawl_interact(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
-    """Proxy: Interact with a page via Spectra."""
+    """Proxy: Interact with a page via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -222,15 +222,15 @@ async def api_crawl_interact(body: Dict[str, Any], _auth: None = Depends(_verify
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 async def api_crawl_extract(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
-    """Proxy: Start an extract job via Spectra."""
+    """Proxy: Start an extract job via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     urls = body.get("urls")
     prompt = body.get("prompt")
     if not urls or not prompt:
@@ -247,15 +247,15 @@ async def api_crawl_extract(body: Dict[str, Any], _auth: None = Depends(_verify_
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 async def api_crawl_extract_status(job_id: str, _auth: None = Depends(_verify_token)):
-    """Proxy: Check extract job status via Spectra."""
+    """Proxy: Check extract job status via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -266,15 +266,15 @@ async def api_crawl_extract_status(job_id: str, _auth: None = Depends(_verify_to
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 async def api_crawl_extract_cancel(job_id: str, _auth: None = Depends(_verify_token)):
-    """Proxy: Cancel an extract job via Spectra."""
+    """Proxy: Cancel an extract job via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -285,15 +285,15 @@ async def api_crawl_extract_cancel(job_id: str, _auth: None = Depends(_verify_to
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 async def api_crawl_agent(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
-    """Proxy: Start an agent research job via Spectra."""
+    """Proxy: Start an agent research job via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     prompt = body.get("prompt")
     if not prompt:
         raise HTTPException(status_code=400, detail="prompt is required")
@@ -309,15 +309,15 @@ async def api_crawl_agent(body: Dict[str, Any], _auth: None = Depends(_verify_to
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 async def api_crawl_agent_status(job_id: str, _auth: None = Depends(_verify_token)):
-    """Proxy: Check agent job status via Spectra."""
+    """Proxy: Check agent job status via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -328,15 +328,15 @@ async def api_crawl_agent_status(job_id: str, _auth: None = Depends(_verify_toke
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 async def api_crawl_agent_cancel(job_id: str, _auth: None = Depends(_verify_token)):
-    """Proxy: Cancel an agent job via Spectra."""
+    """Proxy: Cancel an agent job via Trapper."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
-    api_key = os.environ.get("Spectra_API_KEY", "")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
+    api_key = os.environ.get("Trapper_API_KEY", "")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -347,17 +347,17 @@ async def api_crawl_agent_cancel(job_id: str, _auth: None = Depends(_verify_toke
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
-# ─── Polter proxy endpoints ───────────────────────────────────────────────
+# ─── Slinker proxy endpoints ───────────────────────────────────────────────
 
 
 async def api_crawl_health(_auth: None = Depends(_verify_token)):
-    """Proxy: Spectra health check."""
+    """Proxy: Trapper health check."""
     import os
     import httpx
-    base_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
+    base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(f"{base_url}/health")
@@ -365,7 +365,7 @@ async def api_crawl_health(_auth: None = Depends(_verify_token)):
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to Spectra at {base_url}")
+        raise HTTPException(status_code=502, detail=f"Cannot connect to Trapper at {base_url}")
 
 
 # ─── Cross-Service Pipeline ─────────────────────────────────────────────────

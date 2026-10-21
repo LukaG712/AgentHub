@@ -301,17 +301,17 @@ async def _process_job(job_id: str):
             with _job_queue_lock:
                 job["result"] = result
 
-        elif task_type == "Spectra":
-            from hub.spectra_provider import SpectraProvider
-            provider = SpectraProvider()
+        elif task_type == "Trapper":
+            from hub.Trapper_provider import TrapperProvider
+            provider = TrapperProvider()
             task = payload.get("task", "")
             result = await provider.execute(task)
             with _job_queue_lock:
                 job["result"] = result
 
-        elif task_type == "Polter":
-            from hub.polter_provider import PolterProvider
-            provider = PolterProvider()
+        elif task_type == "Slinker":
+            from hub.Slinker_provider import SlinkerProvider
+            provider = SlinkerProvider()
             task = payload.get("task", "")
             result = await provider.execute(task)
             with _job_queue_lock:

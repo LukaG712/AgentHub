@@ -12,8 +12,8 @@ OBSIDIAN_VAULT_FILE = ".obsidian"
 MARKDOWN_EXTENSIONS = {".md", ".markdown", ".mdown", ".mdtxt", ".mdtext", ".text", ".markdn", ".mdwn", ".mkd", ".mkdn"}
 
 # Hub-managed markers for Obsidian-synced notes
-HUB_MARKER_START = "<!-- Evershade Valley: managed-section-start -->"
-HUB_MARKER_END = "<!-- Evershade Valley: managed-section-end -->"
+HUB_MARKER_START = "<!-- Greenie: managed-section-start -->"
+HUB_MARKER_END = "<!-- Greenie: managed-section-end -->"
 
 
 class ObsidianNote:
@@ -152,7 +152,7 @@ class ObsidianVault:
         """Write a new note or update an existing one in the vault.
 
         Args:
-            folder: Subfolder within the vault (e.g., "Evershade Valley/Summaries").
+            folder: Subfolder within the vault (e.g., "Greenie/Summaries").
             title: Note title (used for filename).
             content: Note content.
             tags: Optional tags to add.
@@ -202,7 +202,7 @@ class ObsidianVault:
         session_id: str,
         title: str,
         messages: List[Dict[str, str]],
-        folder: str = "Evershade Valley/Sessions",
+        folder: str = "Greenie/Sessions",
     ) -> Optional[ObsidianNote]:
         """Write a session summary to the vault.
 
@@ -239,7 +239,7 @@ class ObsidianVault:
         date_prefix = now.strftime("%Y-%m-%d")
         note_title = f"{date_prefix} - {title}"
 
-        return self.write_note(folder, note_title, content, tags=["Evershade Valley", "session"])
+        return self.write_note(folder, note_title, content, tags=["Greenie", "session"])
 
     def search_notes(self, query: str, limit: int = 50) -> List[ObsidianNote]:
         """Search notes by title and content using simple text matching."""

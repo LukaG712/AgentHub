@@ -38,15 +38,15 @@ async def api_services_status(_auth: None = Depends(_verify_token)):
                 "last_check": datetime.now().isoformat(),
             }
 
-    Polter_url = os.environ.get("Polter_URL", "http://localhost:8000").rstrip("/")
-    Spectra_url = os.environ.get("Spectra_URL", "http://localhost:3000").rstrip("/")
+    Slinker_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
+    Trapper_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
 
-    Polter_status = await _check_service("Polter", Polter_url, os.environ.get("Polter_API_KEY", ""))
-    Spectra_status = await _check_service("Spectra", Spectra_url, os.environ.get("Spectra_API_KEY", ""))
+    Slinker_status = await _check_service("Slinker", Slinker_url, os.environ.get("Slinker_API_KEY", ""))
+    Trapper_status = await _check_service("Trapper", Trapper_url, os.environ.get("Trapper_API_KEY", ""))
 
     # Record health check
     with _service_health_lock:
-        for svc_name, svc_status in [("Polter", Polter_status), ("Spectra", Spectra_status)]:
+        for svc_name, svc_status in [("Slinker", Slinker_status), ("Trapper", Trapper_status)]:
             history = _service_health.get(svc_name, [])
             history.append({
                 "status": svc_status["status"],
@@ -59,18 +59,18 @@ async def api_services_status(_auth: None = Depends(_verify_token)):
 
     return {
         "services": {
-            "Evershade Valley": {
-                "name": "Evershade Valley",
+            "Greenie": {
+                "name": "Greenie",
                 "status": "healthy",
                 "version": "1.0.3",
                 "last_check": datetime.now().isoformat(),
             },
-            "Polter": Polter_status,
-            "Spectra": Spectra_status,
+            "Slinker": Slinker_status,
+            "Trapper": Trapper_status,
         },
         "overall": "healthy" if all(
             s["status"] == "healthy"
-            for s in [Polter_status, Spectra_status]
+            for s in [Slinker_status, Trapper_status]
         ) else "degraded",
     }
 
