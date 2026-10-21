@@ -28,7 +28,15 @@ jobs:
 
       - name: Build desktop app
         working-directory: desktop
-        run: npm run build
+        run: npx tauri build 2>&1
+
+      - name: Show build output on failure
+        if: failure()
+        run: |
+          Write-Host "=== Checking build artifacts ==="
+          Get-ChildItem -Path "desktop/src-tauri/target/release" -ErrorAction SilentlyContinue | Select-Object Name, Length
+          Write-Host "=== Checking bundle directory ==="
+          Get-ChildItem -Path "desktop/src-tauri/target/release/bundle" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length
 
       - name: Verify installer artifact exists
         run: |
@@ -48,8 +56,14 @@ jobs:
 
       - name: Generate portable package
         run: |
+          $exePath = "desktop/src-tauri/target/release/agent-hub-desktop.exe"
+          if (-not (Test-Path $exePath)) {
+            Write-Host "=== Binary not found, listing release directory ==="
+            Get-ChildItem -Path "desktop/src-tauri/target/release" -Filter "*.exe" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "$($_.Name) ($($_.Length) bytes)" }
+            exit 1
+          }
           $zipName = "AgentHub-Portable-Windows-x64.zip"
-          Compress-Archive -Path "desktop/src-tauri/target/release/agent-hub-desktop.exe" -DestinationPath "desktop/$zipName" -Force
+          Compress-Archive -Path $exePath -DestinationPath "desktop/$zipName" -Force
           Write-Host "Created portable package: $zipName"
 
       - name: Upload portable artifact
