@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tasks — Agent Hub</title>
+<style>
+:root {
+  --bg: #fcfcfc; --surface: #fff; --border: #e8e8e8;
+  --fg: #111; --fg-secondary: #8a8a8e; --link: #1a5fd0;
+  --success: #12a35f; --danger: #d1304a; --warning: #fbab18;
+  --radius: 14px; --radius-sm: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1a1a; --surface: #262626; --border: #3c3c3c;
+    --fg: #f2f2f2; --fg-secondary: #9a9a9a; --link: #1a7cff;
+    --success: #16c26a; --danger: #d1304a; --warning: #fbab18;
+  }
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg); color: var(--fg);
+  font-size: 15px; line-height: 1.5; min-height: 100vh;
+}
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Header */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; }
+header nav a { margin-left: 1rem; font-size: 0.85rem; color: var(--fg-secondary); }
+
+/* Container */
+.container { max-width: 640px; margin: 0 auto; padding: 1.5rem; }
+
+/* Add task form */
+.add-form {
+  display: flex; gap: 0.5rem; margin-bottom: 1.5rem;
+}
+.add-form input {
+  flex: 1; padding: 0.65rem 1rem; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--surface); color: var(--fg);
+  font-size: 0.95rem;
+}
+.add-form input:focus { outline: none; border-color: var(--link); }
+.add-form button {
+  padding: 0.65rem 1.2rem; border-radius: var(--radius-sm);
+  background: var(--fg); color: var(--bg); font-weight: 600;
+  font-size: 0.9rem; cursor: pointer; white-space: nowrap;
+}
+.add-form button:hover { opacity: 0.85; }
+
+/* Filters */
+.filters { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.filters button {
+  padding: 0.35rem 0.8rem; border-radius: 999px; font-size: 0.8rem;
+  cursor: pointer; border: 1px solid var(--border); background: var(--surface);
+  color: var(--fg-secondary);
+}
+.filters button.active {
+  background: var(--fg); color: var(--bg); border-color: var(--fg);
+}
+
+/* Task list */
+.task-list { list-style: none; }
+.task-item {
+  display: flex; align-items: flex-start; gap: 0.75rem;
+  padding: 0.85rem 1rem; margin-bottom: 0.5rem;
+  border-radius: var(--radius-sm); background: var(--surface);
+  border: 1px solid var(--border);
+}
+.task-item.done { opacity: 0.5; }
+.task-check {
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid var(--border); cursor: pointer; margin-top: 2px;
+  display: flex; align-items: center; justify-content: center;
+}
+.task-check.checked { background: var(--success); border-color: var(--success); }
+.task-check.checked::after { content: '✓'; color: #fff; font-size: 12px; }
+.task-content { flex: 1; min-width: 0; }
+.task-title { font-weight: 600; font-size: 0.95rem; }
+.task-item.done .task-title { text-decoration: line-through; }
+.task-desc { font-size: 0.85rem; color: var(--fg-secondary); margin-top: 2px; }
+.task-time { font-size: 0.75rem; color: var(--fg-secondary); margin-top: 4px; }
+.task-delete {
+  padding: 0.25rem 0.5rem; border-radius: 6px; cursor: pointer;
+  color: var(--fg-secondary); font-size: 0.8rem; background: none;
+  border: none; opacity: 0; transition: opacity 0.15s;
+}
+.task-item:hover .task-delete { opacity: 1; }
+.task-delete:hover { color: var(--danger); }
+
+/* Empty state */
+.empty { text-align: center; padding: 3rem 1rem; color: var(--fg-secondary); }
+.empty svg { margin-bottom: 1rem; opacity: 0.3; }
+
+/* Stats */
+.stats {
+  display: flex; gap: 1rem; margin-bottom: 1.5rem;
+  font-size: 0.85rem; color: var(--fg-secondary);
+}
+.stats span { background: var(--surface); padding: 0.35rem 0.8rem; border-radius: 999px; border: 1px solid var(--border); }
+
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 Tasks</h1>
+  <nav>
+    <a href="/">← Dashboard</a>
+  </nav>
+</header>
+
+<div class="container">
+
+  <div class="stats" id="stats"></div>
+
+  <form class="add-form" id="add-form">
+    <input type="text" id="task-input" placeholder="Add a task..." autocomplete="off" required>
+    <button type="submit">Add</button>
+  </form>
+
+  <div class="filters" id="filters">
+    <button class="active" data-filter="all">All</button>
+    <button data-filter="active">Active</button>
+    <button data-filter="done">Done</button>
+  </div>
+
+  <ul class="task-list" id="task-list"></ul>
+  <div class="empty hidden" id="empty">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+    </svg>
+    <p>No tasks yet. Add one above!</p>
+  </div>
+
+</div>
+
+<script>
+const API = '/api/app/tasks';
+let filter = 'all';
+let tasks = [];
+
+async function load() {
+  const resp = await fetch(API, { headers: { 'Authorization': `Bearer ${apiKey()}` } });
+  if (!resp.ok) return;
+  const data = await resp.json();
+  tasks = data.tasks || [];
+  render();
+}
+
+function apiKey() {
+  return localStorage.getItem('hub_api_key') || '';
+}
+
+function filtered() {
+  if (filter === 'active') return tasks.filter(t => !t.done);
+  if (filter === 'done') return tasks.filter(t => t.done);
+  return tasks;
+}
+
+function render() {
+  const list = document.getElementById('task-list');
+  const empty = document.getElementById('empty');
+  const stats = document.getElementById('stats');
+  const items = filtered();
+
+  const total = tasks.length;
+  const done = tasks.filter(t => t.done).length;
+  const active = total - done;
+  stats.innerHTML = `<span>${active} active</span><span>${done} done</span><span>${total} total</span>`;
+
+  if (items.length === 0) {
+    list.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  list.innerHTML = items.map(t => `
+    <li class="task-item ${t.done ? 'done' : ''}" data-id="${t.id}">
+      <div class="task-check ${t.done ? 'checked' : ''}" onclick="toggle('${t.id}')"></div>
+      <div class="task-content">
+        <div class="task-title">${esc(t.title)}</div>
+        ${t.description ? `<div class="task-desc">${esc(t.description)}</div>` : ''}
+        <div class="task-time">${formatTime(t.created_at)}</div>
+      </div>
+      <button class="task-delete" onclick="removeTask('${t.id}')">Delete</button>
+    </li>
+  `).join('');
+}
+
+async function addTask(title) {
+  const resp = await fetch(API, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey()}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ title }),
+  });
+  if (resp.ok) await load();
+}
+
+async function toggle(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  await fetch(`${API}/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${apiKey()}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ done: !task.done }),
+  });
+  await load();
+}
+
+async function removeTask(id) {
+  await fetch(`${API}/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${apiKey()}` },
+  });
+  await load();
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function formatTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return d.toLocaleDateString();
+}
+
+// Event listeners
+document.getElementById('add-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const input = document.getElementById('task-input');
+  const title = input.value.trim();
+  if (!title) return;
+  addTask(title).then(() => input.value = '');
+});
+
+document.getElementById('filters').addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  filter = e.target.dataset.filter;
+  document.querySelectorAll('#filters button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  render();
+});
+
+// Init
+load();
+</script>
+</body>
+</html>
