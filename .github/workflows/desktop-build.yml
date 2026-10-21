@@ -30,17 +30,7 @@ jobs:
         working-directory: desktop
         env:
           CI: true
-        run: |
-          npx tauri build > build.log 2>&1
-          exit $LASTEXITCODE
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: desktop/build.log
-          if-no-files-found: warn
+        run: npx tauri build
 
       - name: Show build output on failure
         if: failure()
