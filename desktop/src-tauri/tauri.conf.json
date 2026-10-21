@@ -2,8 +2,6 @@
   "productName": "AgentHub Desktop",
   "version": "1.0.3",
   "build": {
-    "beforeDevCommand": "",
-    "beforeBuildCommand": "",
     "frontendDist": "../dist"
   },
   "app": {
