@@ -61,11 +61,11 @@ Everything you need to manage AI coding agents from one place:
 
 ## 🔗 How it Works with Ecton & Spectra
 
-Polter is the central dashboard that can work standalone or integrate with companion services:
+Evershade Valley is the central dashboard that can work standalone or integrate with companion services:
 
 | Component | Role | Port |
 |-----------|------|------|
-| **Polter** | 🏠 Dashboard — manage agents, chat, skills, memory, routines | `8080` |
+| **Evershade Valley** | 🏠 Dashboard — manage agents, chat, skills, memory, routines | `8080` |
 | **Ecton** | ⚙️ Execution engine — Git worktree isolation, persistent task storage | `8000` |
 | **Spectra** | 🌐 Web scraping — scrape, crawl, search, and map websites | `3000` |
 
@@ -79,7 +79,7 @@ Polter is the central dashboard that can work standalone or integrate with compa
 
 **Unified deployment:** All three services can be started together with a single `docker compose up` from the parent `Workflow/` directory.
 
-> 💡 **You can use Polter on its own** — the web dashboard lets you send tasks directly without any companion services.
+> 💡 **You can use Evershade Valley on its own** — the web dashboard lets you send tasks directly without any companion services.
 
 ## 🚀 Quick Start
 
@@ -88,13 +88,13 @@ Getting started takes **one command** — it clones the repo, sets up everything
 ### 🐧 Linux / macOS
 
 ```bash
-git clone https://github.com/LukaG712/Polter.git && cd Polter && ./start.sh
+git clone https://github.com/LukaG712/Evershade Valley.git && cd Evershade Valley && ./start.sh
 ```
 
 ### 🪟 Windows (PowerShell)
 
 ```powershell
-git clone https://github.com/LukaG712/Polter.git; cd Polter; .\start.ps1
+git clone https://github.com/LukaG712/Evershade Valley.git; cd Evershade Valley; .\start.ps1
 ```
 
 ### What happens next?
@@ -114,7 +114,7 @@ Enter the displayed API key when prompted in the browser, then edit `hub.yaml` t
 
 ### 🪟 Windows .exe (no Python required)
 
-Don't want to install Python? Download `agent-hub.exe` from the [latest release](https://github.com/LukaG712/Polter/releases/latest):
+Don't want to install Python? Download `agent-hub.exe` from the [latest release](https://github.com/LukaG712/Evershade Valley/releases/latest):
 
 1. Download `agent-hub.exe` and `hub.example.yaml`
 2. Copy `hub.example.yaml` → `hub.yaml` and configure your agents
@@ -137,7 +137,7 @@ Make sure these three things are set up:
 
 ## ⚙️ Running in the Background
 
-Want Polter to keep running after you close your terminal?
+Want Evershade Valley to keep running after you close your terminal?
 
 ### 🐧 Linux (Systemd Service)
 
@@ -182,7 +182,7 @@ You can also customize the bind address:
 
 ## 🖥️ VM Deployment
 
-Polter is designed to run as a persistent service on a Linux VM (Ubuntu/Debian), accessible from your local network.
+Evershade Valley is designed to run as a persistent service on a Linux VM (Ubuntu/Debian), accessible from your local network.
 
 ### Architecture
 
@@ -217,7 +217,7 @@ Polter is designed to run as a persistent service on a Linux VM (Ubuntu/Debian),
 1. **Clone and set up** on the VM:
 
 ```bash
-git clone https://github.com/LukaG712/Polter.git && cd Polter
+git clone https://github.com/LukaG712/Evershade Valley.git && cd Evershade Valley
 ./start.sh
 ```
 
@@ -282,7 +282,7 @@ sudo systemctl restart agent-hub
 ### Update Procedure
 
 ```bash
-cd /path/to/Polter
+cd /path/to/Evershade Valley
 git pull
 ./start.sh --production    # Or: sudo systemctl restart agent-hub
 ```
@@ -339,7 +339,7 @@ agents:
 
 ### 🔑 Environment Variables
 
-Settings that control how Polter runs. Store sensitive values like your API key in the `.env` file.
+Settings that control how Evershade Valley runs. Store sensitive values like your API key in the `.env` file.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -351,7 +351,7 @@ Settings that control how Polter runs. Store sensitive values like your API key 
 
 ### 🦙 Ollama Integration (Optional)
 
-Ollama adds AI-powered prompt refinement, summarization, and task decomposition using a **local** LLM. It is **completely optional** — Polter works perfectly without it.
+Ollama adds AI-powered prompt refinement, summarization, and task decomposition using a **local** LLM. It is **completely optional** — Evershade Valley works perfectly without it.
 
 **Setup in 3 steps:**
 
@@ -427,7 +427,7 @@ Enable or disable skills for any agent from the **web dashboard** or **CLI**. Sk
 
 ### 📋 Task Manager App
 
-Polter includes a built-in task manager accessible at **`/app/`** — no setup required. It's a simple, persistent task list that shares your API key authentication with the rest of the hub.
+Evershade Valley includes a built-in task manager accessible at **`/app/`** — no setup required. It's a simple, persistent task list that shares your API key authentication with the rest of the hub.
 
 **Features:**
 
@@ -489,7 +489,7 @@ If the hub was killed while an agent was running, simply restart the service —
 
 ## 🔒 Safety & Security
 
-Polter is designed to be safe to run on your local machine. Here's how it protects you:
+Evershade Valley is designed to be safe to run on your local machine. Here's how it protects you:
 
 | Protection | How it works |
 |------------|--------------|
@@ -503,7 +503,7 @@ Polter is designed to be safe to run on your local machine. Here's how it protec
 | 🔐 **SSH host key checking** | SSH connections verify host keys by default — set `strict_host_key_checking: false` in `hub.yaml` to disable |
 | ✅ **Name validation** | Agent and skill names must match `^[a-z0-9][a-z0-9-]{0,40}$` — no special characters |
 | 🛡️ **Path safety** | Skill paths are verified to stay within the skills directory — no escaping |
-| 🌿 **Git safety** | Polter never discards your changes, resets branches, or merges automatically |
+| 🌿 **Git safety** | Evershade Valley never discards your changes, resets branches, or merges automatically |
 | ✅ **Coordinator approval** | Multi-agent tasks require explicit approval before changes are marked complete |
 | 🔇 **Secret filtering** | API keys and tokens are never logged or returned to the frontend |
 | 🧱 **Context isolation** | Conversation history from one session never leaks into another session or project |
@@ -593,7 +593,7 @@ Run agents on a remote machine (e.g., a Proxmox VM) via SSH. The project is sync
 
 ## 🌿 Git Integration
 
-Polter provides Git status inspection and safe worktree management — **your working tree is never modified**.
+Evershade Valley provides Git status inspection and safe worktree management — **your working tree is never modified**.
 
 ### 📊 Git Status
 
@@ -614,7 +614,7 @@ The `/api/git/worktrees` endpoint lets you create and remove isolated Git worktr
 
 | Guarantee | What it means |
 |-----------|---------------|
-| 🛡️ **No data loss** | Polter never discards your changes, resets branches, or merges automatically |
+| 🛡️ **No data loss** | Evershade Valley never discards your changes, resets branches, or merges automatically |
 | 🧹 **Clean cleanup** | Worktrees are automatically cleaned up after rejected tasks |
 | ✅ **Explicit approval** | A worker's changes must be approved before being marked complete |
 
@@ -656,7 +656,7 @@ PENDING → WAITING (on dependencies) → RUNNING → NEEDS_APPROVAL → COMPLET
 
 ## ⚡ Real-Time Streaming
 
-Polter streams agent output to your browser in real time using **Server-Sent Events (SSE)**. As the agent produces output, each line appears immediately — no waiting for the run to complete.
+Evershade Valley streams agent output to your browser in real time using **Server-Sent Events (SSE)**. As the agent produces output, each line appears immediately — no waiting for the run to complete.
 
 **Key features:**
 

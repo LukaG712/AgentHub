@@ -1,7 +1,7 @@
 """Cluster support — Redis-based shared state for multi-instance deployments.
 
 Provides distributed locks, shared job queue, instance registration, and
-session affinity so multiple Polter instances can run behind a load balancer.
+session affinity so multiple Evershade Valley instances can run behind a load balancer.
 
 Key features:
 - Distributed locks using Redis SET NX with TTL
@@ -89,9 +89,9 @@ class DistributedLock:
 class SharedJobQueue:
     """Redis-based job queue for cross-instance processing."""
 
-    _QUEUE_KEY = "Polter:jobs:queue"
-    _CLAIMED_KEY = "Polter:jobs:claimed"
-    _DLQ_KEY = "Polter:jobs:dlq"
+    _QUEUE_KEY = "Evershade Valley:jobs:queue"
+    _CLAIMED_KEY = "Evershade Valley:jobs:claimed"
+    _DLQ_KEY = "Evershade Valley:jobs:dlq"
 
     def __init__(self, redis):
         self._redis = redis
@@ -202,7 +202,7 @@ class SharedJobQueue:
 class InstanceRegistry:
     """Track active instances with heartbeat-based health monitoring."""
 
-    _INSTANCES_KEY = "Polter:instances"
+    _INSTANCES_KEY = "Evershade Valley:instances"
     _HEARTBEAT_INTERVAL = 10  # seconds
     _HEARTBEAT_TIMEOUT = 30  # seconds
 
@@ -288,7 +288,7 @@ class InstanceRegistry:
 class SessionAffinity:
     """Redis-based session affinity for WebSocket connections."""
 
-    _SESSIONS_KEY = "Polter:sessions"
+    _SESSIONS_KEY = "Evershade Valley:sessions"
     _DEFAULT_TTL = 3600  # 1 hour
 
     def __init__(self, redis):
@@ -413,7 +413,7 @@ class ClusterManager:
             self._session_affinity = SessionAffinity(self._redis)
 
             # Generate instance ID
-            self._instance_id = f"Polter-{uuid.uuid4().hex[:8]}"
+            self._instance_id = f"Evershade Valley-{uuid.uuid4().hex[:8]}"
 
             # Register this instance
             port = int(os.environ.get("HUB_PORT", "8080"))

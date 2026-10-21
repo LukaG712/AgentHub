@@ -15,7 +15,7 @@ import uuid
 async def api_dashboard(_auth: None = Depends(_verify_token)):
     """Unified dashboard aggregating status from all three services.
 
-    Returns a single view of Polter agents, Ecton workers and queue,
+    Returns a single view of Evershade Valley agents, Ecton workers and queue,
     and Spectra health — useful for monitoring the entire platform.
     """
     import asyncio
@@ -57,7 +57,7 @@ async def api_dashboard(_auth: None = Depends(_verify_token)):
         except Exception as e:
             return {"health": "unreachable", "error": str(e)}
 
-    async def _Polter_dashboard():
+    async def _evershade_valley_dashboard():
         config = load_config()
         agent_count = len(config.get("agents", {}))
         recent_runs = list_runs(limit=10)
@@ -66,12 +66,12 @@ async def api_dashboard(_auth: None = Depends(_verify_token)):
             "recent_runs": [r.to_dict() for r in recent_runs],
         }
 
-    Ecton, Spectra, Polter = await asyncio.gather(
-        _Ecton_dashboard(), _Spectra_dashboard(), _Polter_dashboard()
+    Ecton, Spectra, evershade_valley = await asyncio.gather(
+        _Ecton_dashboard(), _Spectra_dashboard(), _evershade_valley_dashboard()
     )
 
     return {
-        "Polter": Polter,
+        "Evershade Valley": evershade_valley,
         "Ecton": Ecton,
         "Spectra": Spectra,
     }
@@ -86,7 +86,7 @@ async def api_create_pipeline(body: Dict[str, Any], _auth: None = Depends(_verif
     A pipeline chains multiple steps that can use different services:
     - "Spectra" steps: web research via Spectra
     - "Ecton" steps: coding tasks via Ecton
-    - "agent" steps: local Polter agents
+    - "agent" steps: local Evershade Valley agents
 
     Example body:
     {
@@ -253,7 +253,7 @@ async def api_unified_search(q: str, _auth: None = Depends(_verify_token)):
     """Unified search across all three services.
 
     Searches Spectra for web content, Ecton for tasks and projects,
-    and Polter for agents and runs.
+    and Evershade Valley for agents and runs.
 
     Query parameters:
     - q: Search query string
@@ -266,7 +266,7 @@ async def api_unified_search(q: str, _auth: None = Depends(_verify_token)):
     services_param = os.environ.get("SEARCH_SERVICES", "all").lower()
     search_Spectra = services_param in ("all", "Spectra")
     search_Ecton = services_param in ("all", "Ecton")
-    search_Polter = services_param in ("all", "Polter")
+    search_evershade_valley = services_param in ("all", "Evershade Valley")
 
     async def _search_Spectra():
         if not search_Spectra:
@@ -317,9 +317,9 @@ async def api_unified_search(q: str, _auth: None = Depends(_verify_token)):
         except Exception as e:
             return {"service": "Ecton", "error": str(e)}
 
-    async def _search_Polter():
-        if not search_Polter:
-            return {"service": "Polter", "results": []}
+    async def _search_evershade_valley():
+        if not search_evershade_valley:
+            return {"service": "Evershade Valley", "results": []}
         results = []
         q_lower = q.lower()
         try:
@@ -334,15 +334,15 @@ async def api_unified_search(q: str, _auth: None = Depends(_verify_token)):
                     results.append({"type": "run", "data": rd})
         except Exception as e:
             pass
-        return {"service": "Polter", "results": results}
+        return {"service": "Evershade Valley", "results": results}
 
-    Spectra_results, Ecton_results, Polter_results = await asyncio.gather(
-        _search_Spectra(), _search_Ecton(), _search_Polter()
+    Spectra_results, Ecton_results, evershade_valley_results = await asyncio.gather(
+        _search_Spectra(), _search_Ecton(), _search_evershade_valley()
     )
 
     return {
         "query": q,
-        "results": [Spectra_results, Ecton_results, Polter_results],
+        "results": [Spectra_results, Ecton_results, evershade_valley_results],
     }
 
 

@@ -1,4 +1,4 @@
-"""Polter API package.
+"""Evershade Valley API package.
 
 Imports all route modules and registers them with the FastAPI app.
 Each route module exposes a `register(app)` function.

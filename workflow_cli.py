@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """workflow — Command-line interface for the Unified Workflow platform.
 
-A standalone CLI tool that connects to the Polter REST API to manage
+A standalone CLI tool that connects to the Evershade Valley REST API to manage
 agents, runs, pipelines, schedules, and the entire platform from any terminal.
 
 Usage:
@@ -460,7 +460,7 @@ def cmd_search(args, client):
         return
     
     # Print results by service
-    for service in ["Spectra", "Ecton", "Polter"]:
+    for service in ["Spectra", "Ecton", "Evershade Valley"]:
         results = data.get(service, [])
         if results:
             print(f"\n{service.upper()} ({len(results)} results):")
@@ -508,7 +508,7 @@ def cmd_health(args, client):
 def cmd_services(args, client):
     """Check individual service health."""
     services = {
-        "Polter": "/api/health",
+        "Evershade Valley": "/api/health",
         "Ecton": "/api/Ecton/health",
         "Spectra": "/api/crawl/health",
     }
@@ -545,11 +545,11 @@ def cmd_dashboard(args, client):
     
     print("=== Unified Workflow Dashboard ===\n")
     
-    # Polter section
-    Polter = data.get("Polter", {})
-    agents = Polter.get("agents", [])
-    runs = Polter.get("runs", [])
-    print(f"Polter: {len(agents)} agents, {len(runs)} runs")
+    # Evershade Valley section
+    Evershade Valley = data.get("Evershade Valley", {})
+    agents = Evershade Valley.get("agents", [])
+    runs = Evershade Valley.get("runs", [])
+    print(f"Evershade Valley: {len(agents)} agents, {len(runs)} runs")
     
     # Ecton section
     Ecton = data.get("Ecton", {})
@@ -762,7 +762,7 @@ def main(argv=None):
     # ── Search ──
     p_search = subparsers.add_parser("search", help="Search across all services")
     p_search.add_argument("query", help="Search query")
-    p_search.add_argument("--service", help="Filter by service (Spectra, Ecton, Polter)")
+    p_search.add_argument("--service", help="Filter by service (Spectra, Ecton, Evershade Valley)")
     p_search.set_defaults(func=cmd_search)
     
     # ── Health ──

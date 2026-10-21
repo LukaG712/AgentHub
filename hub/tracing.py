@@ -1,10 +1,10 @@
 """OpenTelemetry distributed tracing configuration.
 
 Sets up automatic tracing for FastAPI routes and outgoing HTTPX requests,
-enabling end-to-end tracing across Polter → Ecton → Spectra.
+enabling end-to-end tracing across Evershade Valley → Ecton → Spectra.
 
 Configuration via environment variables:
-    OTEL_SERVICE_NAME: Service identifier (default: "Polter")
+    OTEL_SERVICE_NAME: Service identifier (default: "Evershade Valley")
     OTEL_EXPORTER_OTLP_ENDPOINT: OTLP collector endpoint (default: none, uses console)
     OTEL_TRACES_SAMPL_RATIO: Trace sampling ratio 0.0-1.0 (default: 1.0)
 
@@ -34,7 +34,7 @@ _propagator = TraceContextTextMapPropagator()
 
 def get_tracer() -> trace.Tracer:
     """Get the global tracer instance."""
-    return _tracer or trace.get_tracer("Polter")
+    return _tracer or trace.get_tracer("Evershade Valley")
 
 
 def setup_tracing(app: Optional[FastAPI] = None) -> trace.TracerProvider:
@@ -48,7 +48,7 @@ def setup_tracing(app: Optional[FastAPI] = None) -> trace.TracerProvider:
     """
     global _tracer
 
-    service_name = os.environ.get("OTEL_SERVICE_NAME", "Polter")
+    service_name = os.environ.get("OTEL_SERVICE_NAME", "Evershade Valley")
     endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
     sample_ratio = float(os.environ.get("OTEL_TRACES_SAMPLE_RATIO", "1.0"))
 

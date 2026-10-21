@@ -1,4 +1,4 @@
-# Polter package
+# Evershade Valley package
 __version__ = "1.0.2"
 
 # Auto-register integration providers (lazy import — only if dependencies available)

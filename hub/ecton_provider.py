@@ -36,7 +36,7 @@ class EctonProvider(AgentProvider):
 
     Ecton handles worktree isolation, Junie CLI execution, and changed-file
     detection.  This provider simply forwards the task and translates the
-    result back to the Polter ProviderRunResult format.
+    result back to the Evershade Valley ProviderRunResult format.
     """
 
     @property

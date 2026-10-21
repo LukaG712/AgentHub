@@ -6,10 +6,10 @@ metrics:
 - http_requests_total: Counter of HTTP requests by method, endpoint, and status code.
 - http_request_duration_seconds: Histogram of request latency in seconds.
 - http_active_requests: Gauge of currently in-flight requests.
-- Polter_runs_total: Counter of agent runs by agent name and outcome.
-- Polter_pipeline_steps_total: Counter of pipeline steps executed.
-- Polter_queue_depth: Gauge of background job queue depth.
-- Polter_store_sizes: Gauge of in-memory store sizes.
+- evershade_valley_runs_total: Counter of agent runs by agent name and outcome.
+- evershade_valley_pipeline_steps_total: Counter of pipeline steps executed.
+- evershade_valley_queue_depth: Gauge of background job queue depth.
+- evershade_valley_store_sizes: Gauge of in-memory store sizes.
 
 Configuration:
     PROMETHEUS_ENABLED: Set to "false" to disable metrics (default: true)
@@ -59,30 +59,30 @@ http_active_requests = Gauge(
     registry=registry,
 )
 
-# ─── Polter-specific Metrics ───────────────────────────────────────────────
+# ─── Evershade Valley-specific Metrics ───────────────────────────────────────────────
 
-Polter_runs_total = Counter(
-    "Polter_runs_total",
+evershade_valley_runs_total = Counter(
+    "evershade_valley_runs_total",
     "Total agent runs by agent and outcome",
     ["agent", "outcome"],
     registry=registry,
 )
 
-Polter_pipeline_steps_total = Counter(
-    "Polter_pipeline_steps_total",
+evershade_valley_pipeline_steps_total = Counter(
+    "evershade_valley_pipeline_steps_total",
     "Total pipeline steps executed",
     ["service", "outcome"],
     registry=registry,
 )
 
-Polter_queue_depth = Gauge(
-    "Polter_queue_depth",
+evershade_valley_queue_depth = Gauge(
+    "evershade_valley_queue_depth",
     "Number of jobs in the background queue",
     registry=registry,
 )
 
-Polter_store_sizes = Gauge(
-    "Polter_store_sizes",
+evershade_valley_store_sizes = Gauge(
+    "evershade_valley_store_sizes",
     "Size of in-memory feature stores",
     ["store_name"],
     registry=registry,
@@ -138,22 +138,22 @@ def create_metrics_middleware():
 
 def increment_runs(agent: str, outcome: str):
     """Increment the agent runs counter."""
-    Polter_runs_total.labels(agent=agent, outcome=outcome).inc()
+    evershade_valley_runs_total.labels(agent=agent, outcome=outcome).inc()
 
 
 def increment_pipeline_steps(service: str, outcome: str):
     """Increment the pipeline steps counter."""
-    Polter_pipeline_steps_total.labels(service=service, outcome=outcome).inc()
+    evershade_valley_pipeline_steps_total.labels(service=service, outcome=outcome).inc()
 
 
 def set_queue_depth(depth: int):
     """Set the current queue depth gauge."""
-    Polter_queue_depth.set(depth)
+    evershade_valley_queue_depth.set(depth)
 
 
 def set_store_size(store_name: str, size: int):
     """Set the size of an in-memory store."""
-    Polter_store_sizes.labels(store_name=store_name).set(size)
+    evershade_valley_store_sizes.labels(store_name=store_name).set(size)
 
 
 def set_store_sizes(sizes: dict):

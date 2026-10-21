@@ -59,8 +59,8 @@ async def api_services_status(_auth: None = Depends(_verify_token)):
 
     return {
         "services": {
-            "Polter": {
-                "name": "Polter",
+            "Evershade Valley": {
+                "name": "Evershade Valley",
                 "status": "healthy",
                 "version": "1.0.3",
                 "last_check": datetime.now().isoformat(),

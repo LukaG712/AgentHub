@@ -109,7 +109,7 @@ async def api_export_memories(
 
 
 async def api_export_config(_auth: None = Depends(_verify_token)):
-    """Export the current Polter configuration (without secrets)."""
+    """Export the current Evershade Valley configuration (without secrets)."""
     config = load_config()
     # Strip sensitive fields
     safe_config = {k: v for k, v in config.items() if k not in ("api_keys", "secrets")}

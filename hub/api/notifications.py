@@ -128,7 +128,7 @@ async def api_test_notification(body: Dict[str, Any], _auth: None = Depends(_ver
         raise HTTPException(status_code=400, detail="channel_id is required")
 
     title = body.get("title", "Test Notification")
-    message = body.get("message", "This is a test notification from Polter.")
+    message = body.get("message", "This is a test notification from Evershade Valley.")
     level = body.get("level", "info")
 
     success = await _send_notification(channel_id, title, message, level)
@@ -172,7 +172,7 @@ def _track_api_call(endpoint: str) -> None:
     # Persist to database
     try:
         feature_store.track_api_call(endpoint)
-        feature_store.update_daily_stats(today, "Polter", calls=1)
+        feature_store.update_daily_stats(today, "Evershade Valley", calls=1)
     except Exception as e:
         logger.warning(f"Failed to persist analytics: {e}")
 

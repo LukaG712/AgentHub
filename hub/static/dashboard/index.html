@@ -555,8 +555,8 @@ async function loadOverview() {
     // Stats
     let agentCount = 0, runCount = 0, scheduleCount = 0;
     if (dashboard.status === 'fulfilled' && dashboard.value) {
-      agentCount = dashboard.value.Polter?.agents_count || 0;
-      runCount = dashboard.value.Polter?.recent_runs?.length || 0;
+      agentCount = dashboard.value.Evershade Valley?.agents_count || 0;
+      runCount = dashboard.value.Evershade Valley?.recent_runs?.length || 0;
     }
     try {
       const sched = await api('/api/schedules');
@@ -567,14 +567,14 @@ async function loadOverview() {
       <div class="stat-card"><div class="label">Agents</div><div class="value">${agentCount}</div></div>
       <div class="stat-card"><div class="label">Recent Runs</div><div class="value">${runCount}</div></div>
       <div class="stat-card"><div class="label">Schedules</div><div class="value">${scheduleCount}</div></div>
-      <div class="stat-card"><div class="label">Services</div><div class="value">3</div><div class="sub">Polter + Ecton + Spectra</div></div>
+      <div class="stat-card"><div class="label">Services</div><div class="value">3</div><div class="sub">Evershade Valley + Ecton + Spectra</div></div>
     `;
 
     // Service Health
     let healthHtml = '';
     if (healthData.status === 'fulfilled' && healthData.value) {
       const h = healthData.value;
-      healthHtml += `<div style="margin-bottom:0.5rem;"><span class="badge badge-${h.status === 'healthy' ? 'ok' : 'error'}">${h.status || 'unknown'}</span> <span style="font-size:0.85rem;color:var(--fg-secondary);">Polter</span></div>`;
+      healthHtml += `<div style="margin-bottom:0.5rem;"><span class="badge badge-${h.status === 'healthy' ? 'ok' : 'error'}">${h.status || 'unknown'}</span> <span style="font-size:0.85rem;color:var(--fg-secondary);">Evershade Valley</span></div>`;
       if (h.services) {
         for (const [name, info] of Object.entries(h.services)) {
           const st = info.status === 'healthy' ? 'ok' : info.status === 'unhealthy' ? 'error' : 'warning';
@@ -587,8 +587,8 @@ async function loadOverview() {
     health.innerHTML = healthHtml || '<p>No health data available</p>';
 
     // Recent Runs
-    if (dashboard.status === 'fulfilled' && dashboard.value?.Polter?.recent_runs) {
-      const runs = dashboard.value.Polter.recent_runs.slice(0, 5);
+    if (dashboard.status === 'fulfilled' && dashboard.value?.Evershade Valley?.recent_runs) {
+      const runs = dashboard.value.Evershade Valley.recent_runs.slice(0, 5);
       let html = '<div style="font-size:0.85rem;">';
       runs.forEach(r => {
         const st = r.status === 'completed' ? 'ok' : r.status === 'failed' ? 'error' : 'info';
@@ -772,7 +772,7 @@ async function loadPipelines() {
   container.innerHTML = `
     <div class="card">
       <h3>Cross-Service Pipeline</h3>
-      <p style="margin-bottom:0.75rem;">Chain steps across Spectra, Ecton, and Polter.</p>
+      <p style="margin-bottom:0.75rem;">Chain steps across Spectra, Ecton, and Evershade Valley.</p>
       <div class="form-group">
         <label>Pipeline Steps (JSON array)</label>
         <textarea id="inline-pipeline-steps" style="width:100%;min-height:120px;padding:0.6rem 0.8rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);background:var(--search-bg);color:var(--fg);font-size:0.9rem;font-family:monospace;" placeholder='[
@@ -994,7 +994,7 @@ async function loadHealthSettings() {
     if (!h) return;
     let html = '';
     const st = h.status === 'healthy' ? 'ok' : 'error';
-    html += `<div style="margin-bottom:0.5rem;"><span class="badge badge-${st}">${h.status || 'unknown'}</span> Polter</div>`;
+    html += `<div style="margin-bottom:0.5rem;"><span class="badge badge-${st}">${h.status || 'unknown'}</span> Evershade Valley</div>`;
     if (h.services) {
       for (const [name, info] of Object.entries(h.services)) {
         const s = info.status === 'healthy' ? 'ok' : info.status === 'unhealthy' ? 'error' : 'warning';

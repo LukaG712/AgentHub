@@ -1,4 +1,4 @@
-"""Core infrastructure for the Polter API.
+"""Core infrastructure for the Evershade Valley API.
 
 This module contains shared infrastructure used by all route modules:
 - In-memory stores with thread-safe locks

@@ -65,7 +65,7 @@ async def api_integration_health():
     Spectra_task = asyncio.create_task(api_Spectra_health())
     Ecton_status, Spectra_status = await asyncio.gather(Ecton_task, Spectra_task)
     return {
-        "Polter": {"status": "ok", "version": "1.0.3"},
+        "Evershade Valley": {"status": "ok", "version": "1.0.3"},
         "Ecton": Ecton_status,
         "Spectra": Spectra_status,
     }
@@ -86,14 +86,14 @@ async def api_health():
     health = {
         "status": "ok",
         "version": "1.0.3",
-        "service": "Polter",
+        "service": "Evershade Valley",
     }
 
     # Database status
     db_status = {"status": "ok"}
     try:
-        from hub.memory import _DB_PATH as Polter_db
-        db_path = Path(Polter_db)
+        from hub.memory import _DB_PATH as evershade_valley_db
+        db_path = Path(evershade_valley_db)
         if db_path.exists():
             db_status["file"] = str(db_path)
             db_status["size_bytes"] = db_path.stat().st_size

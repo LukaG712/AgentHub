@@ -22,8 +22,8 @@ async def api_create_backup(_auth: None = Depends(_verify_token)):
     _BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
     # Find the source database
-    from hub.memory import _DB_PATH as Polter_db
-    source_db = Path(Polter_db)
+    from hub.memory import _DB_PATH as evershade_valley_db
+    source_db = Path(evershade_valley_db)
 
     if not source_db.exists():
         raise HTTPException(status_code=404, detail="Database file not found")
@@ -91,8 +91,8 @@ async def api_restore_backup(backup_file: str, _auth: None = Depends(_verify_tok
     if not backup_path.exists():
         raise HTTPException(status_code=404, detail=f"Backup file not found: {backup_file}")
 
-    from hub.memory import _DB_PATH as Polter_db
-    target_db = Path(Polter_db)
+    from hub.memory import _DB_PATH as evershade_valley_db
+    target_db = Path(evershade_valley_db)
 
     # Create a safety backup of the current database before restoring
     if target_db.exists():
