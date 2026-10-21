@@ -28,7 +28,17 @@ jobs:
 
       - name: Build desktop app
         working-directory: desktop
-        run: npx tauri build 2>&1
+        run: |
+          npx tauri build > build.log 2>&1
+          exit $LASTEXITCODE
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: desktop/build.log
+          if-no-files-found: warn
 
       - name: Show build output on failure
         if: failure()
