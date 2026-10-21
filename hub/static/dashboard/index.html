@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Unified Workflow</title>
+<style>
+:root {
+  --sidebar-bg: #f6f6f6;
+  --main-bg: #fcfcfc;
+  --hairline: #e8e8e8;
+  --selected-row: #e4e4e4;
+  --search-bg: #ececec;
+  --fg: #111;
+  --fg-secondary: #8a8a8e;
+  --link: #1a5fd0;
+  --success: #12a35f;
+  --danger: #d1304a;
+  --warning: #fbab18;
+  --composer-bg: #fff;
+  --primary-btn-bg: #111;
+  --primary-btn-text: #f2f2f2;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-pill: 999px;
+  --sidebar-width: 220px;
+  --font-size-base: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sidebar-bg: #1c1c1c;
+    --main-bg: #262626;
+    --hairline: #3c3c3c;
+    --selected-row: #2e2e2e;
+    --search-bg: #1e1e1e;
+    --fg: #f2f2f2;
+    --fg-secondary: #9a9a9a;
+    --link: #1a7cff;
+    --success: #16c26a;
+    --danger: #d1304a;
+    --warning: #fbab18;
+    --composer-bg: #2e2e2e;
+    --primary-btn-bg: #f2f2f2;
+    --primary-btn-text: #111;
+  }
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--main-bg); color: var(--fg);
+  font-size: var(--font-size-base); line-height: 1.5;
+  height: 100vh; overflow: hidden;
+}
+button { cursor: pointer; font-family: inherit; border: none; background: none; }
+input, select, textarea { font-family: inherit; }
+
+/* ===== Layout ===== */
+#app { display: flex; height: 100vh; }
+
+/* ===== Sidebar ===== */
+#sidebar {
+  width: var(--sidebar-width); flex-shrink: 0;
+  background: var(--sidebar-bg); border-right: 1px solid var(--hairline);
+  display: flex; flex-direction: column; padding: 1rem 0;
+}
+#sidebar h1 {
+  font-size: 1rem; font-weight: 700; padding: 0 1rem 1rem;
+  letter-spacing: -0.02em; border-bottom: 1px solid var(--hairline);
+  margin-bottom: 0.5rem;
+}
+#sidebar h1 span { color: var(--fg-secondary); font-weight: 400; font-size: 0.8rem; }
+.nav-item {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.55rem 1rem; font-size: 0.9rem; color: var(--fg-secondary);
+  cursor: pointer; transition: all 0.15s;
+}
+.nav-item:hover { background: var(--selected-row); color: var(--fg); }
+.nav-item.active { background: var(--selected-row); color: var(--fg); font-weight: 600; }
+.nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* ===== Main Content ===== */
+#main { flex: 1; overflow-y: auto; padding: 1.5rem 2rem; }
+.page { display: none; }
+.page.active { display: block; }
+.page h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; letter-spacing: -0.02em; }
+
+/* ===== Cards ===== */
+.card {
+  background: var(--composer-bg); border: 1px solid var(--hairline);
+  border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem;
+}
+.card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem; }
+.card p { font-size: 0.85rem; color: var(--fg-secondary); }
+
+/* ===== Grid ===== */
+.grid { display: grid; gap: 1rem; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 900px) {
+  .grid-3, .grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  #sidebar { display: none; }
+}
+
+/* ===== Stat Card ===== */
+.stat-card {
+  background: var(--composer-bg); border: 1px solid var(--hairline);
+  border-radius: var(--radius); padding: 1rem 1.25rem;
+}
+.stat-card .label { font-size: 0.8rem; color: var(--fg-secondary); margin-bottom: 0.25rem; }
+.stat-card .value { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.03em; }
+.stat-card .sub { font-size: 0.75rem; color: var(--fg-secondary); margin-top: 0.25rem; }
+
+/* ===== Status Badge ===== */
+.badge {
+  display: inline-block; padding: 0.2rem 0.6rem; border-radius: var(--radius-pill);
+  font-size: 0.75rem; font-weight: 600;
+}
+.badge-ok { background: #e6f9ef; color: #0a7a42; }
+.badge-error { background: #fde8eb; color: #c81e2f; }
+.badge-warning { background: #fff4e0; color: #b07800; }
+.badge-info { background: #e8f0fe; color: #1a5fd0; }
+@media (prefers-color-scheme: dark) {
+  .badge-ok { background: #0a3d24; color: #16c26a; }
+  .badge-error { background: #3d1519; color: #d1304a; }
+  .badge-warning { background: #3d2e0a; color: #fbab18; }
+  .badge-info { background: #1a2d4d; color: #1a7cff; }
+}
+
+/* ===== Table ===== */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 2px solid var(--hairline);
+  font-weight: 600; color: var(--fg-secondary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
+td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--hairline); }
+tr:hover td { background: var(--selected-row); }
+
+/* ===== Buttons ===== */
+.btn {
+  padding: 0.5rem 1rem; border-radius: var(--radius-sm); font-size: 0.85rem;
+  font-weight: 600; transition: opacity 0.15s;
+}
+.btn:hover { opacity: 0.85; }
+.btn-primary { background: var(--primary-btn-bg); color: var(--primary-btn-text); }
+.btn-sm { padding: 0.3rem 0.7rem; font-size: 0.8rem; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-outline { border: 1px solid var(--hairline); color: var(--fg); }
+
+/* ===== Form ===== */
+.form-group { margin-bottom: 1rem; }
+.form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 0.6rem 0.8rem; border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm); background: var(--search-bg); color: var(--fg);
+  font-size: 0.9rem;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  outline: none; border-color: var(--link);
+}
+.form-group textarea { min-height: 80px; resize: vertical; }
+
+/* ===== Modal ===== */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  align-items: center; justify-content: center; z-index: 100;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: var(--composer-bg); border-radius: var(--radius);
+  padding: 1.5rem; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
+}
+.modal h3 { font-size: 1.1rem; margin-bottom: 1rem; }
+.modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
+
+/* ===== Search ===== */
+.search-bar {
+  display: flex; gap: 0.5rem; margin-bottom: 1rem;
+}
+.search-bar input {
+  flex: 1; padding: 0.55rem 0.8rem; border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm); background: var(--search-bg); color: var(--fg);
+  font-size: 0.9rem;
+}
+.search-bar input:focus { outline: none; border-color: var(--link); }
+
+/* ===== Empty State ===== */
+.empty { text-align: center; padding: 3rem 1rem; color: var(--fg-secondary); }
+
+/* ===== Loading ===== */
+.loading { text-align: center; padding: 2rem; color: var(--fg-secondary); }
+.spinner {
+  display: inline-block; width: 24px; height: 24px;
+  border: 3px solid var(--hairline); border-top-color: var(--fg);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== Toolbar ===== */
+.toolbar { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
+
+/* ===== Progress Bar ===== */
+.progress-bar {
+  height: 6px; background: var(--hairline); border-radius: 3px; overflow: hidden;
+}
+.progress-bar .fill {
+  height: 100%; background: var(--success); border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* ===== Toast ===== */
+#toast-container {
+  position: fixed; bottom: 1rem; right: 1rem; z-index: 200;
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+.toast {
+  padding: 0.75rem 1rem; border-radius: var(--radius-sm);
+  background: var(--composer-bg); border: 1px solid var(--hairline);
+  font-size: 0.85rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  animation: slideIn 0.3s ease;
+}
+.toast.error { border-left: 3px solid var(--danger); }
+.toast.success { border-left: 3px solid var(--success); }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <h1>Unified Workflow <span>v1.0</span></h1>
+    <div class="nav-item active" data-page="overview">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Overview
+    </div>
+    <div class="nav-item" data-page="agents">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
+      Agents
+    </div>
+    <div class="nav-item" data-page="runs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Runs
+    </div>
+    <div class="nav-item" data-page="pipelines">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="12" r="3"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Pipelines
+    </div>
+    <div class="nav-item" data-page="schedules">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Schedules
+    </div>
+    <div class="nav-item" data-page="analytics">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Analytics
+    </div>
+    <div class="nav-item" data-page="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4m0 14v4m-9-9h4m14 0h4m-2.64-6.36l-2.83 2.83M7.05 16.95l-2.83 2.83m0-12.74l2.83 2.83m9.9 9.9l2.83 2.83"/></svg>
+      Settings
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main id="main">
+
+    <!-- ===== Overview Page ===== -->
+    <div class="page active" id="page-overview">
+      <h2>Dashboard Overview</h2>
+      <div id="overview-stats" class="grid grid-4"></div>
+      <div class="grid grid-2" style="margin-top:1rem;">
+        <div class="card">
+          <h3>Service Health</h3>
+          <div id="service-health"></div>
+        </div>
+        <div class="card">
+          <h3>Recent Runs</h3>
+          <div id="recent-runs"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:1rem;">
+        <h3>Ecton Status</h3>
+        <div id="Ecton-status"></div>
+      </div>
+    </div>
+
+    <!-- ===== Agents Page ===== -->
+    <div class="page" id="page-agents">
+      <div class="toolbar">
+        <h2 style="margin-bottom:0;">Agents</h2>
+        <div style="flex:1;"></div>
+        <button class="btn btn-primary" onclick="showModal('agent-modal')">+ New Agent</button>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="agent-search" placeholder="Search agents..." oninput="filterAgents()">
+      </div>
+      <div id="agents-list" class="table-wrap"></div>
+    </div>
+
+    <!-- ===== Runs Page ===== -->
+    <div class="page" id="page-runs">
+      <div class="toolbar">
+        <h2 style="margin-bottom:0;">Runs</h2>
+        <select id="run-agent-filter" onchange="loadRuns()" style="padding:0.4rem 0.6rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);background:var(--search-bg);color:var(--fg);font-size:0.85rem;">
+          <option value="">All Agents</option>
+        </select>
+        <select id="run-status-filter" onchange="loadRuns()" style="padding:0.4rem 0.6rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);background:var(--search-bg);color:var(--fg);font-size:0.85rem;">
+          <option value="">All Statuses</option>
+          <option value="running">Running</option>
+          <option value="completed">Completed</option>
+          <option value="failed">Failed</option>
+          <option value="stopped">Stopped</option>
+        </select>
+      </div>
+      <div id="runs-list" class="table-wrap"></div>
+    </div>
+
+    <!-- ===== Pipelines Page ===== -->
+    <div class="page" id="page-pipelines">
+      <div class="toolbar">
+        <h2 style="margin-bottom:0;">Pipelines</h2>
+        <button class="btn btn-primary" onclick="showModal('pipeline-modal')">+ New Pipeline</button>
+      </div>
+      <div id="pipelines-list"></div>
+    </div>
+
+    <!-- ===== Schedules Page ===== -->
+    <div class="page" id="page-schedules">
+      <div class="toolbar">
+        <h2 style="margin-bottom:0;">Scheduled Pipelines</h2>
+        <button class="btn btn-primary" onclick="showModal('schedule-modal')">+ New Schedule</button>
+      </div>
+      <div id="schedules-list" class="table-wrap"></div>
+    </div>
+
+    <!-- ===== Analytics Page ===== -->
+    <div class="page" id="page-analytics">
+      <h2>Analytics</h2>
+      <div id="analytics-overview" class="grid grid-4"></div>
+      <div class="grid grid-2" style="margin-top:1rem;">
+        <div class="card">
+          <h3>Recent API Calls</h3>
+          <div id="analytics-api-calls" class="table-wrap"></div>
+        </div>
+        <div class="card">
+          <h3>Task Performance</h3>
+          <div id="analytics-tasks" class="table-wrap"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:1rem;">
+        <h3>Daily Stats</h3>
+        <div id="analytics-daily" class="table-wrap"></div>
+      </div>
+    </div>
+
+    <!-- ===== Settings Page ===== -->
+    <div class="page" id="page-settings">
+      <h2>Settings</h2>
+      <div class="card">
+        <h3>API Configuration</h3>
+        <div class="form-group">
+          <label>API Base URL</label>
+          <input type="text" id="setting-api-url" placeholder="Auto-detected from page URL">
+        </div>
+        <div class="form-group">
+          <label>API Key</label>
+          <input type="password" id="setting-api-key" placeholder="Enter your API key">
+        </div>
+        <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+        <button class="btn btn-outline" onclick="testConnection()" style="margin-left:0.5rem;">Test Connection</button>
+      </div>
+      <div class="card">
+        <h3>Service Health</h3>
+        <div id="settings-health"></div>
+      </div>
+      <div class="card">
+        <h3>Backup & Restore</h3>
+        <button class="btn btn-primary" onclick="createBackup()">Create Backup</button>
+        <button class="btn btn-outline" onclick="loadBackups()" style="margin-left:0.5rem;">List Backups</button>
+        <div id="backup-list" style="margin-top:0.75rem;"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ===== Modals ===== -->
+
+<!-- Agent Modal -->
+<div class="modal-overlay" id="agent-modal">
+  <div class="modal">
+    <h3>Create New Agent</h3>
+    <div class="form-group">
+      <label>Agent Name</label>
+      <input type="text" id="agent-name" placeholder="my-agent">
+    </div>
+    <div class="form-group">
+      <label>Runner Type</label>
+      <select id="agent-runner">
+        <option value="junie">Junie CLI</option>
+        <option value="Ecton">Ecton</option>
+        <option value="Spectra">Spectra</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>System Prompt</label>
+      <textarea id="agent-prompt" placeholder="You are a helpful assistant..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="hideModal('agent-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createAgent()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pipeline Modal -->
+<div class="modal-overlay" id="pipeline-modal">
+  <div class="modal">
+    <h3>Run Pipeline</h3>
+    <div class="form-group">
+      <label>Pipeline Steps (JSON)</label>
+      <textarea id="pipeline-steps" placeholder='[{"service":"Spectra","task":"SCRAPE:https://example.com"},{"service":"Ecton","task":"Analyze the scraped content"}]' style="min-height:120px;"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="hideModal('pipeline-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="runPipeline()">Run</button>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule Modal -->
+<div class="modal-overlay" id="schedule-modal">
+  <div class="modal">
+    <h3>Create Schedule</h3>
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="schedule-name" placeholder="Daily research">
+    </div>
+    <div class="form-group">
+      <label>Cron Expression</label>
+      <input type="text" id="schedule-cron" placeholder="0 9 * * *" value="0 9 * * *">
+    </div>
+    <div class="form-group">
+      <label>Pipeline Steps (JSON)</label>
+      <textarea id="schedule-steps" placeholder='[{"service":"Spectra","task":"SCRAPE:https://example.com"}]' style="min-height:80px;"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="hideModal('schedule-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createSchedule()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Run Agent Modal -->
+<div class="modal-overlay" id="run-modal">
+  <div class="modal">
+    <h3>Run Agent</h3>
+    <div class="form-group">
+      <label>Task</label>
+      <textarea id="run-task" placeholder="What should the agent do?"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="hideModal('run-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitRun()">Run</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<script>
+// ===== Configuration =====
+let API_URL = window.location.origin;
+let API_KEY = localStorage.getItem('workflow_api_key') || '';
+
+// ===== State =====
+let agents = [];
+let runs = [];
+let schedules = [];
+let currentRunAgent = '';
+
+// ===== API Helper =====
+async function api(path, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (API_KEY) headers['Authorization'] = `Bearer ${API_KEY}`;
+  const resp = await fetch(`${API_URL}${path}`, { ...options, headers });
+  if (resp.status === 401) {
+    showToast('Authentication failed. Check your API key in Settings.', 'error');
+    return null;
+  }
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+    throw new Error(err.detail || resp.statusText);
+  }
+  return resp.json();
+}
+
+// ===== Toast Notifications =====
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
+// ===== Modal Helpers =====
+function showModal(id) { document.getElementById(id).classList.add('show'); }
+function hideModal(id) { document.getElementById(id).classList.remove('show'); }
+
+// ===== Navigation =====
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    item.classList.add('active');
+    const page = item.dataset.page;
+    document.getElementById(`page-${page}`).classList.add('active');
+    loadPage(page);
+  });
+});
+
+// ===== Load Page Data =====
+async function loadPage(page) {
+  switch(page) {
+    case 'overview': await loadOverview(); break;
+    case 'agents': await loadAgents(); break;
+    case 'runs': await loadRuns(); break;
+    case 'pipelines': await loadPipelines(); break;
+    case 'schedules': await loadSchedules(); break;
+    case 'analytics': await loadAnalytics(); break;
+    case 'settings': await loadSettings(); break;
+  }
+}
+
+// ===== Overview =====
+async function loadOverview() {
+  const stats = document.getElementById('overview-stats');
+  const health = document.getElementById('service-health');
+  const recent = document.getElementById('recent-runs');
+  const Ecton = document.getElementById('Ecton-status');
+  stats.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  health.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  recent.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  Ecton.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  try {
+    const [dashboard, healthData] = await Promise.allSettled([
+      api('/api/dashboard'),
+      api('/api/health')
+    ]);
+
+    // Stats
+    let agentCount = 0, runCount = 0, scheduleCount = 0;
+    if (dashboard.status === 'fulfilled' && dashboard.value) {
+      agentCount = dashboard.value.Polter?.agents_count || 0;
+      runCount = dashboard.value.Polter?.recent_runs?.length || 0;
+    }
+    try {
+      const sched = await api('/api/schedules');
+      scheduleCount = sched?.length || 0;
+    } catch(e) {}
+
+    stats.innerHTML = `
+      <div class="stat-card"><div class="label">Agents</div><div class="value">${agentCount}</div></div>
+      <div class="stat-card"><div class="label">Recent Runs</div><div class="value">${runCount}</div></div>
+      <div class="stat-card"><div class="label">Schedules</div><div class="value">${scheduleCount}</div></div>
+      <div class="stat-card"><div class="label">Services</div><div class="value">3</div><div class="sub">Polter + Ecton + Spectra</div></div>
+    `;
+
+    // Service Health
+    let healthHtml = '';
+    if (healthData.status === 'fulfilled' && healthData.value) {
+      const h = healthData.value;
+      healthHtml += `<div style="margin-bottom:0.5rem;"><span class="badge badge-${h.status === 'healthy' ? 'ok' : 'error'}">${h.status || 'unknown'}</span> <span style="font-size:0.85rem;color:var(--fg-secondary);">Polter</span></div>`;
+      if (h.services) {
+        for (const [name, info] of Object.entries(h.services)) {
+          const st = info.status === 'healthy' ? 'ok' : info.status === 'unhealthy' ? 'error' : 'warning';
+          healthHtml += `<div style="margin-bottom:0.5rem;"><span class="badge badge-${st}">${info.status}</span> <span style="font-size:0.85rem;color:var(--fg-secondary);">${name}</span>`;
+          if (info.response_time) healthHtml += ` <span style="font-size:0.75rem;color:var(--fg-secondary);">(${info.response_time}ms)</span>`;
+          healthHtml += `</div>`;
+        }
+      }
+    }
+    health.innerHTML = healthHtml || '<p>No health data available</p>';
+
+    // Recent Runs
+    if (dashboard.status === 'fulfilled' && dashboard.value?.Polter?.recent_runs) {
+      const runs = dashboard.value.Polter.recent_runs.slice(0, 5);
+      let html = '<div style="font-size:0.85rem;">';
+      runs.forEach(r => {
+        const st = r.status === 'completed' ? 'ok' : r.status === 'failed' ? 'error' : 'info';
+        html += `<div style="padding:0.4rem 0;border-bottom:1px solid var(--hairline);display:flex;justify-content:space-between;">
+          <span>${r.agent || 'unknown'}</span>
+          <span><span class="badge badge-${st}">${r.status}</span></span>
+        </div>`;
+      });
+      html += '</div>';
+      recent.innerHTML = html;
+    }
+
+    // Ecton Status
+    if (dashboard.status === 'fulfilled' && dashboard.value?.Ecton) {
+      const jh = dashboard.value.Ecton;
+      const st = jh.health === 'ok' ? 'ok' : jh.health === 'error' ? 'error' : 'warning';
+      let html = `<span class="badge badge-${st}">${jh.health}</span>`;
+      if (jh.workers?.length) html += ` <span style="font-size:0.85rem;color:var(--fg-secondary);">${jh.workers.length} workers</span>`;
+      if (jh.queue) html += `<div style="font-size:0.85rem;color:var(--fg-secondary);margin-top:0.5rem;">Queue: ${jh.queue}</div>`;
+      Ecton.innerHTML = html;
+    }
+
+  } catch(e) {
+    stats.innerHTML = `<div class="empty">Failed to load: ${e.message}</div>`;
+  }
+}
+
+// ===== Agents =====
+async function loadAgents() {
+  const container = document.getElementById('agents-list');
+  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    agents = await api('/api/agents') || [];
+    renderAgents(agents);
+  } catch(e) {
+    container.innerHTML = `<div class="empty">Failed to load agents: ${e.message}</div>`;
+  }
+}
+
+function renderAgents(list) {
+  const container = document.getElementById('agents-list');
+  if (!list || list.length === 0) {
+    container.innerHTML = '<div class="empty">No agents found. Create one to get started.</div>';
+    return;
+  }
+  let html = `<table><thead><tr><th>Name</th><th>Runner</th><th>Model</th><th>Actions</th></tr></thead><tbody>`;
+  list.forEach(a => {
+    html += `<tr>
+      <td><strong>${a.name}</strong></td>
+      <td>${a.runner || 'junie'}</td>
+      <td>${a.model || '-'}</td>
+      <td>
+        <button class="btn btn-sm btn-outline" onclick="runAgent('${a.name}')">Run</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteAgent('${a.name}')" style="margin-left:0.3rem;">Delete</button>
+      </td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function filterAgents() {
+  const q = document.getElementById('agent-search').value.toLowerCase();
+  const filtered = agents.filter(a => a.name.toLowerCase().includes(q));
+  renderAgents(filtered);
+}
+
+async function createAgent() {
+  const name = document.getElementById('agent-name').value.trim();
+  const runner = document.getElementById('agent-runner').value;
+  const prompt = document.getElementById('agent-prompt').value.trim();
+  if (!name) return showToast('Agent name is required', 'error');
+  try {
+    await api(`/api/agents/${name}`, {
+      method: 'POST',
+      body: JSON.stringify({ runner, system_prompt: prompt || 'You are a helpful assistant.' })
+    });
+    showToast(`Agent "${name}" created`);
+    hideModal('agent-modal');
+    await loadAgents();
+  } catch(e) {
+    showToast(`Failed to create agent: ${e.message}`, 'error');
+  }
+}
+
+async function deleteAgent(name) {
+  if (!confirm(`Delete agent "${name}"?`)) return;
+  try {
+    await api(`/api/agents/${name}`, { method: 'DELETE' });
+    showToast(`Agent "${name}" deleted`);
+    await loadAgents();
+  } catch(e) {
+    showToast(`Failed to delete: ${e.message}`, 'error');
+  }
+}
+
+function runAgent(name) {
+  currentRunAgent = name;
+  document.getElementById('run-task').value = '';
+  showModal('run-modal');
+}
+
+async function submitRun() {
+  const task = document.getElementById('run-task').value.trim();
+  if (!task) return showToast('Task is required', 'error');
+  try {
+    await api(`/api/agents/${currentRunAgent}/runs`, {
+      method: 'POST',
+      body: JSON.stringify({ task })
+    });
+    showToast(`Run started for "${currentRunAgent}"`);
+    hideModal('run-modal');
+  } catch(e) {
+    showToast(`Failed to run: ${e.message}`, 'error');
+  }
+}
+
+// ===== Runs =====
+async function loadRuns() {
+  const container = document.getElementById('runs-list');
+  const agentFilter = document.getElementById('run-agent-filter').value;
+  const statusFilter = document.getElementById('run-status-filter').value;
+  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  try {
+    let url = '/api/runs?limit=50';
+    if (agentFilter) url += `&agent=${agentFilter}`;
+    if (statusFilter) url += `&status=${statusFilter}`;
+    runs = await api(url) || [];
+    renderRuns(runs);
+
+    // Populate agent filter
+    const select = document.getElementById('run-agent-filter');
+    const currentVal = select.value;
+    const agentNames = [...new Set(runs.map(r => r.agent).filter(Boolean))];
+    select.innerHTML = '<option value="">All Agents</option>';
+    agentNames.forEach(name => {
+      select.innerHTML += `<option value="${name}" ${name === currentVal ? 'selected' : ''}>${name}</option>`;
+    });
+  } catch(e) {
+    container.innerHTML = `<div class="empty">Failed to load runs: ${e.message}</div>`;
+  }
+}
+
+function renderRuns(list) {
+  const container = document.getElementById('runs-list');
+  if (!list || list.length === 0) {
+    container.innerHTML = '<div class="empty">No runs found.</div>';
+    return;
+  }
+  let html = `<table><thead><tr><th>Agent</th><th>Task</th><th>Status</th><th>Started</th><th>Actions</th></tr></thead><tbody>`;
+  list.forEach(r => {
+    const st = r.status === 'completed' ? 'ok' : r.status === 'failed' ? 'error' : r.status === 'stopped' ? 'warning' : 'info';
+    const task = (r.task || '').substring(0, 60);
+    const started = r.started_at ? new Date(r.started_at).toLocaleString() : '-';
+    html += `<tr>
+      <td>${r.agent || '-'}</td>
+      <td title="${r.task || ''}">${task}${(r.task||'').length > 60 ? '...' : ''}</td>
+      <td><span class="badge badge-${st}">${r.status}</span></td>
+      <td style="font-size:0.8rem;color:var(--fg-secondary);">${started}</td>
+      <td>${r.status === 'running' ? `<button class="btn btn-sm btn-danger" onclick="stopRun('${r.id}')">Stop</button>` : ''}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+async function stopRun(runId) {
+  try {
+    await api(`/api/runs/${runId}/stop`, { method: 'POST' });
+    showToast('Run stopped');
+    await loadRuns();
+  } catch(e) {
+    showToast(`Failed to stop: ${e.message}`, 'error');
+  }
+}
+
+// ===== Pipelines =====
+async function loadPipelines() {
+  const container = document.getElementById('pipelines-list');
+  container.innerHTML = `
+    <div class="card">
+      <h3>Cross-Service Pipeline</h3>
+      <p style="margin-bottom:0.75rem;">Chain steps across Spectra, Ecton, and Polter.</p>
+      <div class="form-group">
+        <label>Pipeline Steps (JSON array)</label>
+        <textarea id="inline-pipeline-steps" style="width:100%;min-height:120px;padding:0.6rem 0.8rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);background:var(--search-bg);color:var(--fg);font-size:0.9rem;font-family:monospace;" placeholder='[
+  {"service": "Spectra", "task": "SCRAPE:https://example.com"},
+  {"service": "Ecton", "task": "Summarize the scraped content"},
+  {"service": "agent", "name": "researcher", "task": "Analyze the summary"}
+]'></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="runInlinePipeline()">Run Pipeline</button>
+      <div id="pipeline-result" style="margin-top:0.75rem;"></div>
+    </div>
+  `;
+}
+
+async function runPipeline() {
+  const stepsText = document.getElementById('pipeline-steps').value.trim();
+  if (!stepsText) return showToast('Pipeline steps are required', 'error');
+  try {
+    const steps = JSON.parse(stepsText);
+    await runPipelineSteps(steps);
+    hideModal('pipeline-modal');
+  } catch(e) {
+    showToast(`Invalid JSON: ${e.message}`, 'error');
+  }
+}
+
+async function runInlinePipeline() {
+  const stepsText = document.getElementById('inline-pipeline-steps').value.trim();
+  if (!stepsText) return showToast('Pipeline steps are required', 'error');
+  const result = document.getElementById('pipeline-result');
+  result.innerHTML = '<div class="loading"><div class="spinner"></div> Running pipeline...</div>';
+  try {
+    const steps = JSON.parse(stepsText);
+    const res = await runPipelineSteps(steps);
+    result.innerHTML = `<pre style="font-size:0.8rem;background:var(--search-bg);padding:0.75rem;border-radius:var(--radius-sm);max-height:300px;overflow:auto;">${JSON.stringify(res, null, 2)}</pre>`;
+    showToast('Pipeline completed');
+  } catch(e) {
+    result.innerHTML = `<div style="color:var(--danger);font-size:0.85rem;">${e.message}</div>`;
+    showToast(`Pipeline failed: ${e.message}`, 'error');
+  }
+}
+
+async function runPipelineSteps(steps) {
+  return api('/api/pipeline', {
+    method: 'POST',
+    body: JSON.stringify({ steps })
+  });
+}
+
+// ===== Schedules =====
+async function loadSchedules() {
+  const container = document.getElementById('schedules-list');
+  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    schedules = await api('/api/schedules') || [];
+    renderSchedules(schedules);
+  } catch(e) {
+    container.innerHTML = `<div class="empty">Failed to load schedules: ${e.message}</div>`;
+  }
+}
+
+function renderSchedules(list) {
+  const container = document.getElementById('schedules-list');
+  if (!list || list.length === 0) {
+    container.innerHTML = '<div class="empty">No scheduled pipelines. Create one to automate workflows.</div>';
+    return;
+  }
+  let html = `<table><thead><tr><th>Name</th><th>Cron</th><th>Enabled</th><th>Runs</th><th>Last Run</th><th>Actions</th></tr></thead><tbody>`;
+  list.forEach(s => {
+    const enabled = s.enabled !== false;
+    html += `<tr>
+      <td><strong>${s.name || '-'}</strong></td>
+      <td style="font-family:monospace;font-size:0.8rem;">${s.cron || '-'}</td>
+      <td><span class="badge badge-${enabled ? 'ok' : 'warning'}">${enabled ? 'On' : 'Off'}</span></td>
+      <td>${s.run_count || 0}</td>
+      <td style="font-size:0.8rem;color:var(--fg-secondary);">${s.last_run ? new Date(s.last_run).toLocaleString() : '-'}</td>
+      <td>
+        <button class="btn btn-sm btn-outline" onclick="toggleSchedule('${s.id}', ${!enabled})">${enabled ? 'Disable' : 'Enable'}</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteSchedule('${s.id}')" style="margin-left:0.3rem;">Delete</button>
+      </td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+async function createSchedule() {
+  const name = document.getElementById('schedule-name').value.trim();
+  const cron = document.getElementById('schedule-cron').value.trim();
+  const stepsText = document.getElementById('schedule-steps').value.trim();
+  if (!name || !cron) return showToast('Name and cron are required', 'error');
+  try {
+    const steps = stepsText ? JSON.parse(stepsText) : [];
+    await api('/api/schedules', {
+      method: 'POST',
+      body: JSON.stringify({ name, cron, steps })
+    });
+    showToast(`Schedule "${name}" created`);
+    hideModal('schedule-modal');
+    await loadSchedules();
+  } catch(e) {
+    showToast(`Failed: ${e.message}`, 'error');
+  }
+}
+
+async function toggleSchedule(id, enabled) {
+  try {
+    await api(`/api/schedules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled })
+    });
+    showToast(`Schedule ${enabled ? 'enabled' : 'disabled'}`);
+    await loadSchedules();
+  } catch(e) {
+    showToast(`Failed: ${e.message}`, 'error');
+  }
+}
+
+async function deleteSchedule(id) {
+  if (!confirm('Delete this schedule?')) return;
+  try {
+    await api(`/api/schedules/${id}`, { method: 'DELETE' });
+    showToast('Schedule deleted');
+    await loadSchedules();
+  } catch(e) {
+    showToast(`Failed: ${e.message}`, 'error');
+  }
+}
+
+// ===== Analytics =====
+async function loadAnalytics() {
+  const overview = document.getElementById('analytics-overview');
+  const apiCalls = document.getElementById('analytics-api-calls');
+  const tasks = document.getElementById('analytics-tasks');
+  const daily = document.getElementById('analytics-daily');
+  overview.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  try {
+    const [ov, calls, taskData, dailyData] = await Promise.allSettled([
+      api('/api/analytics/overview'),
+      api('/api/analytics/api-calls?limit=10'),
+      api('/api/analytics/tasks?limit=10'),
+      api('/api/analytics/daily?days=7')
+    ]);
+
+    // Overview stats
+    if (ov.status === 'fulfilled' && ov.value) {
+      const d = ov.value;
+      overview.innerHTML = `
+        <div class="stat-card"><div class="label">Total API Calls</div><div class="value">${d.total_api_calls || 0}</div></div>
+        <div class="stat-card"><div class="label">Avg Task Duration</div><div class="value">${(d.avg_task_duration || 0).toFixed(1)}s</div></div>
+        <div class="stat-card"><div class="label">Error Rate</div><div class="value">${(d.error_rate || 0).toFixed(1)}%</div></div>
+        <div class="stat-card"><div class="label">Tasks Completed</div><div class="value">${d.tasks_completed || 0}</div></div>
+      `;
+    }
+
+    // API Calls table
+    if (calls.status === 'fulfilled' && calls.value?.length) {
+      let html = '<table><thead><tr><th>Endpoint</th><th>Method</th><th>Status</th><th>Duration</th></tr></thead><tbody>';
+      calls.value.forEach(c => {
+        html += `<tr><td style="font-size:0.8rem;">${c.endpoint || '-'}</td><td>${c.method || '-'}</td><td>${c.status || '-'}</td><td>${(c.duration_ms || 0).toFixed(0)}ms</td></tr>`;
+      });
+      html += '</tbody></table>';
+      apiCalls.innerHTML = html;
+    }
+
+    // Tasks table
+    if (taskData.status === 'fulfilled' && taskData.value?.length) {
+      let html = '<table><thead><tr><th>Service</th><th>Task</th><th>Avg Duration</th><th>Runs</th></tr></thead><tbody>';
+      taskData.value.forEach(t => {
+        html += `<tr><td>${t.service || '-'}</td><td style="font-size:0.8rem;">${(t.task||'').substring(0,40)}</td><td>${(t.avg_duration||0).toFixed(2)}s</td><td>${t.runs||0}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      tasks.innerHTML = html;
+    }
+
+    // Daily stats
+    if (dailyData.status === 'fulfilled' && dailyData.value?.length) {
+      let html = '<table><thead><tr><th>Date</th><th>API Calls</th><th>Tasks</th><th>Errors</th></tr></thead><tbody>';
+      dailyData.forEach(d => {
+        html += `<tr><td>${d.date || '-'}</td><td>${d.api_calls || 0}</td><td>${d.tasks || 0}</td><td>${d.errors || 0}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      daily.innerHTML = html;
+    }
+
+  } catch(e) {
+    overview.innerHTML = `<div class="empty">Failed to load analytics: ${e.message}</div>`;
+  }
+}
+
+// ===== Settings =====
+async function loadSettings() {
+  document.getElementById('setting-api-url').value = API_URL;
+  document.getElementById('setting-api-key').value = API_KEY;
+  await loadHealthSettings();
+}
+
+function saveSettings() {
+  API_URL = document.getElementById('setting-api-url').value.replace(/\/$/, '');
+  API_KEY = document.getElementById('setting-api-key').value;
+  localStorage.setItem('workflow_api_key', API_KEY);
+  showToast('Settings saved');
+}
+
+async function testConnection() {
+  try {
+    await api('/api/health');
+    showToast('Connection successful!');
+  } catch(e) {
+    showToast(`Connection failed: ${e.message}`, 'error');
+  }
+}
+
+async function loadHealthSettings() {
+  const container = document.getElementById('settings-health');
+  try {
+    const h = await api('/api/health');
+    if (!h) return;
+    let html = '';
+    const st = h.status === 'healthy' ? 'ok' : 'error';
+    html += `<div style="margin-bottom:0.5rem;"><span class="badge badge-${st}">${h.status || 'unknown'}</span> Polter</div>`;
+    if (h.services) {
+      for (const [name, info] of Object.entries(h.services)) {
+        const s = info.status === 'healthy' ? 'ok' : info.status === 'unhealthy' ? 'error' : 'warning';
+        html += `<div style="margin-bottom:0.5rem;"><span class="badge badge-${s}">${info.status}</span> ${name}`;
+        if (info.response_time) html += ` <span style="font-size:0.75rem;color:var(--fg-secondary);">(${info.response_time}ms)</span>`;
+        html += `</div>`;
+      }
+    }
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = `<div style="color:var(--danger);font-size:0.85rem;">Health check failed: ${e.message}</div>`;
+  }
+}
+
+async function createBackup() {
+  try {
+    showToast('Creating backup...');
+    await api('/api/backup', { method: 'POST' });
+    showToast('Backup created successfully');
+    await loadBackups();
+  } catch(e) {
+    showToast(`Backup failed: ${e.message}`, 'error');
+  }
+}
+
+async function loadBackups() {
+  const container = document.getElementById('backup-list');
+  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const backups = await api('/api/backups') || [];
+    if (backups.length === 0) {
+      container.innerHTML = '<p style="font-size:0.85rem;color:var(--fg-secondary);">No backups found.</p>';
+      return;
+    }
+    let html = '<div style="font-size:0.85rem;">';
+    backups.forEach(b => {
+      html += `<div style="display:flex;justify-content:space-between;padding:0.3rem 0;border-bottom:1px solid var(--hairline);">
+        <span>${b.file || b}</span>
+        <button class="btn btn-sm btn-outline" onclick="restoreBackup('${b.file || b}')">Restore</button>
+      </div>`;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = `<div style="color:var(--danger);font-size:0.85rem;">${e.message}</div>`;
+  }
+}
+
+async function restoreBackup(file) {
+  if (!confirm(`Restore from "${file}"? This will replace current data.`)) return;
+  try {
+    await api(`/api/backup/restore/${file}`, { method: 'POST' });
+    showToast('Database restored. Page will reload.');
+    setTimeout(() => location.reload(), 2000);
+  } catch(e) {
+    showToast(`Restore failed: ${e.message}`, 'error');
+  }
+}
+
+// ===== Initialize =====
+document.addEventListener('DOMContentLoaded', () => {
+  loadOverview();
+});
+</script>
+</body>
+</html>

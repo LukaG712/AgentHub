@@ -1,6 +1,6 @@
 # Agent Hub features spec (backend + wiring)
 
-Goal: add the Grok Bot-style features to AgentHub's backend and wire them into the existing messenger UI. Bots are named AI teammates that take on a job, work in parallel, remember how the user works, come back for approval, and can pass work to each other. Everything stays self-hosted, local, free and offline-capable.
+Goal: add the Grok Bot-style features to Polter's backend and wire them into the existing messenger UI. Bots are named AI teammates that take on a job, work in parallel, remember how the user works, come back for approval, and can pass work to each other. Everything stays self-hosted, local, free and offline-capable.
 
 Our existing "agents" are the Bots. The UI redesign (see `docs/UI_SPEC.md`) is already done and has quiet "Coming soon" placeholders for Memory, Routines, Plugins and Marketplace, plus disabled composer buttons. Replace placeholders with working features using the EXISTING design tokens and components. Do not restyle or restructure the UI beyond what a feature needs.
 

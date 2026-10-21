@@ -1,3 +1,8 @@
+# ─── Runners ────────────────────────────────────────────────────────────────
+# "junie"     — Runs Junie CLI directly (local subprocess)
+# "Ecton"  — Delegates to Ecton service (worktree isolation, persistent storage)
+# "Spectra" — Delegates to Spectra service (web scraping, crawling, search)
+
 runners:
   junie:
     command:
@@ -11,12 +16,14 @@ runners:
     skills_dir: ".junie/skills"
     guidelines_file: ".junie/AGENTS.md"
 
+# ─── Agents ─────────────────────────────────────────────────────────────────
+
 agents:
   vault:
     title: "Vault librarian"
     description: "Reads and updates the Obsidian vault notes."
     runner: junie
-    project_dir: "/mnt/vault-test"
+    project_dir: "/workspace/vault"
     skills:
       - "vault-conventions"
     guidelines: "Never delete files. New notes go in _ai/."
@@ -27,21 +34,53 @@ agents:
       git_ops: true
       network: true
 
-# --- Example agents (uncomment and edit to use) ---
+  researcher:
+    title: "Web researcher"
+    description: "Scrapes websites, searches the web, and crawls sites for information."
+    runner: Spectra
+    project_dir: "/workspace/research"
+    skills: []
+    guidelines: |
+      Use SCRAPE: to fetch a single page.
+      Use CRAWL: to crawl an entire site.
+      Use SEARCH: to search the web.
+      Use MAP: to discover URLs on a site.
+    permissions:
+      file_read: true
+      file_write: true
+      command_exec: false
+      git_ops: false
+      network: true
+
+  coder:
+    title: "Code developer"
+    description: "Develops code with Git worktree isolation via Ecton."
+    runner: Ecton
+    project_dir: "/workspace/projects"
+    skills: []
+    guidelines: "Write clean, well-tested code. Use Git for version control."
+    permissions:
+      file_read: true
+      file_write: true
+      command_exec: true
+      git_ops: true
+      network: true
+
+# ─── Example agents (uncomment and edit to use) ─────────────────────────────
 
 # website-builder:
 #   title: "Website builder"
 #   description: "Builds and edits static websites."
-#   runner: junie
-#   project_dir: "~/workspace/website"
+#   runner: Ecton
+#   project_dir: "/workspace/website"
 #   skills: []
 #   guidelines: "Use plain HTML, CSS, and vanilla JavaScript. No build tools."
 
 # software-builder:
 #   title: "Software builder"
 #   description: "Develops Python applications and libraries."
-#   runner: junie
-#   project_dir: "~/workspace/software"
+#   runner: Ecton
+#   project_dir: "/workspace/software"
 #   skills: []
 #   guidelines: "Write clean, well-tested Python. Follow PEP 8."
 
