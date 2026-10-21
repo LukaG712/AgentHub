@@ -57,6 +57,7 @@ Everything you need to manage AI coding agents from one place:
 | ⚙️ **Background** | Service mode | Run as a systemd service (Linux) or via PowerShell (Windows) |
 | 🏥 **Health API** | Monitoring | `GET /api/health` and `GET /api/ready` for systemd and load balancer checks |
 | 🌐 **CORS** | LAN access | Configurable CORS middleware for browser access from LAN devices |
+| 📋 **Task Manager** | Built-in app | Simple task list at `/app/` with create, complete, delete, and filter — no setup needed |
 
 ## �- How it Works with JunieOrchestrator
 
@@ -413,6 +414,36 @@ Skill content here...
 
 Enable or disable skills for any agent from the **web dashboard** or **CLI**. Skills are the best way to give agents consistent behavior across projects.
 
+---
+
+### 📋 Task Manager App
+
+Agent Hub includes a built-in task manager accessible at **`/app/`** — no setup required. It's a simple, persistent task list that shares your API key authentication with the rest of the hub.
+
+**Features:**
+
+| Feature | Description |
+|---------|-------------|
+| ✅ **Create tasks** | Add tasks with a title and optional description |
+| 🔘 **Toggle done** | Click the circle to mark tasks complete |
+| 🗑️ **Delete** | Remove tasks you no longer need |
+| 🔍 **Filter** | View All, Active, or Done tasks |
+| 📊 **Stats** | See active, done, and total counts at a top |
+| 🌙 **Dark mode** | Follows your system preference automatically |
+| 💾 **Persistent** | Tasks are saved to `data/tasks.json` and survive restarts |
+
+**API endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/app/` | 🌐 Serve the task manager UI |
+| GET | `/api/app/tasks` | 📋 List all tasks |
+| POST | `/api/app/tasks` | ➕ Create a new task |
+| PATCH | `/api/app/tasks/{id}` | ✏️ Update a task (toggle done, edit title/description) |
+| DELETE | `/api/app/tasks/{id}` | 🗑️ Delete a task |
+
+All endpoints require the same `HUB_API_KEY` Bearer token authentication as the rest of the API.
+
 ## 🐛 Troubleshooting
 
 Common issues and how to fix them:
@@ -638,17 +669,18 @@ python -m pytest tests/ -v
 
 Tests use a fake agent script — **no real `junie` binary needed**. POSIX-only tests (file locking, process groups) are automatically skipped on Windows.
 
-### Test coverage (348 tests)
+### Test coverage (460+ tests)
 
 | Area | Tests | What's covered |
 |------|-------|----------------|
 | 🏃 Runner & streaming | ~80 | Subprocess output, incremental SSE events, timeouts, process cleanup, missing binaries, failed runs |
-| 🔌 API & SSE | ~70 | All API endpoints, SSE buffering, event isolation, coordinator endpoints |
+| 🔌 API & SSE | ~100 | All API endpoints, SSE buffering, event isolation, coordinator endpoints, app endpoints |
 | 🧠 Memory & context | ~50 | Session CRUD, memory CRUD, context assembly, ordering, deduplication, truncation, project isolation |
 | 🔒 Providers & permissions | ~30 | Command safety, permission flags, list-based arguments |
 | 🌿 Git service | ~15 | Dirty detection, untracked files, worktree create/remove |
 | 🎯 Coordinator | ~38 | Task management, dependencies, approval workflow, worktree isolation, API endpoints |
 | ⚙️ Config & skills | ~65 | Configuration loading, skill management, name validation, path safety |
+| 🌐 Remote | ~30 | SSH args, remote command building, project sync, host key checking |
 
 ---
 
