@@ -85,7 +85,24 @@ class WorkflowExecutor:
         return run
 
     async def _run_steps(self, workflow: WorkflowDefinition, run: WorkflowRun) -> None:
-        """Execute all steps in the workflow sequentially."""
+        """Execute all steps in the workflow.
+
+        If steps have milestone_id set and parallel_workers is enabled in the
+        workflow config, execute worker steps in parallel within each milestone,
+        then run the validator after all workers complete.
+        Otherwise fall back to sequential execution.
+        """
+        # Check if parallel execution is enabled
+        parallel = workflow.config.get("parallel_workers", False)
+        has_milestones = any(s.milestone_id for s in workflow.steps)
+
+        if parallel and has_milestones:
+            await self._run_parallel(workflow, run)
+        else:
+            await self._run_sequential(workflow, run)
+
+    async def _run_sequential(self, workflow: WorkflowDefinition, run: WorkflowRun) -> None:
+        """Execute all steps in the workflow sequentially (original behavior)."""
         start_time = time.time()
         context: dict[str, Any] = {}  # Accumulated context from previous steps
 
@@ -184,6 +201,146 @@ class WorkflowExecutor:
                 f"Workflow run {run.id} finished with status {run.status} "
                 f"in {run.duration_seconds:.1f}s"
             )
+
+    async def _run_parallel(self, workflow: WorkflowDefinition, run: WorkflowRun) -> None:
+        """Execute steps grouped by milestone with parallel workers.
+
+        Within each milestone, worker steps run concurrently. The validator
+        (if present) runs only after all workers complete.
+        """
+        start_time = time.time()
+        context: dict[str, Any] = {}
+
+        # Group steps by milestone
+        milestones: dict[str, list[tuple[int, WorkflowStep]]] = {}
+        for i, step in enumerate(workflow.steps):
+            ms_id = step.milestone_id or "default"
+            milestones.setdefault(ms_id, []).append((i, step))
+
+        try:
+            for ms_id, steps in milestones.items():
+                # Check cancellation
+                run = storage.get_workflow_run(run.id)
+                if run is None or run.status == RunStatus.CANCELLED.value:
+                    break
+
+                # Separate workers from validators
+                workers = [(i, s) for i, s in steps if s.role != "validator"]
+                validators = [(i, s) for i, s in steps if s.role == "validator"]
+
+                # Run workers in parallel
+                if workers:
+                    tasks = [self._execute_single_step(workflow, run, i, s, context) for i, s in workers]
+                    await asyncio.gather(*tasks, return_exceptions=True)
+
+                    # Check if any worker failed fatally
+                    for i, s in workers:
+                        sr = run.step_runs[i]
+                        if sr.status == StepStatus.FAILED.value and s.on_failure == "stop":
+                            run.status = RunStatus.FAILED.value
+                            run.error = f"Worker {s.name} failed"
+                            storage.save_workflow_run(run)
+                            return
+
+                # Run validators sequentially after workers
+                for i, s in validators:
+                    run = storage.get_workflow_run(run.id)
+                    if run is None or run.status == RunStatus.CANCELLED.value:
+                        break
+                    await self._execute_single_step(workflow, run, i, s, context)
+
+            # Mark run as completed
+            if run.status == RunStatus.RUNNING.value:
+                run.status = RunStatus.COMPLETED.value
+
+        except Exception as e:
+            logger.error(f"Workflow run {run.id} parallel error: {e}")
+            if run.status == RunStatus.RUNNING.value:
+                run.status = RunStatus.FAILED.value
+                run.error = str(e)[:2000]
+
+        finally:
+            run.completed_at = datetime.now(timezone.utc).isoformat()
+            run.duration_seconds = round(time.time() - start_time, 2)
+            storage.save_workflow_run(run)
+            logger.info(
+                f"Workflow run {run.id} finished (parallel) with status {run.status} "
+                f"in {run.duration_seconds:.1f}s"
+            )
+
+    async def _execute_single_step(
+        self, workflow: WorkflowDefinition, run: WorkflowRun, i: int, step: WorkflowStep, context: dict[str, Any]
+    ) -> None:
+        """Execute a single step within parallel or sequential mode."""
+        # Check dependencies
+        if step.depends_on:
+            dep_statuses = []
+            for sr in run.step_runs:
+                if sr.step_id in step.depends_on:
+                    dep_statuses.append((sr.step_id, sr.status))
+            if any(s == StepStatus.FAILED.value for _, s in dep_statuses):
+                run.step_runs[i].status = StepStatus.SKIPPED.value
+                run.step_runs[i].completed_at = datetime.now(timezone.utc).isoformat()
+                storage.save_workflow_run(run)
+                return
+
+        # Check condition
+        if step.step_type == StepType.CONDITION.value and step.condition:
+            if not self._evaluate_condition(step.condition, context):
+                run.step_runs[i].status = StepStatus.SKIPPED.value
+                run.step_runs[i].completed_at = datetime.now(timezone.utc).isoformat()
+                storage.save_workflow_run(run)
+                return
+
+        # Execute
+        run.step_runs[i].status = StepStatus.RUNNING.value
+        run.step_runs[i].started_at = datetime.now(timezone.utc).isoformat()
+        storage.save_workflow_run(run)
+
+        try:
+            if step.step_type == StepType.APPROVAL.value:
+                result = await self._wait_for_approval(run, step)
+            elif step.step_type == StepType.AGENT.value:
+                result = await self._execute_agent(step, context)
+            elif step.step_type == StepType.SERVICE.value:
+                result = await self._execute_service(step, context)
+            elif step.step_type == StepType.NOTIFY.value:
+                result = await self._execute_notify(step, context)
+            elif step.step_type == StepType.WORKSTATION.value:
+                result = await self._execute_workstation(step, run, context)
+            elif step.step_type in (StepType.PLANNER.value, StepType.WORKER.value, StepType.VALIDATOR.value):
+                # Mission control steps — delegate to agent or service
+                if step.agent:
+                    result = await self._execute_agent(step, context)
+                elif step.service:
+                    result = await self._execute_service(step, context)
+                else:
+                    result = {"role": step.role, "status": "completed"}
+            elif step.step_type == StepType.MILESTONE.value:
+                result = {"milestone": step.milestone_id, "status": "passed"}
+            elif step.step_type == StepType.CONDITION.value:
+                result = {"evaluated": True}
+            else:
+                result = {"error": f"Unknown step type: {step.step_type}"}
+
+            run.step_runs[i].status = StepStatus.COMPLETED.value
+            run.step_runs[i].output = json.dumps(result, default=str)[:10000]
+            run.step_runs[i].completed_at = datetime.now(timezone.utc).isoformat()
+
+            # Accumulate context
+            context[f"step_{i}"] = result
+            context[f"step_{step.name}"] = result
+
+        except Exception as e:
+            logger.error(f"Step {i} ({step.name}) failed: {e}")
+            run.step_runs[i].status = StepStatus.FAILED.value
+            run.step_runs[i].error = str(e)[:2000]
+            run.step_runs[i].completed_at = datetime.now(timezone.utc).isoformat()
+
+        finally:
+            step_duration = time.time() - (getattr(run, "_start_time", None) or time.time())
+            run.step_runs[i].duration_seconds = round(step_duration, 2)
+            storage.save_workflow_run(run)
 
     async def _execute_agent(self, step: WorkflowStep, context: dict[str, Any]) -> dict[str, Any]:
         """Execute an agent step by running a Greenie agent."""

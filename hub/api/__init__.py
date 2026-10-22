@@ -45,6 +45,7 @@ _ROUTE_MODULES = [
     "backup", "observability", "github_webhooks", "reports", "static_files",
     "app_routes", "knowledge_graph", "cluster", "marketplace", "workflows",
     "workstations", "mcp", "plugins", "system", "emergency", "timeline", "credentials",
+    "missions", "agent_harness",
 ]
 
 

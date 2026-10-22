@@ -22,6 +22,11 @@ class StepType(str, Enum):
     CONDITION = "condition"   # Conditional branch
     NOTIFY = "notify"         # Send notification via Poltergeist
     WORKSTATION = "workstation"  # Create/manage an agent workstation
+    # Mission control step types
+    PLANNER = "planner"       # Mission orchestrator planning step
+    WORKER = "worker"         # Mission worker execution step
+    VALIDATOR = "validator"   # Independent validation step
+    MILESTONE = "milestone"   # Milestone boundary marker
 
 
 class StepStatus(str, Enum):
@@ -82,6 +87,10 @@ class WorkflowStep:
     on_failure: str = "stop"  # stop, continue
     # Extra config
     config: dict[str, Any] = field(default_factory=dict)
+    # Mission control fields
+    role: str = ""  # orchestrator, worker, validator
+    model_override: Optional[str] = None  # Specific model for this step
+    milestone_id: str = ""  # Which milestone this step belongs to
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

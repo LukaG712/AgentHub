@@ -11,3 +11,8 @@ try:
     import hub.Trapper_provider  # noqa: F401
 except ImportError:
     pass
+
+try:
+    import hub.mission  # noqa: F401
+except ImportError:
+    pass
