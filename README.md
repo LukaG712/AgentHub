@@ -1,8 +1,13 @@
 # Greenie
 
+> *"E. Gadd to Luigi! Am I comin' in clear, do you read me?"*
+> ~ **Prof. E. Gadd**, Luigi's Mansion: Dark Moon
+
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
 [![Version](https://img.shields.io/badge/Version-dev-yellow.svg)](CHANGELOG.md)
+
+**Luigi's Mansion origin:** *Greenie* ~ small green ghosts from Luigi's Mansion: Dark Moon (Evershade Valley).
 
 > 🏠 **Self-hosted AI agent dashboard** — Manage AI coding agents (JetBrains Junie CLI), share reusable skills between them, and control everything from a web browser. Runs entirely on your machine with no cloud, no paid APIs, and no internet connection needed once it's set up.
 
@@ -829,6 +834,10 @@ copy hub.example.yaml hub.yaml
 $env:HUB_API_KEY = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 43 | ForEach-Object {[char]$_})
 python -m uvicorn hub.api:app --host 0.0.0.0 --port 8080
 ```
+
+---
+
+**Repo:** [LukaG712/Greenie](https://github.com/LukaG712/Greenie)
 
 ---
 
