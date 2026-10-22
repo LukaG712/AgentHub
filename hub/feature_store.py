@@ -451,6 +451,39 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             )
         """)
 
+        # --- Auth users (browser sessions) ---
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS auth_users (
+                id TEXT PRIMARY KEY,
+                username TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'user',
+                email TEXT DEFAULT '',
+                display_name TEXT DEFAULT '',
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                last_login TEXT
+            )
+        """)
+
+        # --- Auth sessions ---
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS auth_sessions (
+                session_id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                username TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                expires_at_ts REAL NOT NULL,
+                revoked INTEGER NOT NULL DEFAULT 0,
+                revoked_at TEXT,
+                ip_address TEXT,
+                user_agent TEXT,
+                FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+            )
+        """)
+
         # --- Indexes ---
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_webhooks_enabled ON webhooks(enabled)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook ON webhook_deliveries(webhook_id, status)")
@@ -1646,6 +1679,101 @@ def init_message_bus() -> Dict[str, List[Dict[str, Any]]]:
     return result
 
 
+# ===================== Auth Users =====================
+
+def init_auth_users() -> Dict[str, Dict[str, Any]]:
+    """Load auth users from the database."""
+    conn = _get_connection()
+    result = {}
+    for row in conn.execute("SELECT * FROM auth_users"):
+        r = dict(row)
+        r["is_active"] = bool(r["is_active"])
+        result[r["username"]] = r
+    return result
+
+
+def save_auth_user(user: Dict[str, Any]) -> None:
+    """Insert or update an auth user."""
+    conn = _get_connection()
+    conn.execute(
+        """INSERT INTO auth_users (id, username, password_hash, role, email, display_name,
+                                    is_active, created_at, updated_at, last_login)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(username) DO UPDATE SET
+               password_hash=excluded.password_hash, role=excluded.role,
+               email=excluded.email, display_name=excluded.display_name,
+               is_active=excluded.is_active, updated_at=excluded.updated_at,
+               last_login=excluded.last_login""",
+        (user["id"], user["username"], user["password_hash"], user.get("role", "user"),
+         user.get("email", ""), user.get("display_name", ""),
+         1 if user.get("is_active", True) else 0,
+         user.get("created_at", datetime.now(timezone.utc).isoformat()),
+         user.get("updated_at", datetime.now(timezone.utc).isoformat()),
+         user.get("last_login")),
+    )
+    conn.commit()
+
+
+def delete_auth_user(username: str) -> None:
+    """Delete an auth user."""
+    conn = _get_connection()
+    conn.execute("DELETE FROM auth_users WHERE username = ?", (username,))
+    conn.commit()
+
+
+# ===================== Auth Sessions =====================
+
+def init_auth_sessions() -> Dict[str, Dict[str, Any]]:
+    """Load auth sessions from the database."""
+    conn = _get_connection()
+    result = {}
+    for row in conn.execute("SELECT * FROM auth_sessions"):
+        r = dict(row)
+        r["revoked"] = bool(r["revoked"])
+        result[r["session_id"]] = r
+    return result
+
+
+def save_auth_session(session: Dict[str, Any]) -> None:
+    """Insert or update an auth session."""
+    conn = _get_connection()
+    conn.execute(
+        """INSERT INTO auth_sessions (session_id, user_id, username, created_at,
+                                      expires_at, expires_at_ts, revoked, revoked_at,
+                                      ip_address, user_agent)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(session_id) DO UPDATE SET
+               revoked=excluded.revoked, revoked_at=excluded.revoked_at,
+               ip_address=excluded.ip_address, user_agent=excluded.user_agent""",
+        (session["session_id"], session["user_id"], session["username"],
+         session["created_at"], session["expires_at"], session["expires_at_ts"],
+         1 if session.get("revoked") else 0, session.get("revoked_at"),
+         session.get("ip_address"), session.get("user_agent")),
+    )
+    conn.commit()
+
+
+def delete_auth_session(session_id: str) -> None:
+    """Delete an auth session."""
+    conn = _get_connection()
+    conn.execute("DELETE FROM auth_sessions WHERE session_id = ?", (session_id,))
+    conn.commit()
+
+
+def cleanup_auth_sessions() -> int:
+    """Remove expired and revoked sessions from the database."""
+    import time
+    now = time.time()
+    conn = _get_connection()
+    cursor = conn.execute(
+        "DELETE FROM auth_sessions WHERE expires_at_ts < ? OR revoked = 1",
+        (now,)
+    )
+    count = cursor.rowcount
+    conn.commit()
+    return count
+
+
 def init_all() -> Dict[str, Any]:
     """Initialize all feature stores from the database.
 
@@ -1678,4 +1806,6 @@ def init_all() -> Dict[str, Any]:
         "response_cache": init_response_cache(),
         "deployments": init_deployments(),
         "message_bus": init_message_bus(),
+        "auth_users": init_auth_users(),
+        "auth_sessions": init_auth_sessions(),
     }

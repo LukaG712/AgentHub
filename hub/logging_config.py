@@ -64,6 +64,13 @@ def setup_structured_logging(level: str = "INFO") -> None:
     for handler in root.handlers[:]:
         root.removeHandler(handler)
 
+    # Add secret redaction filter to prevent credential leakage in logs
+    try:
+        from hub.api.secret_redaction import SecretRedactionFilter
+        root.addFilter(SecretRedactionFilter())
+    except ImportError:
+        pass
+
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(JSONFormatter())
     root.addHandler(handler)

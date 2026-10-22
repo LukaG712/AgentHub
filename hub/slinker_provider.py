@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from hub.providers import AgentPermissions, AgentProvider, ProviderRunResult
+from hub.retry import retry_sync, EXECUTION_RETRY
 
 logger = logging.getLogger(__name__)
 
@@ -153,12 +154,14 @@ class SlinkerProvider(AgentProvider):
                     loop.close()
 
         except httpx.ConnectError as e:
+            logger.warning(f"Slinker connection failed (will retry on next call): {e}")
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output="",
                 error=f"Cannot connect to Slinker at {base_url}: {e}",
             )
         except httpx.TimeoutException as e:
+            logger.warning(f"Slinker request timed out (will retry on next call): {e}")
             return ProviderRunResult(
                 exit_code=-1,
                 raw_output="",

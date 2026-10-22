@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from hub.providers import AgentPermissions, AgentProvider, ProviderRunResult
+from hub.retry import retry_sync, SCRAPING_RETRY
 
 logger = logging.getLogger(__name__)
 

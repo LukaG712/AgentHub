@@ -667,6 +667,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         _message_bus.clear()
         for topic, messages in _fs.get("message_bus", {}).items():
             _message_bus[topic] = messages
+        # Load auth users and sessions
+        try:
+            from hub.api import auth as auth_module
+            auth_users = _fs.get("auth_users", {})
+            if auth_users:
+                auth_module.load_users_from_store(auth_users)
+            auth_sessions = _fs.get("auth_sessions", {})
+            if auth_sessions:
+                auth_module.load_sessions_from_store(auth_sessions)
+            # Initialize default admin if no users exist
+            if not auth_users:
+                admin_password = os.environ.get("ADMIN_PASSWORD", "")
+                admin_user = auth_module.initialize_default_admin(password=admin_password)
+                if admin_user:
+                    logger.info("Default admin user initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize auth: {e}")
         logger.info("Feature stores loaded from SQLite database")
     except Exception as e:
         logger.warning(f"Failed to load feature stores from database: {e}")
@@ -730,14 +747,101 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Authentication routes (user sessions — separate from API key auth)
+    try:
+        from hub.api.auth_routes import router as auth_router
+        app.include_router(auth_router)
+        logger.info("Authentication routes enabled")
+    except Exception as e:
+        logger.warning(f"Failed to enable authentication routes: {e}")
+
+    # Readiness endpoint (separate from health/liveness)
+    @app.get("/ready", tags=["Health"])
+    async def readiness_check():
+        """Check if the service is ready to accept requests.
+        
+        Unlike /health (liveness), this checks that dependencies are available.
+        Returns 503 if any required dependency is unhealthy.
+        """
+        checks = {
+            "database": True,
+            "dependencies": {},
+        }
+        all_ready = True
+        
+        # Check database connectivity
+        try:
+            from hub.feature_store import _get_connection
+            conn = _get_connection()
+            conn.execute("SELECT 1")
+            conn.close()
+        except Exception as e:
+            checks["database"] = False
+            all_ready = False
+            logger.warning(f"Database readiness check failed: {e}")
+        
+        # Check optional dependencies
+        import httpx as httpx_lib
+        timeout = httpx_lib.Timeout(2.0)
+        
+        # Check Gobber (optional)
+        try:
+            gobber_url = os.environ.get("GOBBER_URL", "http://gobber:8085")
+            if not gobber_url.startswith("http://localhost"):
+                async with httpx_lib.AsyncClient(timeout=timeout) as client:
+                    resp = await client.get(f"{gobber_url}/health")
+                    checks["dependencies"]["gobber"] = resp.status_code == 200
+        except Exception:
+            checks["dependencies"]["gobber"] = False
+        
+        # Check Hider (optional)
+        try:
+            hider_url = os.environ.get("HIDER_URL", "http://hider:8087")
+            if not hider_url.startswith("http://localhost"):
+                async with httpx_lib.AsyncClient(timeout=timeout) as client:
+                    resp = await client.get(f"{hider_url}/health")
+                    checks["dependencies"]["hider"] = resp.status_code == 200
+        except Exception:
+            checks["dependencies"]["hider"] = False
+        
+        status_code = 200 if all_ready else 503
+        return {
+            "status": "ready" if all_ready else "not_ready",
+            "checks": checks,
+        }
+
     # CORS middleware
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_get_cors_origins(),
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
+        allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-CSRF-Token", "X-XSRF-Token"],
     )
+
+    # CSRF protection middleware
+    try:
+        from hub.api.csrf import add_csrf_middleware
+        add_csrf_middleware(app)
+        logger.info("CSRF protection middleware enabled")
+    except Exception as e:
+        logger.warning(f"Failed to enable CSRF middleware: {e}")
+
+    # Rate limiting middleware for expensive operations
+    try:
+        from hub.api.rate_limit_middleware import add_rate_limit_middleware
+        add_rate_limit_middleware(app)
+        logger.info("Rate limiting middleware enabled")
+    except Exception as e:
+        logger.warning(f"Failed to enable rate limiting middleware: {e}")
+
+    # Idempotency middleware for retryable operations
+    try:
+        from hub.api.idempotency import add_idempotency_middleware
+        add_idempotency_middleware(app)
+        logger.info("Idempotency middleware enabled")
+    except Exception as e:
+        logger.warning(f"Failed to enable idempotency middleware: {e}")
 
     # Prometheus metrics middleware
     if metrics_module is not None:

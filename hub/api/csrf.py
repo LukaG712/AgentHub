@@ -149,6 +149,7 @@ def should_skip_csrf(request: Request) -> bool:
     - Safe methods (GET, HEAD, OPTIONS, TRACE)
     - Excluded paths
     - When CSRF is disabled globally
+    - Bearer-authenticated API clients (not vulnerable to CSRF)
 
     Args:
         request: The FastAPI request object.
@@ -161,6 +162,12 @@ def should_skip_csrf(request: Request) -> bool:
 
     # Safe methods don't need CSRF protection
     if request.method in ("GET", "HEAD", "OPTIONS", "TRACE"):
+        return True
+
+    # Bearer-authenticated API clients are not vulnerable to CSRF
+    # because they don't use cookie-based authentication
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
         return True
 
     # Check excluded paths

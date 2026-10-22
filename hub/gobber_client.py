@@ -11,6 +11,8 @@ from typing import Any, Optional
 
 import httpx
 
+from hub.retry import retry, STORAGE_RETRY
+
 logger = logging.getLogger("hub.gobber_client")
 
 
@@ -42,27 +44,37 @@ class GobberClient:
         """Invalidate the availability cache (e.g., after a failure)."""
         self._available = None
 
+    @retry(
+        max_attempts=STORAGE_RETRY.max_attempts,
+        backoff_factor=STORAGE_RETRY.backoff_factor,
+        max_backoff=STORAGE_RETRY.max_backoff,
+        retry_on=(httpx.ConnectError, httpx.TimeoutException, ConnectionError, TimeoutError),
+    )
+    async def _request_with_retry(self, method: str, path: str, **kwargs: Any) -> Optional[Any]:
+        """Make a request to Gobber without availability check (retry handles transient errors)."""
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.request(
+                method,
+                f"{self.base_url}{path}",
+                headers=self.headers,
+                **kwargs,
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            elif resp.status_code == 404:
+                return None
+            else:
+                logger.warning(f"Gobber {method} {path} returned {resp.status_code}")
+                return None
+
     async def _request(self, method: str, path: str, **kwargs: Any) -> Optional[Any]:
-        """Make a request to Gobber with error handling."""
+        """Make a request to Gobber with error handling and retry on transient failures."""
         if not await self.check_available():
             return None
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.request(
-                    method,
-                    f"{self.base_url}{path}",
-                    headers=self.headers,
-                    **kwargs,
-                )
-                if resp.status_code == 200:
-                    return resp.json()
-                elif resp.status_code == 404:
-                    return None
-                else:
-                    logger.warning(f"Gobber {method} {path} returned {resp.status_code}")
-                    return None
+            return await self._request_with_retry(method, path, **kwargs)
         except Exception as e:
-            logger.warning(f"Gobber request failed: {e}")
+            logger.warning(f"Gobber request failed after retries: {e}")
             self.invalidate_cache()
             return None
 

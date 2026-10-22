@@ -89,16 +89,14 @@ class WorkflowExecutor:
     async def _run_steps(self, workflow: WorkflowDefinition, run: WorkflowRun) -> None:
         """Execute all steps in the workflow.
 
-        If steps have milestone_id set and parallel_workers is enabled in the
-        workflow config, execute worker steps in parallel within each milestone,
-        then run the validator after all workers complete.
+        If steps have milestone_id set, execute worker steps in parallel within
+        each milestone, then run the validator after all workers complete.
         Otherwise fall back to sequential execution.
         """
-        # Check if parallel execution is enabled
-        parallel = False
+        # Check if parallel execution is enabled (milestones indicate parallel intent)
         has_milestones = any(s.milestone_id for s in workflow.steps)
 
-        if parallel and has_milestones:
+        if has_milestones:
             await self._run_parallel(workflow, run)
         else:
             await self._run_sequential(workflow, run)
@@ -143,41 +141,78 @@ class WorkflowExecutor:
                 run.step_runs[i].started_at = datetime.now(timezone.utc).isoformat()
                 storage.save_workflow_run(run)
 
-                try:
-                    if step.step_type == StepType.APPROVAL.value:
-                        result = await self._wait_for_approval(run, step)
-                    elif step.step_type == StepType.AGENT.value:
-                        result = await self._execute_agent(step, context)
-                    elif step.step_type == StepType.SERVICE.value:
-                        result = await self._execute_service(step, context)
-                    elif step.step_type == StepType.NOTIFY.value:
-                        result = await self._execute_notify(step, context)
-                    elif step.step_type == StepType.WORKSTATION.value:
-                        result = await self._execute_workstation(step, run, context)
-                    elif step.step_type == StepType.CONDITION.value:
-                        result = {"evaluated": True}
-                    else:
-                        result = {"error": f"Unknown step type: {step.step_type}"}
+                # Determine max retries and timeout for this step
+                max_retries = step.config.get("max_retries", 0)
+                step_timeout = step.config.get("timeout_seconds", 0)  # 0 = no timeout
 
-                    # Step completed
-                    run.step_runs[i].status = StepStatus.COMPLETED.value
-                    run.step_runs[i].output = json.dumps(result, default=str)[:10000]
-                    run.step_runs[i].completed_at = datetime.now(timezone.utc).isoformat()
+                last_exception = None
+                executed = False
 
-                    # Accumulate context
-                    context[f"step_{i}"] = result
-                    context[f"step_{step.name}"] = result
+                for attempt in range(max_retries + 1):
+                    try:
+                        async def _execute_step():
+                            if step.step_type == StepType.APPROVAL.value:
+                                result = await self._wait_for_approval(run, step)
+                            elif step.step_type == StepType.AGENT.value:
+                                result = await self._execute_agent(step, context)
+                            elif step.step_type == StepType.SERVICE.value:
+                                result = await self._execute_service(step, context)
+                            elif step.step_type == StepType.NOTIFY.value:
+                                result = await self._execute_notify(step, context)
+                            elif step.step_type == StepType.WORKSTATION.value:
+                                result = await self._execute_workstation(step, run, context)
+                            elif step.step_type == StepType.CONDITION.value:
+                                result = {"evaluated": True}
+                            else:
+                                result = {"error": f"Unknown step type: {step.step_type}"}
+                            return result
 
-                except Exception as e:
-                    logger.error(f"Step {i} ({step.name}) failed: {e}")
+                        # Apply timeout if configured
+                        if step_timeout and step_timeout > 0:
+                            result = await asyncio.wait_for(_execute_step(), timeout=step_timeout)
+                        else:
+                            result = await _execute_step()
+
+                        executed = True
+
+                        # Step completed
+                        run.step_runs[i].status = StepStatus.COMPLETED.value
+                        run.step_runs[i].output = json.dumps(result, default=str)[:10000]
+                        run.step_runs[i].completed_at = datetime.now(timezone.utc).isoformat()
+
+                        # Accumulate context
+                        context[f"step_{i}"] = result
+                        context[f"step_{step.name}"] = result
+                        break  # Success, exit retry loop
+
+                    except asyncio.TimeoutError:
+                        last_exception = asyncio.TimeoutError(f"Step {step.name} timed out after {step_timeout}s")
+                        logger.warning(f"Step {i} ({step.name}) attempt {attempt + 1}/{max_retries + 1} timed out")
+                        if attempt < max_retries:
+                            wait_time = min(2 ** attempt, 30)  # Exponential backoff, max 30s
+                            logger.info(f"Retrying in {wait_time}s...")
+                            await asyncio.sleep(wait_time)
+                        continue
+
+                    except Exception as e:
+                        last_exception = e
+                        logger.warning(f"Step {i} ({step.name}) attempt {attempt + 1}/{max_retries + 1} failed: {e}")
+                        if attempt < max_retries:
+                            wait_time = min(2 ** attempt, 30)  # Exponential backoff, max 30s
+                            logger.info(f"Retrying in {wait_time}s...")
+                            await asyncio.sleep(wait_time)
+                        continue
+
+                # If we get here and didn't execute successfully
+                if not executed and last_exception is not None:
                     run.step_runs[i].status = StepStatus.FAILED.value
-                    run.step_runs[i].error = str(e)[:2000]
+                    run.step_runs[i].error = str(last_exception)[:2000]
                     run.step_runs[i].completed_at = datetime.now(timezone.utc).isoformat()
 
                     # Check on_failure policy
                     if step.on_failure == "stop":
                         run.status = RunStatus.FAILED.value
-                        run.error = f"Step {step.name} failed: {e}"
+                        run.error = f"Step {step.name} failed: {last_exception}"
                         break
 
                 finally:
@@ -299,44 +334,80 @@ class WorkflowExecutor:
         run.step_runs[i].started_at = datetime.now(timezone.utc).isoformat()
         storage.save_workflow_run(run)
 
-        try:
-            if step.step_type == StepType.APPROVAL.value:
-                result = await self._wait_for_approval(run, step)
-            elif step.step_type == StepType.AGENT.value:
-                result = await self._execute_agent(step, context)
-            elif step.step_type == StepType.SERVICE.value:
-                result = await self._execute_service(step, context)
-            elif step.step_type == StepType.NOTIFY.value:
-                result = await self._execute_notify(step, context)
-            elif step.step_type == StepType.WORKSTATION.value:
-                result = await self._execute_workstation(step, run, context)
-            elif step.step_type in (StepType.PLANNER.value, StepType.WORKER.value, StepType.VALIDATOR.value):
-                # Mission control steps — delegate to agent or service
-                if step.agent:
-                    result = await self._execute_agent(step, context)
-                elif step.service:
-                    result = await self._execute_service(step, context)
+        # Determine max retries and timeout for this step
+        max_retries = step.config.get("max_retries", 0)
+        step_timeout = step.config.get("timeout_seconds", 0)  # 0 = no timeout
+
+        last_exception = None
+        executed = False
+
+        for attempt in range(max_retries + 1):
+            try:
+                async def _execute_step():
+                    if step.step_type == StepType.APPROVAL.value:
+                        result = await self._wait_for_approval(run, step)
+                    elif step.step_type == StepType.AGENT.value:
+                        result = await self._execute_agent(step, context)
+                    elif step.step_type == StepType.SERVICE.value:
+                        result = await self._execute_service(step, context)
+                    elif step.step_type == StepType.NOTIFY.value:
+                        result = await self._execute_notify(step, context)
+                    elif step.step_type == StepType.WORKSTATION.value:
+                        result = await self._execute_workstation(step, run, context)
+                    elif step.step_type in (StepType.PLANNER.value, StepType.WORKER.value, StepType.VALIDATOR.value):
+                        # Mission control steps — delegate to agent or service
+                        if step.agent:
+                            result = await self._execute_agent(step, context)
+                        elif step.service:
+                            result = await self._execute_service(step, context)
+                        else:
+                            result = {"role": step.role, "status": "completed"}
+                    elif step.step_type == StepType.MILESTONE.value:
+                        result = {"milestone": step.milestone_id, "status": "passed"}
+                    elif step.step_type == StepType.CONDITION.value:
+                        result = {"evaluated": True}
+                    else:
+                        result = {"error": f"Unknown step type: {step.step_type}"}
+                    return result
+
+                # Apply timeout if configured
+                if step_timeout and step_timeout > 0:
+                    result = await asyncio.wait_for(_execute_step(), timeout=step_timeout)
                 else:
-                    result = {"role": step.role, "status": "completed"}
-            elif step.step_type == StepType.MILESTONE.value:
-                result = {"milestone": step.milestone_id, "status": "passed"}
-            elif step.step_type == StepType.CONDITION.value:
-                result = {"evaluated": True}
-            else:
-                result = {"error": f"Unknown step type: {step.step_type}"}
+                    result = await _execute_step()
 
-            run.step_runs[i].status = StepStatus.COMPLETED.value
-            run.step_runs[i].output = json.dumps(result, default=str)[:10000]
-            run.step_runs[i].completed_at = datetime.now(timezone.utc).isoformat()
+                executed = True
+                run.step_runs[i].status = StepStatus.COMPLETED.value
+                run.step_runs[i].output = json.dumps(result, default=str)[:10000]
+                run.step_runs[i].completed_at = datetime.now(timezone.utc).isoformat()
 
-            # Accumulate context
-            context[f"step_{i}"] = result
-            context[f"step_{step.name}"] = result
+                # Accumulate context
+                context[f"step_{i}"] = result
+                context[f"step_{step.name}"] = result
+                break  # Success, exit retry loop
 
-        except Exception as e:
-            logger.error(f"Step {i} ({step.name}) failed: {e}")
+            except asyncio.TimeoutError:
+                last_exception = asyncio.TimeoutError(f"Step {step.name} timed out after {step_timeout}s")
+                logger.warning(f"Step {i} ({step.name}) attempt {attempt + 1}/{max_retries + 1} timed out")
+                if attempt < max_retries:
+                    wait_time = min(2 ** attempt, 30)
+                    logger.info(f"Retrying in {wait_time}s...")
+                    await asyncio.sleep(wait_time)
+                continue
+
+            except Exception as e:
+                last_exception = e
+                logger.warning(f"Step {i} ({step.name}) attempt {attempt + 1}/{max_retries + 1} failed: {e}")
+                if attempt < max_retries:
+                    wait_time = min(2 ** attempt, 30)
+                    logger.info(f"Retrying in {wait_time}s...")
+                    await asyncio.sleep(wait_time)
+                continue
+
+        # If we get here and didn't execute successfully
+        if not executed and last_exception is not None:
             run.step_runs[i].status = StepStatus.FAILED.value
-            run.step_runs[i].error = str(e)[:2000]
+            run.step_runs[i].error = str(last_exception)[:2000]
             run.step_runs[i].completed_at = datetime.now(timezone.utc).isoformat()
 
         finally:
