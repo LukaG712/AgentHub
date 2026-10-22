@@ -156,7 +156,8 @@ class TestRefinePrompt:
 class TestSummarize:
     """Test text summarization."""
 
-    def test_summarize_unavailable_truncates(self):
+    @patch.object(OllamaClient, "is_available", return_value=False)
+    def test_summarize_unavailable_truncates(self, mock_available):
         """Summarization should truncate when Ollama is unavailable."""
         client = OllamaClient()
         long_text = "A" * 1000
@@ -164,7 +165,8 @@ class TestSummarize:
         assert len(result) <= 100
         assert result.endswith("...")
 
-    def test_summarize_unavailable_short_text(self):
+    @patch.object(OllamaClient, "is_available", return_value=False)
+    def test_summarize_unavailable_short_text(self, mock_available):
         """Short text should be returned as-is when unavailable."""
         client = OllamaClient()
         short_text = "Hello"
@@ -205,7 +207,8 @@ class TestSummarize:
 class TestDecomposeTask:
     """Test task decomposition."""
 
-    def test_decompose_unavailable_returns_single_step(self):
+    @patch.object(OllamaClient, "is_available", return_value=False)
+    def test_decompose_unavailable_returns_single_step(self, mock_available):
         """Decomposition should return single step when unavailable."""
         client = OllamaClient()
         result = client.decompose_task("Build a feature")
@@ -270,7 +273,8 @@ class TestDecomposeTask:
 class TestExtractKeyPoints:
     """Test key point extraction."""
 
-    def test_extract_unavailable_returns_empty(self):
+    @patch.object(OllamaClient, "is_available", return_value=False)
+    def test_extract_unavailable_returns_empty(self, mock_available):
         """Extraction should return empty list when unavailable."""
         client = OllamaClient()
         result = client.extract_key_points("Some text")

@@ -43,14 +43,6 @@ def cleanup_db():
         pass
 
 
-@pytest.fixture
-def event_loop():
-    """Create an event loop for async tests."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
 class TestWorkflowModels:
     """Test workflow data models."""
 
@@ -244,8 +236,8 @@ class TestWorkflowExecutor:
         assert run.workflow_id == saved.id
         assert run.status == "running"
 
-        # Wait for completion (poll until done, max 10s)
-        for _ in range(50):
+        # Wait for completion (poll until done, max 3s)
+        for _ in range(15):
             await asyncio.sleep(0.2)
             final_run = storage.get_workflow_run(run.id)
             if final_run and final_run.status in (RunStatus.COMPLETED.value, RunStatus.FAILED.value):
@@ -501,9 +493,9 @@ class TestFullLifecycle:
         run = await execute_workflow(saved, trigger_type="manual", started_by="test")
         assert run.workflow_id == saved.id
 
-        # 4. Wait for completion (poll until done, max 10s)
+        # 4. Wait for completion (poll until done, max 3s)
         final_run = None
-        for _ in range(50):
+        for _ in range(15):
             await asyncio.sleep(0.2)
             final_run = storage.get_workflow_run(run.id)
             if final_run and final_run.status in ("completed", "failed"):
