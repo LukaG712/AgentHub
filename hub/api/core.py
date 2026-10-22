@@ -35,6 +35,7 @@ from hub import routines as routines_engine
 from hub.config import load_config, save_config, set_primary_bot, validate_name
 from hub.logging_config import setup_structured_logging, get_logger, RequestIDFilter
 from hub import feature_store
+from hub.gobber_client import gobber_client
 from hub.runner import (
     Run,
     agent_status,
@@ -332,6 +333,177 @@ _webhook_secrets_lock = threading.Lock()
 # File storage metadata
 _file_storage: Dict[str, Dict[str, Any]] = {}
 _file_storage_lock = threading.Lock()
+
+
+# ─── Hybrid stores (Gobber-first with local fallback) ───────────────────────
+# These async helpers try Gobber first, then fall back to local in-memory
+# stores when Gobber is unavailable. This allows Greenie to operate
+# independently while preferring persistent storage when available.
+
+async def hybrid_cache_get(key: str) -> Optional[Any]:
+    """Get from cache: try Gobber first, then local."""
+    result = await gobber_client.get_cache(key)
+    if result is not None:
+        return result
+    with _response_cache_lock:
+        entry = _response_cache.get(key)
+        if entry:
+            return entry.get("value")
+    return None
+
+
+async def hybrid_cache_set(key: str, value: Any, ttl_seconds: Optional[int] = None) -> None:
+    """Set cache: try Gobber, always update local."""
+    await gobber_client.set_cache(key, value, ttl_seconds)
+    now = time.time()
+    with _response_cache_lock:
+        _response_cache[key] = {
+            "value": value,
+            "expires_at": now + (ttl_seconds or 300),
+            "hits": 0,
+            "created_at": now,
+        }
+
+
+async def hybrid_cache_delete(key: str) -> None:
+    """Delete from cache: try Gobber, always update local."""
+    await gobber_client.delete_cache(key)
+    with _response_cache_lock:
+        _response_cache.pop(key, None)
+
+
+async def hybrid_flag_get(name: str) -> Optional[Dict[str, Any]]:
+    """Get feature flag: try Gobber first, then local."""
+    result = await gobber_client.get_flag(name)
+    if result is not None:
+        return result
+    with _feature_flags_lock:
+        return _feature_flags.get(name)
+
+
+async def hybrid_flag_list() -> list[Dict[str, Any]]:
+    """List feature flags: try Gobber first, then local."""
+    result = await gobber_client.list_flags()
+    if result:
+        return result
+    with _feature_flags_lock:
+        return list(_feature_flags.values())
+
+
+async def hybrid_flag_set(name: str, is_enabled: bool, description: str = "", targeting: Optional[dict] = None) -> None:
+    """Set feature flag: try Gobber, always update local."""
+    await gobber_client.set_flag(name, is_enabled, description, targeting)
+    with _feature_flags_lock:
+        _feature_flags[name] = {
+            "name": name,
+            "is_enabled": is_enabled,
+            "description": description,
+            "targeting": targeting,
+        }
+
+
+async def hybrid_flag_delete(name: str) -> None:
+    """Delete feature flag: try Gobber, always update local."""
+    await gobber_client.delete_flag(name)
+    with _feature_flags_lock:
+        _feature_flags.pop(name, None)
+
+
+async def hybrid_webhook_list(active_only: bool = False) -> list[Dict[str, Any]]:
+    """List webhooks: try Gobber first, then local."""
+    result = await gobber_client.list_webhooks(active_only)
+    if result:
+        return result
+    with _webhooks_lock:
+        return list(_webhooks.values())
+
+
+async def hybrid_webhook_create(name: str, url: str, events: list[str], secret: Optional[str] = None) -> Optional[str]:
+    """Create webhook: try Gobber, always update local."""
+    webhook_id = await gobber_client.create_webhook(name, url, events, secret)
+    with _webhooks_lock:
+        local_id = f"wh-{uuid.uuid4().hex[:8]}"
+        _webhooks[local_id] = {
+            "id": local_id,
+            "name": name,
+            "url": url,
+            "events": events,
+            "secret": secret,
+            "is_active": True,
+        }
+    return webhook_id or local_id
+
+
+async def hybrid_webhook_delete(webhook_id: str) -> None:
+    """Delete webhook: try Gobber, always update local."""
+    await gobber_client.delete_webhook(webhook_id)
+    with _webhooks_lock:
+        _webhooks.pop(webhook_id, None)
+
+
+async def hybrid_analytics_record(event_type: str, properties: Optional[dict] = None, service: Optional[str] = None) -> None:
+    """Record analytics event: try Gobber, always update local."""
+    await gobber_client.record_event(event_type, properties, service)
+    with _analytics_lock:
+        if event_type not in _analytics["api_calls"]:
+            _analytics["api_calls"][event_type] = 0
+        _analytics["api_calls"][event_type] += 1
+
+
+async def hybrid_analytics_query(event_type: Optional[str] = None, service: Optional[str] = None, limit: int = 100) -> list[Dict[str, Any]]:
+    """Query analytics: try Gobber first, then local."""
+    result = await gobber_client.query_events(event_type, service, limit)
+    if result:
+        return result
+    with _analytics_lock:
+        return list(_analytics.get("api_calls", {}).items())[:limit]
+
+
+async def hybrid_role_list() -> list[Dict[str, Any]]:
+    """List RBAC roles: try Gobber first, then local."""
+    result = await gobber_client.list_roles()
+    if result:
+        return result
+    with _rbac_roles_lock:
+        return list(_rbac_roles.values())
+
+
+async def hybrid_role_create(name: str, permissions: list[str], description: str = "") -> Optional[str]:
+    """Create role: try Gobber, always update local."""
+    role_id = await gobber_client.create_role(name, permissions, description)
+    with _rbac_roles_lock:
+        local_id = f"role-{uuid.uuid4().hex[:8]}"
+        _rbac_roles[local_id] = {
+            "id": local_id,
+            "name": name,
+            "permissions": permissions,
+            "description": description,
+        }
+    return role_id or local_id
+
+
+async def hybrid_role_delete(role_id: str) -> None:
+    """Delete role: try Gobber, always update local."""
+    await gobber_client.delete_role(role_id)
+    with _rbac_roles_lock:
+        _rbac_roles.pop(role_id, None)
+
+
+async def hybrid_role_assign(user_id: str, role_id: str) -> None:
+    """Assign role: try Gobber, always update local."""
+    await gobber_client.assign_role(user_id, role_id)
+    with _rbac_users_lock:
+        if user_id not in _rbac_users:
+            _rbac_users[user_id] = []
+        _rbac_users[user_id].append(role_id)
+
+
+async def hybrid_role_revoke(user_id: str, role_id: str) -> None:
+    """Revoke role: try Gobber, always update local."""
+    await gobber_client.revoke_role(user_id, role_id)
+    with _rbac_users_lock:
+        if user_id in _rbac_users:
+            _rbac_users[user_id] = [r for r in _rbac_users[user_id] if r != role_id]
 
 
 # ─── CORS configuration ─────────────────────────────────────────────────────

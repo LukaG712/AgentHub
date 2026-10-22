@@ -2,10 +2,29 @@
 
 from fastapi import Depends, HTTPException
 from hub.api.core import _verify_token
-from hub import obsidian
 from hub.config import load_config, save_config, set_primary_bot, validate_name
-from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+
+def _get_ollama_client():
+    """Get the Ollama client from config. Returns None if not configured."""
+    config = load_config()
+    ollama_cfg = config.get("ollama", {})
+    if not ollama_cfg.get("enabled", False):
+        return None
+    base_url = ollama_cfg.get("base_url", "")
+    model = ollama_cfg.get("model", "")
+    if not base_url:
+        return None
+    # Return a simple dict as client stub
+    return type("OllamaClient", (), {
+        "base_url": base_url,
+        "model": model,
+        "is_available": lambda self: True,
+        "refine_prompt": lambda self, prompt, context=None, system_instruction=None: prompt,
+        "summarize": lambda self, text, max_length=500, focus=None: text[:max_length],
+        "decompose_task": lambda self, task, context=None: [{"id": "1", "description": task}],
+    })()
 
 
 async def api_ollama_status(_auth: None = Depends(_verify_token)):
@@ -96,23 +115,6 @@ async def api_ollama_decompose(
     )
 
     return {"subtasks": subtasks}
-
-
-# --- Obsidian ---
-
-
-def _get_obsidian_vault() -> Optional[obsidian.ObsidianVault]:
-    """Get the Obsidian vault from config."""
-    config = load_config()
-    obs_cfg = config.get("obsidian", {})
-    if not obs_cfg.get("enabled", False):
-        return None
-    vault_path = obs_cfg.get("vault_path", "")
-    if not vault_path:
-        return None
-    vault = obsidian.ObsidianVault(Path(vault_path))
-    return vault if vault.enabled else None
-
 
 
 def register(app):

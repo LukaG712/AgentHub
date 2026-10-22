@@ -55,7 +55,7 @@ async def api_get_bot_memory(
     agents_cfg = config.get("agents", {})
     if bot_id not in agents_cfg:
         raise HTTPException(status_code=404, detail=f"Bot '{bot_id}' not found")
-    content = bot_memory_module.read_bot_memory(bot_id)
+    content = bot_memory.read_bot_memory(bot_id)
     return {"content": content}
 
 
@@ -70,7 +70,7 @@ async def api_update_bot_memory(
     if bot_id not in agents_cfg:
         raise HTTPException(status_code=404, detail=f"Bot '{bot_id}' not found")
     content = body.get("content", "")
-    bot_memory_module.write_bot_memory(bot_id, content)
+    bot_memory.write_bot_memory(bot_id, content)
     return {"content": content}
 
 

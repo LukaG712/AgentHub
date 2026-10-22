@@ -837,3 +837,7 @@ copy hub.example.yaml hub.yaml
 $env:HUB_API_KEY = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 43 | ForEach-Object {[char]$_})
 python -m uvicorn hub.api:app --host 0.0.0.0 --port 8080
 ```
+
+---
+
+> **Disclaimer:** This project is a fan-made, independent software project. It is not affiliated with, endorsed by, or in any way connected to Nintendo, Next Level Games, or any of their subsidiaries. All Luigi's Mansion trademarks and character names are property of their respective owners. Service names are used purely for thematic inspiration.

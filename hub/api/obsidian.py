@@ -2,8 +2,23 @@
 
 from fastapi import Depends, HTTPException
 from hub.api.core import _verify_token
-from hub import memory
+from hub import memory, obsidian
+from hub.config import load_config
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+
+def _get_obsidian_vault() -> Optional[obsidian.ObsidianVault]:
+    """Get the Obsidian vault from config."""
+    config = load_config()
+    obs_cfg = config.get("obsidian", {})
+    if not obs_cfg.get("enabled", False):
+        return None
+    vault_path = obs_cfg.get("vault_path", "")
+    if not vault_path:
+        return None
+    vault = obsidian.ObsidianVault(Path(vault_path))
+    return vault if vault.enabled else None
 
 
 async def api_obsidian_status(_auth: None = Depends(_verify_token)):
