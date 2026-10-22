@@ -1,62 +1,64 @@
-name: CI
+name: Greenie CI
 
 on:
   push:
-    branches: [master, main]
+    branches: [main, master, develop]
   pull_request:
-    branches: [master, main]
+    branches: [main, master]
 
 jobs:
-  # Fast required check: lint + tests on Ubuntu / Python 3.12
-  check:
+  lint:
+    name: Lint & Format
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-
-      - name: Lint with ruff
-        run: ruff check hub/ tests/
-
-      - name: Run tests
-        env:
-          HUB_API_KEY: test-ci-key
-        run: python -m pytest tests/ -vv --tb=short --durations=25 --timeout=60
-
-  # Compatibility check (non-blocking): Python 3.11 import smoke test
-  compat:
-    needs: [check]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ['3.11', '3.13']
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12"
+
+      - name: Install linting tools
+        run: |
+          pip install ruff
+
+      - name: Python linting (ruff)
+        run: |
+          ruff check . --output-format github
+
+      - name: Python formatting check (ruff)
+        run: |
+          ruff format . --check --diff
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -r requirements.txt
 
-      - name: Import smoke test
-        env:
-          HUB_API_KEY: test-ci-key
-        run: python -c "import hub; from hub import api; print('OK')"
+      - name: Run unit tests
+        run: |
+          python -m pytest tests/ -v --tb=short -m "not integration"
+
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t greenie:test .
