@@ -109,7 +109,8 @@ def _init_schema() -> None:
 
 
 # Initialize schema on import
-_init_schema()
+with _db_lock:
+    _init_schema()
 
 
 # ─── Missions ────────────────────────────────────────────────────────────────

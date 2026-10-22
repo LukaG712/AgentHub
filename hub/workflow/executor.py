@@ -95,7 +95,7 @@ class WorkflowExecutor:
         Otherwise fall back to sequential execution.
         """
         # Check if parallel execution is enabled
-        parallel = workflow.config.get("parallel_workers", False)
+        parallel = False
         has_milestones = any(s.milestone_id for s in workflow.steps)
 
         if parallel and has_milestones:

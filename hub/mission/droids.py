@@ -286,7 +286,8 @@ def _init_schema() -> None:
         conn.close()
 
 
-_init_schema()
+with _db_lock:
+    _init_schema()
 
 
 def _row_to_droid(row: sqlite3.Row) -> DroidDefinition:
