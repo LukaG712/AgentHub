@@ -4,14 +4,14 @@ from hub.mission.models import (
     AutonomyLevel,
     FeatureRole,
     FeatureStatus,
+    MilestoneStatus,
     Mission,
     MissionCheckpoint,
     MissionFeature,
-    MilestoneStatus,
     MissionStatus,
     ValidationContract,
-    ValidationSeverity,
     ValidationResult,
+    ValidationSeverity,
 )
 
 __all__ = [

@@ -1,13 +1,18 @@
 """Route module: api_keys."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _api_keys, _api_keys_lock, _service_health, _service_health_lock, _verify_token
-from datetime import datetime
-from hub import feature_store
-from typing import Any, Dict, List, Optional
+import logging
 import threading
 import time
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import feature_store
+from hub.api.core import _api_keys, _api_keys_lock, _service_health, _service_health_lock, _verify_token
+
+logger = logging.getLogger(__name__)
 
 
 async def api_create_api_key(body: Dict[str, Any], _auth: None = Depends(_verify_token)):

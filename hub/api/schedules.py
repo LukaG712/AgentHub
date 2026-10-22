@@ -1,13 +1,33 @@
 """Route module: schedules."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _scheduled_pipelines, _scheduled_pipelines_lock, _scheduled_tasks, _verify_token
-from datetime import datetime
-from hub import feature_store
-from typing import Any, Dict, List, Optional
 import asyncio
+import contextlib
+import logging
 import time
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import feature_store
+from hub.api.core import _scheduled_pipelines, _scheduled_pipelines_lock, _scheduled_tasks, _verify_token
+
+logger = logging.getLogger(__name__)
+
+# Scheduled task runners
+_scheduled_tasks: Dict[str, asyncio.Task] = {}
+
+
+async def _scheduled_pipeline_runner(pipeline_id: str) -> None:
+    """Background runner for scheduled pipelines."""
+    while True:
+        with _scheduled_pipelines_lock:
+            pipeline = _scheduled_pipelines.get(pipeline_id)
+        if not pipeline or not pipeline.get("enabled", True):
+            await asyncio.sleep(60)
+            continue
+        await asyncio.sleep(60)
 
 
 async def api_create_schedule(body: Dict[str, Any], _auth: None = Depends(_verify_token)):

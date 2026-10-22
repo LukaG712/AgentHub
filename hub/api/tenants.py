@@ -1,6 +1,15 @@
 """Route module: tenants."""
 
+import logging
+import time
+import uuid
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 from fastapi import Depends, HTTPException
+
+from hub import feature_store
 from hub.api.core import (
     _api_keys,
     _tenant_resources,
@@ -9,12 +18,8 @@ from hub.api.core import (
     _tenants_lock,
     _verify_token,
 )
-from datetime import datetime
-from hub import feature_store
-from pathlib import Path
-from typing import Any, Dict, List, Optional
-import time
-import uuid
+
+logger = logging.getLogger(__name__)
 
 
 async def api_create_tenant(body: Dict[str, Any], _auth: None = Depends(_verify_token)):

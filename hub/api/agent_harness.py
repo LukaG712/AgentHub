@@ -8,16 +8,16 @@ REST API endpoints for Phase 11 components:
 - Environments: Reusable sandbox definitions
 """
 
-from fastapi import Depends, HTTPException
 from typing import Any, Dict, Optional
 
-from hub.api.core import _verify_token
-from hub.mission import spec_mode
-from hub.mission import droids as droids_module
-from hub.mission import skills as skills_module
-from hub.mission import hooks as hooks_module
-from hub.mission import environments as env_module
+from fastapi import Depends, HTTPException
 
+from hub.api.core import _verify_token
+from hub.mission import droids as droids_module
+from hub.mission import environments as env_module
+from hub.mission import hooks as hooks_module
+from hub.mission import skills as skills_module
+from hub.mission import spec_mode
 
 # ─── Specs ───────────────────────────────────────────────────────────────────
 

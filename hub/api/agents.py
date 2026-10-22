@@ -1,11 +1,12 @@
 """Route module: agents."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _verify_token
-from hub import agents
-from hub import skills
-from hub.config import load_config, save_config, set_primary_bot, validate_name
 from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import agents, skills
+from hub.api.core import _verify_token
+from hub.config import load_config, save_config, set_primary_bot, validate_name
 
 
 async def api_list_agents(_auth: None = Depends(_verify_token)):

@@ -776,13 +776,13 @@ class TestSSEStreaming:
 
     def test_sse_send_event_bounded_retention(self, client):
         """Test that _sse_send_event evicts oldest events when buffer is full."""
+        import hub.api.core as core_mod
         from hub.api import (
             _sse_event_store,
             _sse_event_store_lock,
             _sse_remove_buffer,
             _sse_send_event,
         )
-        import hub.api.core as core_mod
         run_id = "test-full-buffer"
         # Temporarily lower the max for testing (must modify core module)
         old_max = core_mod._SSE_MAX_EVENTS
@@ -808,7 +808,8 @@ class TestSSEStreaming:
 
     def test_sse_terminal_event_never_dropped(self, client):
         """Test that terminal events (complete, error, end) are never silently dropped."""
-        import hub.api as api_mod; import hub.api.core as core_mod
+        import hub.api as api_mod
+        import hub.api.core as core_mod
         from hub.api import _sse_event_store, _sse_event_store_lock, _sse_remove_buffer, _sse_send_event
         run_id = "test-terminal"
         old_max = core_mod._SSE_MAX_EVENTS
@@ -1167,7 +1168,8 @@ class TestSSEStreaming:
 
     def test_sse_cursor_survives_eviction(self, client):
         """Test that event ID cursors remain valid after events are evicted."""
-        import hub.api as api_mod; import hub.api.core as core_mod
+        import hub.api as api_mod
+        import hub.api.core as core_mod
         from hub.api import (
             _SSE_MAX_EVENTS,
             _sse_event_store,
@@ -1208,7 +1210,8 @@ class TestSSEStreaming:
 
     def test_sse_retention_gap_notification(self, client):
         """Test that evicted_before_id is set when events are evicted."""
-        import hub.api as api_mod; import hub.api.core as core_mod
+        import hub.api as api_mod
+        import hub.api.core as core_mod
         from hub.api import (
             _SSE_MAX_EVENTS,
             _sse_event_store,
@@ -1239,7 +1242,8 @@ class TestSSEStreaming:
 
     def test_sse_terminal_recovery_after_overflow(self, client):
         """Test that terminal state is recoverable even after many evictions."""
-        import hub.api as api_mod; import hub.api.core as core_mod
+        import hub.api as api_mod
+        import hub.api.core as core_mod
         from hub.api import (
             _SSE_MAX_EVENTS,
             _sse_event_store,
@@ -1272,7 +1276,8 @@ class TestSSEStreaming:
 
     def test_sse_reconnect_after_eviction(self, client):
         """Test that a reconnecting client sees retention gap and remaining events."""
-        import hub.api as api_mod; import hub.api.core as core_mod
+        import hub.api as api_mod
+        import hub.api.core as core_mod
         from hub.api import (
             _SSE_MAX_EVENTS,
             _sse_event_store,
@@ -1313,7 +1318,8 @@ class TestSSEStreaming:
 
     def test_sse_multiple_clients_different_positions(self, client):
         """Test two clients at different cursor positions each get correct events."""
-        import hub.api as api_mod; import hub.api.core as core_mod
+        import hub.api as api_mod
+        import hub.api.core as core_mod
         from hub.api import (
             _SSE_MAX_EVENTS,
             _sse_event_store,
@@ -1353,7 +1359,8 @@ class TestSSEStreaming:
 
     def test_sse_client_behind_evicted_event(self, client):
         """Test a client at cursor 0 when event 1 has already been evicted."""
-        import hub.api as api_mod; import hub.api.core as core_mod
+        import hub.api as api_mod
+        import hub.api.core as core_mod
         from hub.api import (
             _SSE_MAX_EVENTS,
             _sse_event_store,
@@ -1396,7 +1403,8 @@ class TestSSEStreaming:
 
     def test_sse_continued_overflow_updates_highest_evicted(self, client):
         """Test that continued buffer overflow updates the highest evicted ID correctly."""
-        import hub.api as api_mod; import hub.api.core as core_mod
+        import hub.api as api_mod
+        import hub.api.core as core_mod
         from hub.api import (
             _SSE_MAX_EVENTS,
             _sse_event_store,
@@ -1443,7 +1451,8 @@ class TestSSEStreaming:
         client advances cursor from snapshot IDs (not from the store), then
         fetches again — should get the events that arrived in between.
         """
-        import hub.api as api_mod; import hub.api.core as core_mod
+        import hub.api as api_mod
+        import hub.api.core as core_mod
         from hub.api import (
             _SSE_MAX_EVENTS,
             _sse_event_store,
@@ -1496,7 +1505,8 @@ class TestSSEStreaming:
         """
         import threading
 
-        import hub.api as api_mod; import hub.api.core as core_mod
+        import hub.api as api_mod
+        import hub.api.core as core_mod
         from hub.api import (
             _SSE_MAX_EVENTS,
             _sse_event_store,

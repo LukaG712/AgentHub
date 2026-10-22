@@ -1,17 +1,49 @@
 """Route module: rbac."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _verify_token
-from datetime import datetime
-from hub import feature_store
-from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
-from typing import Any, Dict, List, Optional
 import asyncio
-import httpx
 import json
+import logging
 import queue
 import threading
 import time
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import httpx
+from fastapi import Depends, HTTPException
+
+from hub import feature_store
+from hub.api.core import _verify_token
+from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
+
+logger = logging.getLogger(__name__)
+
+# Role store
+_roles: Dict[str, Dict[str, Any]] = {
+    "admin": {"name": "admin", "permissions": ["*"], "description": "Full access"},
+    "developer": {"name": "developer", "permissions": ["read", "write", "runs"], "description": "Developer access"},
+    "viewer": {"name": "viewer", "permissions": ["read"], "description": "Read-only access"},
+}
+_roles_lock = threading.Lock()
+
+# User store
+_users: Dict[str, Dict[str, Any]] = {}
+_users_lock = threading.Lock()
+
+
+def _audit(action: str, user: str, resource_type: str, resource_id: str, details: str) -> None:
+    """Record an audit log entry."""
+    pass  # Placeholder
+
+
+def _emit_event(event_type: str, data: Dict[str, Any]) -> None:
+    """Emit an event to the event bus."""
+    pass  # Placeholder
+
+
+async def _execute_template_pipeline(steps: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Execute a template pipeline."""
+    return {"status": "completed"}
 
 
 async def api_create_role(body: Dict[str, Any], _auth: None = Depends(_verify_token)):

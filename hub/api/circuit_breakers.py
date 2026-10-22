@@ -1,12 +1,87 @@
 """Route module: circuit_breakers."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _api_versions, _api_versions_lock, _circuit_breakers, _circuit_breakers_lock, _verify_token
-from datetime import datetime
-from hub import feature_store
-from typing import Any, Dict, List, Optional
+import logging
 import threading
 import time
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import feature_store
+from hub.api.core import _api_versions, _api_versions_lock, _circuit_breakers, _circuit_breakers_lock, _verify_token
+
+logger = logging.getLogger(__name__)
+
+# Circuit breaker defaults
+_CB_DEFAULT_FAILURE_THRESHOLD = 5
+_CB_DEFAULT_RECOVERY_TIMEOUT = 60
+_CB_DEFAULT_SUCCESS_THRESHOLD = 3
+
+
+def _get_circuit_state(service: str) -> Dict[str, Any]:
+    """Get or create circuit breaker state for a service."""
+    with _circuit_breakers_lock:
+        if service not in _circuit_breakers:
+            _circuit_breakers[service] = {
+                "service": service,
+                "state": "closed",
+                "failure_count": 0,
+                "success_count": 0,
+                "last_failure_at": None,
+                "last_state_change": datetime.now().isoformat(),
+                "failure_threshold": _CB_DEFAULT_FAILURE_THRESHOLD,
+                "recovery_timeout": _CB_DEFAULT_RECOVERY_TIMEOUT,
+                "success_threshold": _CB_DEFAULT_SUCCESS_THRESHOLD,
+            }
+        return _circuit_breakers[service]
+
+
+def _record_success(service: str) -> str:
+    """Record a success for a service."""
+    with _circuit_breakers_lock:
+        cb = _circuit_breakers.get(service)
+        if not cb:
+            return "closed"
+        cb["success_count"] += 1
+        if cb["state"] == "half-open" and cb["success_count"] >= cb.get("success_threshold", 3):
+            cb["state"] = "closed"
+            cb["failure_count"] = 0
+            cb["success_count"] = 0
+            cb["last_state_change"] = datetime.now().isoformat()
+        return cb["state"]
+
+
+def _record_failure(service: str) -> str:
+    """Record a failure for a service."""
+    with _circuit_breakers_lock:
+        cb = _circuit_breakers.get(service)
+        if not cb:
+            return "closed"
+        cb["failure_count"] += 1
+        cb["last_failure_at"] = datetime.now().isoformat()
+        if cb["failure_count"] >= cb.get("failure_threshold", 5):
+            cb["state"] = "open"
+            cb["last_state_change"] = datetime.now().isoformat()
+        return cb["state"]
+
+
+def _can_execute(service: str) -> bool:
+    """Check if a service call is allowed."""
+    with _circuit_breakers_lock:
+        cb = _circuit_breakers.get(service)
+        if not cb or cb["state"] in ("closed", "half-open"):
+            return True
+        # Open state - check if recovery timeout has passed
+        if cb["last_failure_at"]:
+            from datetime import datetime as dt
+            last_fail = dt.fromisoformat(cb["last_failure_at"])
+            if (dt.now() - last_fail).total_seconds() > cb.get("recovery_timeout", 60):
+                cb["state"] = "half-open"
+                cb["last_state_change"] = dt.now().isoformat()
+                cb["success_count"] = 0
+                return True
+        return False
 
 
 async def api_list_circuit_breakers(_auth: None = Depends(_verify_token)):

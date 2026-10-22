@@ -1,14 +1,34 @@
 """Route module: export_import."""
 
-from fastapi import Depends, HTTPException, Request
-from hub.api.core import _api_keys, _api_keys_lock, _verify_token, security
-from datetime import datetime
-from hub import memory
-from hub.config import load_config, save_config, set_primary_bot, validate_name
-from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
-from typing import Any, Dict, List, Optional
+import json
 import threading
 import time
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials
+
+from hub import memory
+from hub.api.core import _api_keys, _api_keys_lock, _verify_token, security
+from hub.config import load_config, save_config, set_primary_bot, validate_name
+from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
+
+
+def _get_api_key() -> str:
+    """Get the primary API key."""
+    config = load_config()
+    return config.get("api_key", "")
+
+
+def _check_auth_rate_limit(client_ip: str) -> None:
+    """Check auth rate limit."""
+    pass  # Placeholder
+
+
+def _record_auth_failure(client_ip: str) -> None:
+    """Record auth failure."""
+    pass  # Placeholder
 
 
 async def api_export_sessions(
@@ -25,8 +45,8 @@ async def api_export_sessions(
     sessions = memory.list_sessions(agent_id=agent)
 
     if format.lower() == "csv":
-        import io
         import csv
+        import io
 
         output = io.StringIO()
         if sessions:
@@ -65,8 +85,8 @@ async def api_export_runs(
     runs = list_runs(agent=agent, state=state, limit=limit)
 
     if format.lower() == "csv":
-        import io
         import csv
+        import io
 
         output = io.StringIO()
         run_dicts = [r.to_dict() for r in runs]

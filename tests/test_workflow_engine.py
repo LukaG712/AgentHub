@@ -16,7 +16,7 @@ import sqlite3
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -55,7 +55,7 @@ class TestWorkflowModels:
     """Test workflow data models."""
 
     def test_create_workflow_definition(self):
-        from hub.workflow.models import WorkflowDefinition, WorkflowStep, WorkflowTrigger, StepType, TriggerType
+        from hub.workflow.models import StepType, TriggerType, WorkflowDefinition, WorkflowStep, WorkflowTrigger
 
         wf = WorkflowDefinition(
             name="Test workflow",
@@ -76,7 +76,7 @@ class TestWorkflowModels:
         assert wf.steps[1].step_type == "approval"
 
     def test_workflow_serialization(self):
-        from hub.workflow.models import WorkflowDefinition, WorkflowStep, StepType
+        from hub.workflow.models import StepType, WorkflowDefinition, WorkflowStep
 
         wf = WorkflowDefinition(
             name="Test",
@@ -93,7 +93,7 @@ class TestWorkflowModels:
         assert wf2.steps[0].agent == "test-agent"
 
     def test_workflow_run_serialization(self):
-        from hub.workflow.models import WorkflowRun, WorkflowStepRun, RunStatus
+        from hub.workflow.models import RunStatus, WorkflowRun, WorkflowStepRun
 
         run = WorkflowRun(
             workflow_id="wf-123",
@@ -118,7 +118,7 @@ class TestWorkflowStorage:
 
     def test_save_and_get_workflow(self):
         from hub.workflow import storage
-        from hub.workflow.models import WorkflowDefinition, WorkflowStep, StepType
+        from hub.workflow.models import StepType, WorkflowDefinition, WorkflowStep
 
         wf = WorkflowDefinition(
             name="Storage test",
@@ -156,7 +156,7 @@ class TestWorkflowStorage:
 
     def test_save_and_get_run(self):
         from hub.workflow import storage
-        from hub.workflow.models import WorkflowRun, WorkflowStepRun, RunStatus
+        from hub.workflow.models import RunStatus, WorkflowRun, WorkflowStepRun
 
         run = WorkflowRun(
             workflow_id="wf-test",
@@ -175,7 +175,7 @@ class TestWorkflowStorage:
 
     def test_list_runs_with_filter(self):
         from hub.workflow import storage
-        from hub.workflow.models import WorkflowRun, RunStatus
+        from hub.workflow.models import RunStatus, WorkflowRun
 
         for i in range(3):
             storage.save_workflow_run(WorkflowRun(
@@ -204,7 +204,7 @@ class TestWorkflowStorage:
 
     def test_workflow_stats(self):
         from hub.workflow import storage
-        from hub.workflow.models import WorkflowDefinition, WorkflowRun, WorkflowApproval, RunStatus
+        from hub.workflow.models import RunStatus, WorkflowApproval, WorkflowDefinition, WorkflowRun
 
         storage.save_workflow_definition(WorkflowDefinition(name="Stats test"))
         storage.save_workflow_run(WorkflowRun(workflow_id="wf-1", status=RunStatus.RUNNING.value))
@@ -222,8 +222,8 @@ class TestWorkflowExecutor:
     @pytest.mark.asyncio
     async def test_execute_simple_workflow(self):
         """Test executing a workflow with no actual service calls (notify step only)."""
-        from hub.workflow import storage, execute_workflow
-        from hub.workflow.models import WorkflowDefinition, WorkflowStep, StepType, RunStatus
+        from hub.workflow import execute_workflow, storage
+        from hub.workflow.models import RunStatus, StepType, WorkflowDefinition, WorkflowStep
 
         # Create a workflow with a notify step (doesn't require external services)
         wf = WorkflowDefinition(
@@ -260,7 +260,7 @@ class TestWorkflowExecutor:
     async def test_condition_step(self):
         """Test condition step evaluation."""
         from hub.workflow import storage
-        from hub.workflow.models import WorkflowDefinition, WorkflowStep, StepType
+        from hub.workflow.models import StepType, WorkflowDefinition, WorkflowStep
 
         wf = WorkflowDefinition(
             name="Condition test",
@@ -293,8 +293,8 @@ class TestWorkflowExecutor:
     async def test_approval_gate(self):
         """Test approval gate pause and resume."""
         from hub.workflow import storage
-        from hub.workflow.models import WorkflowDefinition, WorkflowStep, StepType
         from hub.workflow.executor import WorkflowExecutor
+        from hub.workflow.models import StepType, WorkflowDefinition, WorkflowStep
 
         executor = WorkflowExecutor()
 
@@ -357,9 +357,9 @@ class TestWorkflowTriggers:
 
     @pytest.mark.asyncio
     async def test_webhook_handler(self):
-        from hub.workflow.triggers import WebhookTrigger
         from hub.workflow import storage
-        from hub.workflow.models import WorkflowDefinition, WorkflowTrigger, TriggerType
+        from hub.workflow.models import TriggerType, WorkflowDefinition, WorkflowTrigger
+        from hub.workflow.triggers import WebhookTrigger
 
         wf = WorkflowDefinition(
             name="Webhook test",
@@ -427,7 +427,7 @@ class TestWorkflowAPI:
 
     @pytest.mark.asyncio
     async def test_get_workflow_api(self):
-        from hub.api.workflows import api_get_workflow, api_create_workflow
+        from hub.api.workflows import api_create_workflow, api_get_workflow
 
         created = await api_create_workflow({"name": "Get test"})
         result = await api_get_workflow(created["id"])
@@ -443,8 +443,9 @@ class TestWorkflowAPI:
 
     @pytest.mark.asyncio
     async def test_delete_workflow_api(self):
-        from hub.api.workflows import api_create_workflow, api_delete_workflow, api_get_workflow
         from fastapi import HTTPException
+
+        from hub.api.workflows import api_create_workflow, api_delete_workflow, api_get_workflow
 
         created = await api_create_workflow({"name": "Delete test"})
         result = await api_delete_workflow(created["id"])
@@ -471,8 +472,8 @@ class TestFullLifecycle:
     @pytest.mark.asyncio
     async def test_create_run_check_history(self):
         """Full lifecycle: create workflow, run it, check history."""
-        from hub.workflow import storage, execute_workflow
-        from hub.workflow.models import WorkflowDefinition, WorkflowStep, StepType
+        from hub.workflow import execute_workflow, storage
+        from hub.workflow.models import StepType, WorkflowDefinition, WorkflowStep
 
         # 1. Create workflow
         wf = WorkflowDefinition(

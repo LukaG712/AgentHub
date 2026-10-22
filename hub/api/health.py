@@ -1,7 +1,18 @@
 """Route module: health."""
 
+import asyncio
+import os
+import time
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import httpx
 from fastapi import Depends, HTTPException
 from starlette.responses import JSONResponse
+
+from hub import llm_providers as llm_module
+from hub import memory, ollama, providers
+from hub import routines as routines_engine
 from hub.api.core import (
     _analytics,
     _api_versions,
@@ -18,23 +29,26 @@ from hub.api.core import (
     _verify_token,
     _webhooks,
 )
-from hub import llm_providers as llm_module
-from hub import memory
-from hub import ollama
-from hub import providers
-from hub import routines as routines_engine
 from hub.config import load_config, save_config, set_primary_bot, validate_name
 from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
-from pathlib import Path
-from typing import Any, Dict, List, Optional
-import asyncio
-import httpx
-import time
+
+# Optional observability modules
+tracing_module = None
+metrics_module = None
+try:
+    import opentelemetry.trace as tracing_module  # type: ignore
+except ImportError:
+    pass
+try:
+    import opentelemetry.metrics as metrics_module  # type: ignore
+except ImportError:
+    pass
 
 
 async def api_Slinker_health():
     """Check if the Slinker service is reachable."""
     import os
+
     import httpx
     base_url = os.environ.get("Slinker_URL", "http://Slinker:8000").rstrip("/")
     try:
@@ -48,6 +62,7 @@ async def api_Slinker_health():
 async def api_Trapper_health():
     """Check if the Trapper service is reachable."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://Trapper-api:3000").rstrip("/")
     try:
@@ -136,11 +151,23 @@ async def api_health():
     stores = {}
     try:
         from hub.api import (
-            _webhooks, _analytics_events, _rate_limit_store,
-            _audit_log, _templates, _approvals, _file_uploads,
-            _roles, _users, _response_cache, _message_bus_topics,
-            _feature_flags, _deployments, _circuit_breakers,
-            _api_versions, _dag_definitions, _tenants,
+            _analytics_events,
+            _api_versions,
+            _approvals,
+            _audit_log,
+            _circuit_breakers,
+            _dag_definitions,
+            _deployments,
+            _feature_flags,
+            _file_uploads,
+            _message_bus_topics,
+            _rate_limit_store,
+            _response_cache,
+            _roles,
+            _templates,
+            _tenants,
+            _users,
+            _webhooks,
         )
         stores["webhooks"] = len(_webhooks)
         stores["analytics_events"] = len(_analytics_events)

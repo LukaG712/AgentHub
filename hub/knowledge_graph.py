@@ -27,8 +27,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
-from hub.config import load_config
 from hub import memory as memory_module
+from hub.config import load_config
 
 logger = logging.getLogger(__name__)
 

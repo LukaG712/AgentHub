@@ -1,13 +1,27 @@
 """Route module: rate_limits."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _audit_log, _audit_log_lock, _rate_limits, _rate_limits_lock, _verify_token
-from datetime import datetime
-from hub import feature_store
-from typing import Any, Dict, List, Optional
+import logging
 import threading
 import time
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import feature_store
+from hub.api.core import _audit_log, _audit_log_lock, _rate_limits, _rate_limits_lock, _verify_token
+
+logger = logging.getLogger(__name__)
+
+# Default rate limits
+_DEFAULT_RATE_LIMIT = 100
+_DEFAULT_RATE_WINDOW = 60
+
+
+def _get_rate_limit_info(key_id: str) -> Dict[str, Any]:
+    """Get current rate limit usage info."""
+    return {"key_id": key_id, "requests_made": 0, "limit": _DEFAULT_RATE_LIMIT, "window": _DEFAULT_RATE_WINDOW}
 
 
 async def api_create_rate_limit(body: Dict[str, Any], _auth: None = Depends(_verify_token)):

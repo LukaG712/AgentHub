@@ -1,13 +1,24 @@
 """Route module: backup."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _verify_token, _webhook_secrets, _webhook_secrets_lock
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+import hashlib
+import hmac
+import logging
+import os
 import shutil
 import threading
 import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub.api.core import _verify_token, _webhook_secrets, _webhook_secrets_lock
+
+logger = logging.getLogger(__name__)
+
+# Backup directory
+_BACKUP_DIR = Path(os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'backups'))
 
 
 async def api_create_backup(_auth: None = Depends(_verify_token)):
@@ -148,8 +159,8 @@ _webhook_secrets_lock = threading.Lock()
 
 def _verify_github_signature(payload: bytes, signature: str, secret: str) -> bool:
     """Verify GitHub webhook HMAC signature."""
-    import hmac
     import hashlib
+    import hmac
     if not signature.startswith("sha256="):
         return False
     expected = "sha256=" + hmac.new(

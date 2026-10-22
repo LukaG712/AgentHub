@@ -17,20 +17,19 @@ Configuration:
 
 import os
 import time
-from typing import Optional, Callable, Awaitable, Any
+from typing import Any, Awaitable, Callable, Optional
 
 from prometheus_client import (
-    Counter,
-    Histogram,
-    Gauge,
-    CollectorRegistry,
-    generate_latest,
     CONTENT_TYPE_LATEST,
+    CollectorRegistry,
+    Counter,
+    Gauge,
+    Histogram,
+    generate_latest,
 )
 from prometheus_client.metrics_core import MetricWrapper
 from starlette.requests import Request
 from starlette.responses import Response
-
 
 # ─── Registry ────────────────────────────────────────────────────────────────
 

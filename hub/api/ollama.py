@@ -1,9 +1,11 @@
 """Route module: ollama."""
 
+from typing import Any, Dict, List, Optional
+
 from fastapi import Depends, HTTPException
+
 from hub.api.core import _verify_token
 from hub.config import load_config, save_config, set_primary_bot, validate_name
-from typing import Any, Dict, List, Optional
 
 
 def _get_ollama_client():

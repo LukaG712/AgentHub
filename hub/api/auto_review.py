@@ -1,10 +1,12 @@
 """Route module: auto_review."""
 
-from fastapi import Depends
-from hub.api.core import _verify_token
-from hub import bot_memory
-from hub.config import load_config, save_config, set_primary_bot, validate_name
 from typing import Any, Dict, List, Optional
+
+from fastapi import Depends
+
+from hub import bot_memory
+from hub.api.core import _verify_token
+from hub.config import load_config, save_config, set_primary_bot, validate_name
 
 
 async def api_get_auto_review_settings(_auth: None = Depends(_verify_token)):
@@ -39,7 +41,6 @@ async def api_update_auto_review_settings(
 
 
 from hub import bot_memory as bot_memory_module
-
 
 
 def register(app):

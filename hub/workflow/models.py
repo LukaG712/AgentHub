@@ -8,7 +8,7 @@ Defines the core entities for the workflow system:
 - WorkflowApproval: Human-in-the-loop approval request within a workflow run.
 """
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional

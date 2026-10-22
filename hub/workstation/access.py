@@ -10,12 +10,12 @@ import os
 import secrets
 from typing import Optional
 
+from hub.workstation import driver
 from hub.workstation.models import (
+    AccessType,
     Workstation,
     WorkstationAccess,
-    AccessType,
 )
-from hub.workstation import driver
 
 logger = logging.getLogger(__name__)
 

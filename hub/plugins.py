@@ -73,9 +73,9 @@ def _load_manifest(plugin_dir: Path) -> Dict[str, Any]:
     manifest_path = plugin_dir / "manifest.json"
     if manifest_path.exists():
         try:
-            with open(manifest_path, "r") as f:
+            with open(manifest_path) as f:
                 return json.load(f)
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.warning(f"Failed to load manifest for {plugin_dir.name}: {e}")
     return {"name": plugin_dir.name, "version": "0.0.1", "description": ""}
 

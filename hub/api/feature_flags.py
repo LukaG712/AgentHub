@@ -1,12 +1,43 @@
 """Route module: feature_flags."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _deployments, _deployments_lock, _feature_flags, _feature_flags_lock, _verify_token
-from datetime import datetime
-from hub import feature_store
-from typing import Any, Dict, List, Optional
+import logging
 import threading
 import time
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import feature_store
+from hub.api.core import _deployments, _deployments_lock, _feature_flags, _feature_flags_lock, _verify_token
+
+logger = logging.getLogger(__name__)
+
+# Flag evaluation history
+_flag_evaluations: List[Dict[str, Any]] = []
+_flag_evaluations_lock = threading.Lock()
+
+
+def _evaluate_flag(flag_name: str, context: Dict[str, Any]) -> bool:
+    """Evaluate a feature flag for a given context."""
+    with _feature_flags_lock:
+        flag = _feature_flags.get(flag_name)
+    if not flag:
+        return False
+    if not flag.get("enabled", False):
+        return flag.get("default_value", False)
+    # Simple percentage-based evaluation
+    for rule in flag.get("rules", []):
+        if rule.get("type") == "percentage":
+            import hashlib
+            user_id = context.get("user_id", "anonymous")
+            hash_val = int(hashlib.md5(f"{flag_name}:{user_id}".encode()).hexdigest(), 16) % 100
+            return hash_val < rule.get("percentage", 0)
+        elif rule.get("type") == "user":
+            user_id = context.get("user_id", "")
+            if user_id in rule.get("users", []):
+                return rule.get("enabled", False)
+    return flag.get("default_value", False)
 
 
 async def api_create_feature_flag(body: Dict[str, Any], _auth: None = Depends(_verify_token)):

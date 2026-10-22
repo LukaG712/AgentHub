@@ -1,12 +1,21 @@
 """Route module: api_versions."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _api_versions, _api_versions_lock, _verify_token
-from datetime import datetime
-from hub import feature_store
-from typing import Any, Dict, List, Optional
+import logging
 import threading
 import time
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import feature_store
+from hub.api.core import _api_versions, _api_versions_lock, _verify_token
+
+logger = logging.getLogger(__name__)
+
+# Deprecated endpoints store
+_deprecated_endpoints: Dict[str, Any] = {}
+_deprecated_endpoints_lock = threading.Lock()
 
 
 async def api_list_versions(_auth: None = Depends(_verify_token)):

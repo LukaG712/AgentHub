@@ -1,21 +1,30 @@
 """Route module: streaming."""
 
-from fastapi import Depends, HTTPException
-from starlette.responses import StreamingResponse
-from hub.api.core import _scheduled_pipelines, _scheduled_pipelines_lock, _scheduled_tasks, _verify_token
-from datetime import datetime
-from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
-from typing import Any, Dict, List, Optional
 import asyncio
-import httpx
 import json
+import os
 import threading
 import time
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import httpx
+from fastapi import Depends, HTTPException
+from starlette.responses import StreamingResponse
+
+from hub.api.core import _scheduled_pipelines, _scheduled_pipelines_lock, _scheduled_tasks, _verify_token
+from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
+
+
+def _parse_Trapper_task(task_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Parse a Trapper task result."""
+    return task_data
 
 
 async def api_Slinker_chat_stream(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
     """Proxy: Execute a task via Slinker's chat endpoint with SSE streaming."""
     import os
+
     import httpx
     from fastapi.responses import StreamingResponse
 
@@ -37,7 +46,7 @@ async def api_Slinker_chat_stream(body: Dict[str, Any], _auth: None = Depends(_v
                     "POST", f"{base_url}/v1/chat/completions", json=payload, headers=headers
                 ) as resp:
                     if resp.status_code == 503:
-                        yield f"data: {{\"error\": \"Slinker is busy. Please try again later.\"}}\n\n"
+                        yield "data: {\"error\": \"Slinker is busy. Please try again later.\"}\n\n"
                         return
                     if resp.status_code != 200:
                         err_text = await resp.aread()
@@ -68,6 +77,7 @@ async def api_crawl_stream(body: Dict[str, Any], _auth: None = Depends(_verify_t
     }
     """
     import os
+
     import httpx
     from fastapi.responses import StreamingResponse
 
@@ -366,6 +376,7 @@ async def api_Slinker_task_stream(body: Dict[str, Any], _auth: None = Depends(_v
     }
     """
     import os
+
     import httpx
     from fastapi.responses import StreamingResponse
 

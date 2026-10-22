@@ -16,11 +16,10 @@ Also supports shortcuts:
   @yearly, @annually, @monthly, @weekly, @daily, @midnight, @hourly
 """
 
+import calendar
 import re
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
-import calendar
-
 
 # Cron shortcuts
 CRON_SHORTCUTS = {

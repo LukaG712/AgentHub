@@ -1,14 +1,19 @@
 """Route module: templates."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _approval_policies, _approval_policies_lock, _templates, _templates_lock, _verify_token
-from datetime import datetime
-from hub import feature_store
-from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
-from typing import Any, Dict, List, Optional
+import logging
 import threading
 import time
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import feature_store
+from hub.api.core import _approval_policies, _approval_policies_lock, _templates, _templates_lock, _verify_token
+from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
+
+logger = logging.getLogger(__name__)
 
 
 async def api_list_templates(_auth: None = Depends(_verify_token)):

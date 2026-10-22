@@ -505,7 +505,7 @@ class TrapperProvider(AgentProvider):
             if status in ("completed", "failed"):
                 results = status_data.get("data", [])
                 errors = status_data.get("errors", [])
-                answer_parts = [f"# Batch Scrape Results\n"]
+                answer_parts = ["# Batch Scrape Results\n"]
                 answer_parts.append(f"**Status:** {status}")
                 answer_parts.append(f"**Processed:** {len(results)} pages\n")
 
@@ -652,7 +652,7 @@ class TrapperProvider(AgentProvider):
             status = status_data.get("status", "")
             if status in ("completed", "failed"):
                 results = status_data.get("data", [])
-                answer_parts = [f"# Extract Results\n"]
+                answer_parts = ["# Extract Results\n"]
                 answer_parts.append(f"**Status:** {status}\n")
 
                 for result in results:
@@ -732,7 +732,7 @@ class TrapperProvider(AgentProvider):
             status = status_data.get("status", "")
             if status in ("completed", "failed"):
                 result_data = status_data.get("data", {})
-                answer_parts = [f"# Agent Research Results\n"]
+                answer_parts = ["# Agent Research Results\n"]
                 answer_parts.append(f"**Status:** {status}\n")
 
                 if isinstance(result_data, dict):

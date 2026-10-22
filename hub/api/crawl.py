@@ -1,17 +1,20 @@
 """Route module: crawl."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _verify_token
-from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
-from typing import Any, Dict, List, Optional
-import httpx
 import json
 import time
+from typing import Any, Dict, List, Optional
+
+import httpx
+from fastapi import Depends, HTTPException
+
+from hub.api.core import _verify_token
+from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
 
 
 async def api_crawl_scrape(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
     """Proxy: Scrape a single URL via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -36,6 +39,7 @@ async def api_crawl_scrape(body: Dict[str, Any], _auth: None = Depends(_verify_t
 async def api_crawl_start(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
     """Proxy: Start a crawl job via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -60,6 +64,7 @@ async def api_crawl_start(body: Dict[str, Any], _auth: None = Depends(_verify_to
 async def api_crawl_status(job_id: str, _auth: None = Depends(_verify_token)):
     """Proxy: Check crawl job status via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -79,6 +84,7 @@ async def api_crawl_status(job_id: str, _auth: None = Depends(_verify_token)):
 async def api_crawl_search(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
     """Proxy: Search the web via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -103,6 +109,7 @@ async def api_crawl_search(body: Dict[str, Any], _auth: None = Depends(_verify_t
 async def api_crawl_map(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
     """Proxy: Map URLs on a site via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -127,6 +134,7 @@ async def api_crawl_map(body: Dict[str, Any], _auth: None = Depends(_verify_toke
 async def api_crawl_batch(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
     """Proxy: Start a batch scrape job via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -151,6 +159,7 @@ async def api_crawl_batch(body: Dict[str, Any], _auth: None = Depends(_verify_to
 async def api_crawl_batch_status(job_id: str, _auth: None = Depends(_verify_token)):
     """Proxy: Check batch scrape job status via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -170,6 +179,7 @@ async def api_crawl_batch_status(job_id: str, _auth: None = Depends(_verify_toke
 async def api_crawl_batch_cancel(job_id: str, _auth: None = Depends(_verify_token)):
     """Proxy: Cancel a batch scrape job via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -189,6 +199,7 @@ async def api_crawl_batch_cancel(job_id: str, _auth: None = Depends(_verify_toke
 async def api_crawl_cancel(job_id: str, _auth: None = Depends(_verify_token)):
     """Proxy: Cancel a crawl job via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -208,6 +219,7 @@ async def api_crawl_cancel(job_id: str, _auth: None = Depends(_verify_token)):
 async def api_crawl_interact(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
     """Proxy: Interact with a page via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -228,6 +240,7 @@ async def api_crawl_interact(body: Dict[str, Any], _auth: None = Depends(_verify
 async def api_crawl_extract(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
     """Proxy: Start an extract job via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -253,6 +266,7 @@ async def api_crawl_extract(body: Dict[str, Any], _auth: None = Depends(_verify_
 async def api_crawl_extract_status(job_id: str, _auth: None = Depends(_verify_token)):
     """Proxy: Check extract job status via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -272,6 +286,7 @@ async def api_crawl_extract_status(job_id: str, _auth: None = Depends(_verify_to
 async def api_crawl_extract_cancel(job_id: str, _auth: None = Depends(_verify_token)):
     """Proxy: Cancel an extract job via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -291,6 +306,7 @@ async def api_crawl_extract_cancel(job_id: str, _auth: None = Depends(_verify_to
 async def api_crawl_agent(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
     """Proxy: Start an agent research job via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -315,6 +331,7 @@ async def api_crawl_agent(body: Dict[str, Any], _auth: None = Depends(_verify_to
 async def api_crawl_agent_status(job_id: str, _auth: None = Depends(_verify_token)):
     """Proxy: Check agent job status via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -334,6 +351,7 @@ async def api_crawl_agent_status(job_id: str, _auth: None = Depends(_verify_toke
 async def api_crawl_agent_cancel(job_id: str, _auth: None = Depends(_verify_token)):
     """Proxy: Cancel an agent job via Trapper."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     api_key = os.environ.get("Trapper_API_KEY", "")
@@ -356,6 +374,7 @@ async def api_crawl_agent_cancel(job_id: str, _auth: None = Depends(_verify_toke
 async def api_crawl_health(_auth: None = Depends(_verify_token)):
     """Proxy: Trapper health check."""
     import os
+
     import httpx
     base_url = os.environ.get("Trapper_URL", "http://localhost:3000").rstrip("/")
     try:

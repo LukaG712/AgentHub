@@ -1,13 +1,22 @@
 """Route module: deployments."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _circuit_breakers, _circuit_breakers_lock, _deployments, _deployments_lock, _verify_token
-from datetime import datetime
-from hub import feature_store
-from typing import Any, Dict, List, Optional
+import logging
 import threading
 import time
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import feature_store
+from hub.api.core import _circuit_breakers, _circuit_breakers_lock, _deployments, _deployments_lock, _verify_token
+
+logger = logging.getLogger(__name__)
+
+# Current deployment
+_current_deployment: Optional[Dict[str, Any]] = None
+_current_deployment_lock = threading.Lock()
 
 
 async def api_create_deployment(body: Dict[str, Any], _auth: None = Depends(_verify_token)):

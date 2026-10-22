@@ -16,12 +16,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from hub.workflow import executor, storage
 from hub.workflow.models import (
     TriggerType,
     WorkflowDefinition,
     WorkflowTrigger,
 )
-from hub.workflow import storage, executor
 
 logger = logging.getLogger("hub.workflow.triggers")
 

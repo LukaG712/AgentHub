@@ -1,11 +1,33 @@
 """Route module: github_webhooks."""
 
-from fastapi import Depends, HTTPException, Request
-from hub.api.core import _verify_token, _webhook_secrets, _webhook_secrets_lock
-from hub import feature_store
-from hub.config import load_config, save_config, set_primary_bot, validate_name
 import asyncio
+import hashlib
+import hmac
 import json
+import logging
+
+from fastapi import Depends, HTTPException, Request
+
+from hub import feature_store
+from hub.api.core import _verify_token, _webhook_secrets, _webhook_secrets_lock
+from hub.config import load_config, save_config, set_primary_bot, validate_name
+
+logger = logging.getLogger(__name__)
+
+
+def _verify_github_signature(payload: bytes, signature: str, secret: str) -> bool:
+    """Verify GitHub webhook HMAC signature."""
+    if not signature.startswith("sha256="):
+        return False
+    expected = "sha256=" + hmac.new(
+        secret.encode(), payload, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
+
+
+def _verify_gitlab_signature(payload: bytes, token: str, secret: str) -> bool:
+    """Verify GitLab webhook secret token."""
+    return hmac.compare_digest(token.encode(), secret.encode()) if secret else True
 
 
 async def api_github_webhook(request: Request):

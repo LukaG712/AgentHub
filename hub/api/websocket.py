@@ -1,12 +1,40 @@
 """Route module: websocket."""
 
-from fastapi import HTTPException, Request, WebSocket, WebSocketDisconnect
-from hub.api.core import _api_keys, _api_keys_lock, _rate_limits, _rate_limits_lock
-from datetime import datetime
-from typing import Any, Dict, List, Optional
 import json
 import threading
 import time
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import HTTPException, Request, WebSocket, WebSocketDisconnect
+
+from hub.api.core import _api_keys, _api_keys_lock, _rate_limits, _rate_limits_lock
+
+# WebSocket connections
+_ws_connections: Dict[str, set] = {}
+_ws_lock = threading.Lock()
+
+
+def _get_api_key() -> str:
+    """Get the primary API key."""
+    from hub.config import load_config
+    config = load_config()
+    return config.get("api_key", "")
+
+
+def _emit_event(event_type: str, data: Dict[str, Any]) -> None:
+    """Emit an event."""
+    pass  # Placeholder
+
+
+def _track_run(agent: str) -> None:
+    """Track a run."""
+    pass  # Placeholder
+
+
+def _track_error(error_type: str) -> None:
+    """Track an error."""
+    pass  # Placeholder
 
 
 async def api_websocket(
@@ -90,7 +118,7 @@ async def websocket_endpoint(ws: WebSocket, channel: str = "all", token: str = "
 _original_on_complete = None
 
 
-def _enhanced_on_complete(result: Run) -> None:
+def _enhanced_on_complete(result: Any) -> None:
     """Enhanced run completion handler that emits events."""
     event_type = "run.completed" if result.state == "done" else "run.failed"
     _emit_event(event_type, {

@@ -7,8 +7,9 @@ API endpoints for multi-instance cluster management:
 """
 
 import logging
-from fastapi import Depends, HTTPException
 from typing import Any, Dict
+
+from fastapi import Depends, HTTPException
 
 from hub.api.core import _verify_token
 

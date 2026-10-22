@@ -1,14 +1,23 @@
 """Route module: reports."""
 
-from fastapi import Depends, HTTPException, Request
-from hub.api.core import _analytics, _scheduled_reports, _scheduled_reports_lock, _verify_token
-from datetime import datetime
-from hub import agents
-from hub import feature_store
-from typing import Any, Dict, List, Optional
 import json
+import logging
 import time
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException, Request
+
+from hub import agents, feature_store
+from hub.api.core import _analytics, _scheduled_reports, _scheduled_reports_lock, _verify_token
+
+logger = logging.getLogger(__name__)
+
+# Analytics data
+_analytics_api_calls: List[Dict[str, Any]] = []
+_analytics_task_durations: List[Dict[str, Any]] = []
+_runs: Dict[str, Any] = {}
 
 
 async def api_create_scheduled_report(request: Request, _auth: None = Depends(_verify_token)):

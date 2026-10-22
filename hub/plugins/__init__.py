@@ -48,7 +48,7 @@ class PluginRegistry:
         """Load plugin registry from file."""
         try:
             if os.path.exists(self._config_file):
-                with open(self._config_file, "r") as f:
+                with open(self._config_file) as f:
                     config = json.load(f)
                 for plugin_data in config.get("plugins", []):
                     plugin = Plugin(

@@ -1,15 +1,96 @@
 """Route module: jobs."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _response_cache, _response_cache_lock, _verify_token
-from datetime import datetime
-from hub import feature_store
-from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
-from typing import Any, Dict, List, Optional
 import asyncio
+import logging
 import threading
 import time
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import feature_store
+from hub.api.core import _response_cache, _response_cache_lock, _verify_token
+from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
+
+logger = logging.getLogger(__name__)
+
+# Job states
+JOB_PENDING = "pending"
+JOB_RUNNING = "running"
+JOB_COMPLETED = "completed"
+JOB_FAILED = "failed"
+JOB_DEAD = "dead"
+
+# Job queue
+_job_queue: Dict[str, Dict[str, Any]] = {}
+_job_queue_lock = threading.Lock()
+
+# Job ordering
+_job_order: List[str] = []
+_job_order_lock = threading.Lock()
+
+# Dead letter queue
+_dead_letter_queue: List[Dict[str, Any]] = []
+_dead_letter_lock = threading.Lock()
+
+# Worker task
+_job_worker_task: Optional[asyncio.Task] = None
+
+
+def _audit(action: str, user: str, resource_type: str, resource_id: str, details: str) -> None:
+    """Record an audit log entry."""
+    pass  # Placeholder - audit logging not implemented yet
+
+
+async def _job_worker() -> None:
+    """Background worker that processes jobs from the queue."""
+    while True:
+        job_id = None
+        with _job_order_lock:
+            if _job_order:
+                job_id = _job_order.pop(0)
+        
+        if not job_id:
+            await asyncio.sleep(1)
+            continue
+        
+        with _job_queue_lock:
+            job = _job_queue.get(job_id)
+            if not job or job["state"] != JOB_PENDING:
+                continue
+            job["state"] = JOB_RUNNING
+            job["started_at"] = datetime.now().isoformat()
+        
+        try:
+            # Process job based on type
+            job_type = job["type"]
+            payload = job.get("payload", {})
+            
+            if job_type == "run_agent":
+                agent = payload.get("agent", "")
+                task = payload.get("task", "")
+                if agent and task:
+                    run = run_agent(agent, task)
+                    job["result"] = {"run_id": run.id, "answer": run.answer}
+            
+            job["state"] = JOB_COMPLETED
+            job["completed_at"] = datetime.now().isoformat()
+        except Exception as e:
+            job["retries"] = job.get("retries", 0) + 1
+            job["last_error"] = str(e)
+            if job["retries"] >= job.get("max_retries", 3):
+                job["state"] = JOB_DEAD
+                with _dead_letter_lock:
+                    _dead_letter_queue.append(job)
+            else:
+                job["state"] = JOB_FAILED
+        
+        with _job_queue_lock:
+            _job_queue[job_id] = job
+        
+        await asyncio.sleep(0.1)
 
 
 async def api_submit_job(body: Dict[str, Any], _auth: None = Depends(_verify_token)):

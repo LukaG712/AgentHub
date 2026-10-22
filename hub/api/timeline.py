@@ -4,13 +4,13 @@ Provides endpoints for querying the unified activity timeline and security audit
 """
 
 from hub.activity_timeline import (
-    query_timeline,
-    query_audit,
-    get_workflow_timeline,
-    get_task_timeline,
     get_correlation_timeline,
-    timeline_stats,
+    get_task_timeline,
+    get_workflow_timeline,
+    query_audit,
+    query_timeline,
     record_event,
+    timeline_stats,
 )
 
 

@@ -1,11 +1,13 @@
 """Route module: Slinker."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _verify_token
-from typing import Any, Dict, List, Optional
-import httpx
 import json
 import time
+from typing import Any, Dict, List, Optional
+
+import httpx
+from fastapi import Depends, HTTPException
+
+from hub.api.core import _verify_token
 
 
 async def api_Slinker_tasks(
@@ -16,6 +18,7 @@ async def api_Slinker_tasks(
 ):
     """Proxy: List tasks from Slinker."""
     import os
+
     import httpx
     base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
     api_key = os.environ.get("Slinker_API_KEY", "")
@@ -41,6 +44,7 @@ async def api_Slinker_tasks(
 async def api_Slinker_workers(_auth: None = Depends(_verify_token)):
     """Proxy: List active workers from Slinker."""
     import os
+
     import httpx
     base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
     api_key = os.environ.get("Slinker_API_KEY", "")
@@ -60,6 +64,7 @@ async def api_Slinker_workers(_auth: None = Depends(_verify_token)):
 async def api_Slinker_queue(_auth: None = Depends(_verify_token)):
     """Proxy: Get queue status from Slinker."""
     import os
+
     import httpx
     base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
     api_key = os.environ.get("Slinker_API_KEY", "")
@@ -79,6 +84,7 @@ async def api_Slinker_queue(_auth: None = Depends(_verify_token)):
 async def api_Slinker_projects(_auth: None = Depends(_verify_token)):
     """Proxy: List registered projects from Slinker."""
     import os
+
     import httpx
     base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
     api_key = os.environ.get("Slinker_API_KEY", "")
@@ -98,6 +104,7 @@ async def api_Slinker_projects(_auth: None = Depends(_verify_token)):
 async def api_Slinker_create_project(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
     """Proxy: Register a new project in Slinker."""
     import os
+
     import httpx
     base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
     api_key = os.environ.get("Slinker_API_KEY", "")
@@ -117,6 +124,7 @@ async def api_Slinker_create_project(body: Dict[str, Any], _auth: None = Depends
 async def api_Slinker_task_detail(task_id: str, _auth: None = Depends(_verify_token)):
     """Proxy: Get a specific task detail from Slinker."""
     import os
+
     import httpx
     base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
     api_key = os.environ.get("Slinker_API_KEY", "")
@@ -140,6 +148,7 @@ async def api_Slinker_sessions(
 ):
     """Proxy: List sessions from Slinker."""
     import os
+
     import httpx
     base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
     api_key = os.environ.get("Slinker_API_KEY", "")
@@ -162,6 +171,7 @@ async def api_Slinker_sessions(
 async def api_Slinker_worker_detail(worker_id: str, _auth: None = Depends(_verify_token)):
     """Proxy: Get a specific worker detail from Slinker."""
     import os
+
     import httpx
     base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
     api_key = os.environ.get("Slinker_API_KEY", "")
@@ -181,6 +191,7 @@ async def api_Slinker_worker_detail(worker_id: str, _auth: None = Depends(_verif
 async def api_Slinker_chat(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
     """Proxy: Execute a task via Slinker's OpenAI-compatible chat endpoint."""
     import os
+
     import httpx
     base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
     api_key = os.environ.get("Slinker_API_KEY", "")
@@ -209,6 +220,7 @@ async def api_Slinker_chat(body: Dict[str, Any], _auth: None = Depends(_verify_t
 async def api_Slinker_health(_auth: None = Depends(_verify_token)):
     """Proxy: Slinker health check (no Slinker auth required)."""
     import os
+
     import httpx
     base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
     try:
@@ -224,6 +236,7 @@ async def api_Slinker_health(_auth: None = Depends(_verify_token)):
 async def api_Slinker_ready(_auth: None = Depends(_verify_token)):
     """Proxy: Slinker readiness check."""
     import os
+
     import httpx
     base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
     api_key = os.environ.get("Slinker_API_KEY", "")
@@ -243,6 +256,7 @@ async def api_Slinker_ready(_auth: None = Depends(_verify_token)):
 async def api_Slinker_models(_auth: None = Depends(_verify_token)):
     """Proxy: List available models from Slinker."""
     import os
+
     import httpx
     base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
     api_key = os.environ.get("Slinker_API_KEY", "")
@@ -262,6 +276,7 @@ async def api_Slinker_models(_auth: None = Depends(_verify_token)):
 async def api_Slinker_submit_task(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
     """Proxy: Submit a task via Slinker's chat endpoint and return the task ID for polling."""
     import os
+
     import httpx
     base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
     api_key = os.environ.get("Slinker_API_KEY", "")
@@ -290,6 +305,7 @@ async def api_Slinker_submit_task(body: Dict[str, Any], _auth: None = Depends(_v
 async def api_Slinker_task_output(task_id: str, _auth: None = Depends(_verify_token)):
     """Proxy: Get task output by task_id from Slinker (convenience wrapper)."""
     import os
+
     import httpx
     base_url = os.environ.get("Slinker_URL", "http://localhost:8000").rstrip("/")
     api_key = os.environ.get("Slinker_API_KEY", "")

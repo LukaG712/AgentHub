@@ -9,9 +9,8 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, HTTPException
 
+from hub import feature_store, memory
 from hub.api.core import _approval_policies, _approval_policies_lock, _verify_token
-from hub import feature_store
-from hub import memory
 
 logger = logging.getLogger(__name__)
 

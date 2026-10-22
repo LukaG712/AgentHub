@@ -6,7 +6,7 @@ about structure, conventions, dependencies, and relevant files.
 
 import json
 import logging
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
@@ -212,7 +212,7 @@ def _find_build_commands(path: Path) -> list[str]:
             data = json.loads(package.read_text(errors="ignore"))
             scripts = data.get("scripts", {})
             if "build" in scripts:
-                commands.append(f"npm run build")
+                commands.append("npm run build")
         except json.JSONDecodeError:
             pass
 

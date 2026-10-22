@@ -1,8 +1,10 @@
 """Route module: analytics."""
 
-from fastapi import Depends
-from hub.api.core import _analytics, _analytics_lock, _verify_token
 from typing import Any, Dict, List, Optional
+
+from fastapi import Depends
+
+from hub.api.core import _analytics, _analytics_lock, _verify_token
 
 
 async def api_analytics_overview(_auth: None = Depends(_verify_token)):

@@ -15,9 +15,9 @@ Submodules:
 
 from hub.workstation.models import (
     Workstation,
+    WorkstationAccess,
     WorkstationConfig,
     WorkstationStatus,
-    WorkstationAccess,
 )
 
 __all__ = [

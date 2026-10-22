@@ -1,7 +1,18 @@
 """Route module: sessions."""
 
+import asyncio
+import json
+import queue
+import threading
+import time
+import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 from fastapi import Depends, HTTPException
 from starlette.responses import StreamingResponse
+
+from hub import agents, memory, ollama
 from hub.api.core import (
     _sse_buffer_for_run,
     _sse_event_store,
@@ -11,18 +22,8 @@ from hub.api.core import (
     _verify_token,
     _verify_token_or_query,
 )
-from datetime import datetime
-from hub import agents
-from hub import memory
 from hub.config import load_config, save_config, set_primary_bot, validate_name
 from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
-from typing import Any, Dict, List, Optional
-import asyncio
-import json
-import queue
-import threading
-import time
-import uuid
 
 
 async def api_list_sessions(
@@ -117,7 +118,7 @@ async def api_dispatch_message(
     refine_prompt = body.get("refine_prompt", False)
     refined_content = content
     if refine_prompt:
-        ollama_client = _get_ollama_client()
+        ollama_client = ollama.get_ollama_client()
         if ollama_client and ollama_client.is_available():
             project_path = session.get("project_path", "")
             context = None

@@ -1,11 +1,13 @@
 """Route module: observability."""
 
+import json
+from typing import Any, Dict, List, Optional
+
 from fastapi import HTTPException
 from starlette.responses import StreamingResponse
+
 from hub import llm_providers as llm_module
 from hub import providers
-from typing import Any, Dict, List, Optional
-import json
 
 try:
     from hub import metrics as metrics_module

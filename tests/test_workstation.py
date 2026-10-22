@@ -9,7 +9,7 @@ import os
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 # Use a temporary database for tests
 _temp_dir = tempfile.mkdtemp()
@@ -90,8 +90,8 @@ class TestWorkstationStorage(unittest.TestCase):
         conn.close()
 
     def test_save_and_get(self):
-        from hub.workstation.models import Workstation
         from hub.workstation import storage
+        from hub.workstation.models import Workstation
         ws = Workstation(name="test-ws", description="test")
         storage.save_workstation(ws)
         retrieved = storage.get_workstation(ws.id)
@@ -105,8 +105,8 @@ class TestWorkstationStorage(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_list_workstations(self):
-        from hub.workstation.models import Workstation
         from hub.workstation import storage
+        from hub.workstation.models import Workstation
         for i in range(3):
             ws = Workstation(name=f"ws-{i}")
             storage.save_workstation(ws)
@@ -114,8 +114,8 @@ class TestWorkstationStorage(unittest.TestCase):
         self.assertEqual(len(result), 3)
 
     def test_list_with_status_filter(self):
-        from hub.workstation.models import Workstation, WorkstationStatus
         from hub.workstation import storage
+        from hub.workstation.models import Workstation, WorkstationStatus
         ws1 = Workstation(name="running", status=WorkstationStatus.RUNNING.value)
         ws2 = Workstation(name="stopped", status=WorkstationStatus.STOPPED.value)
         storage.save_workstation(ws1)
@@ -125,8 +125,8 @@ class TestWorkstationStorage(unittest.TestCase):
         self.assertEqual(running[0].name, "running")
 
     def test_delete_workstation(self):
-        from hub.workstation.models import Workstation
         from hub.workstation import storage
+        from hub.workstation.models import Workstation
         ws = Workstation(name="to-delete")
         storage.save_workstation(ws)
         deleted = storage.delete_workstation(ws.id)
@@ -134,8 +134,8 @@ class TestWorkstationStorage(unittest.TestCase):
         self.assertIsNone(storage.get_workstation(ws.id))
 
     def test_update_status(self):
-        from hub.workstation.models import Workstation, WorkstationStatus
         from hub.workstation import storage
+        from hub.workstation.models import Workstation, WorkstationStatus
         ws = Workstation(name="status-test")
         storage.save_workstation(ws)
         storage.update_workstation_status(ws.id, WorkstationStatus.RUNNING.value)
@@ -144,8 +144,8 @@ class TestWorkstationStorage(unittest.TestCase):
         self.assertIsNotNone(retrieved.started_at)
 
     def test_count_workstations(self):
-        from hub.workstation.models import Workstation, WorkstationStatus
         from hub.workstation import storage
+        from hub.workstation.models import Workstation, WorkstationStatus
         ws1 = Workstation(name="c1", status=WorkstationStatus.RUNNING.value)
         ws2 = Workstation(name="c2", status=WorkstationStatus.STOPPED.value)
         storage.save_workstation(ws1)
@@ -154,8 +154,8 @@ class TestWorkstationStorage(unittest.TestCase):
         self.assertEqual(storage.count_workstations(WorkstationStatus.RUNNING.value), 1)
 
     def test_config_persistence(self):
-        from hub.workstation.models import Workstation, WorkstationConfig
         from hub.workstation import storage
+        from hub.workstation.models import Workstation, WorkstationConfig
         cfg = WorkstationConfig(image="python:3.12", cpu_limit=2.0, allowed_hosts=["example.com"])
         ws = Workstation(name="config-test", config=cfg)
         storage.save_workstation(ws)
@@ -212,8 +212,8 @@ class TestAccessSetup(unittest.TestCase):
     """Test access setup functions."""
 
     def test_setup_terminal_url(self):
-        from hub.workstation.models import Workstation
         from hub.workstation import access
+        from hub.workstation.models import Workstation
         ws = Workstation(id="ws-test123")
         url = access.setup_terminal(ws)
         self.assertIsNotNone(url)
@@ -295,7 +295,7 @@ class TestLifecycleSimulation(unittest.TestCase):
         driver._docker = None
 
     def test_create_workstation_no_docker(self):
-        from hub.workstation import create_workstation, WorkstationStatus
+        from hub.workstation import WorkstationStatus, create_workstation
         ws = create_workstation(name="test-no-docker")
         self.assertIsNotNone(ws)
         # Should fail gracefully when Docker is unavailable

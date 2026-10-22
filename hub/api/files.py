@@ -1,14 +1,37 @@
 """Route module: files."""
 
-from fastapi import Depends, Form, HTTPException, Request, UploadFile
-from starlette.responses import FileResponse
-from hub.api.core import _verify_token
-from datetime import datetime
-from hub import feature_store
-from typing import Any, Dict, List, Optional
+import logging
+import os
 import threading
 import time
 import uuid
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, Form, HTTPException, Request, UploadFile
+from starlette.responses import FileResponse
+
+from hub import feature_store
+from hub.api.core import _verify_token
+
+logger = logging.getLogger(__name__)
+
+# File store
+_file_store: Dict[str, Dict[str, Any]] = {}
+_file_store_lock = threading.Lock()
+
+# Upload directory
+_UPLOAD_DIR = Path(os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'uploads'))
+_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# Max file size (100MB)
+_MAX_FILE_SIZE = 100 * 1024 * 1024
+
+
+def _audit(action: str, user: str, resource_type: str, resource_id: str, details: str) -> None:
+    """Record an audit log entry."""
+    pass  # Placeholder
 
 
 async def api_upload_file(request: Request, _auth: None = Depends(_verify_token)):
@@ -17,11 +40,11 @@ async def api_upload_file(request: Request, _auth: None = Depends(_verify_token)
     Accepts multipart/form-data with a 'file' field.
     Optional fields: 'run_id' (associate with a run), 'description'.
     """
-    from multipart import MultipartParser
     import io
 
     # Use FastAPI's built-in file upload
-    from fastapi import UploadFile, Form
+    from fastapi import Form, UploadFile
+    from multipart import MultipartParser
 
     # Parse multipart manually since we can't use UploadFile in this signature
     body = await request.body()

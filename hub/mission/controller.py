@@ -14,20 +14,20 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from hub.mission import storage as mission_storage
 from hub.mission.models import (
     AutonomyLevel,
     FeatureRole,
     FeatureStatus,
+    MilestoneStatus,
     Mission,
     MissionCheckpoint,
     MissionFeature,
     MissionMilestone,
-    MilestoneStatus,
     MissionStatus,
     ValidationContract,
     ValidationResult,
 )
-from hub.mission import storage as mission_storage
 
 logger = logging.getLogger(__name__)
 

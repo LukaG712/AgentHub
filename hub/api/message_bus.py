@@ -1,13 +1,38 @@
 """Route module: message_bus."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _feature_flags, _feature_flags_lock, _message_bus, _message_bus_lock, _verify_token
-from datetime import datetime
-from hub import feature_store
-from typing import Any, Dict, List, Optional
+import logging
+import os
 import threading
 import time
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import feature_store
+from hub.api.core import _feature_flags, _feature_flags_lock, _message_bus, _message_bus_lock, _verify_token
+
+logger = logging.getLogger(__name__)
+
+# Message subscribers
+_message_subscribers: Dict[str, List[Dict[str, Any]]] = {}
+_message_subscribers_lock = threading.Lock()
+
+
+async def _publish_message(topic: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Publish a message to a topic."""
+    message = {
+        "id": f"msg-{uuid.uuid4().hex[:8]}",
+        "topic": topic,
+        "payload": payload,
+        "timestamp": datetime.now().isoformat(),
+    }
+    with _message_bus_lock:
+        if topic not in _message_bus:
+            _message_bus[topic] = []
+        _message_bus[topic].append(message)
+    return {"message": message}
 
 
 async def api_publish_message(body: Dict[str, Any], _auth: None = Depends(_verify_token)):

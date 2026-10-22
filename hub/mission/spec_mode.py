@@ -11,21 +11,19 @@ Key concepts:
 - Persistent spec store: Specs are stored for queryable history.
 """
 
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Optional
-from uuid import uuid4
-
 import json
 import os
 import sqlite3
 import threading
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
+from typing import Any, Optional
+from uuid import uuid4
 
-from hub.mission.models import Mission, MissionMilestone, MissionFeature, ValidationContract
 from hub.mission import storage as mission_storage
-
+from hub.mission.models import Mission, MissionFeature, MissionMilestone, ValidationContract
 
 # ─── Models ──────────────────────────────────────────────────────────────────
 

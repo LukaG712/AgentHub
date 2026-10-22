@@ -1,13 +1,28 @@
 """Route module: notifications."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _analytics, _analytics_lock, _notification_channels, _notification_channels_lock, _verify_token
-from datetime import datetime
-from hub import feature_store
-from typing import Any, Dict, List, Optional
+import logging
 import threading
 import time
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import feature_store
+from hub.api.core import _analytics, _analytics_lock, _notification_channels, _notification_channels_lock, _verify_token
+
+logger = logging.getLogger(__name__)
+
+
+def _send_notification(channel_id: str, message: str) -> None:
+    """Send a notification to a channel."""
+    pass  # Placeholder
+
+
+def _broadcast_notification(message: str) -> None:
+    """Broadcast a notification to all channels."""
+    pass  # Placeholder
 
 
 async def api_create_notification_channel(body: Dict[str, Any], _auth: None = Depends(_verify_token)):

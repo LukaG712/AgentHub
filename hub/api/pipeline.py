@@ -1,15 +1,17 @@
 """Route module: pipeline."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _verify_token
-from hub.config import load_config, save_config, set_primary_bot, validate_name
-from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
-from typing import Any, Dict, List, Optional
 import asyncio
-import httpx
 import json
 import time
 import uuid
+from typing import Any, Dict, List, Optional
+
+import httpx
+from fastapi import Depends, HTTPException
+
+from hub.api.core import _verify_token
+from hub.config import load_config, save_config, set_primary_bot, validate_name
+from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
 
 
 async def api_dashboard(_auth: None = Depends(_verify_token)):
@@ -20,6 +22,7 @@ async def api_dashboard(_auth: None = Depends(_verify_token)):
     """
     import asyncio
     import os
+
     import httpx
 
     async def _Slinker_dashboard():
@@ -103,6 +106,7 @@ async def api_create_pipeline(body: Dict[str, Any], _auth: None = Depends(_verif
     }
     """
     import os
+
     import httpx
 
     steps = body.get("steps", [])
@@ -261,6 +265,7 @@ async def api_unified_search(q: str, _auth: None = Depends(_verify_token)):
     """
     import asyncio
     import os
+
     import httpx
 
     services_param = os.environ.get("SEARCH_SERVICES", "all").lower()
@@ -365,6 +370,7 @@ async def api_batch_execute(body: Dict[str, Any], _auth: None = Depends(_verify_
     }
     """
     import os
+
     import httpx
 
     tasks = body.get("tasks", [])

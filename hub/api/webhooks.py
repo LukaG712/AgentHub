@@ -1,6 +1,17 @@
 """Route module: webhooks."""
 
+import json
+import logging
+import threading
+import time
+import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import httpx
 from fastapi import Depends, HTTPException
+
+from hub import feature_store
 from hub.api.core import (
     _notification_channels,
     _notification_channels_lock,
@@ -12,14 +23,19 @@ from hub.api.core import (
     _webhooks,
     _webhooks_lock,
 )
-from datetime import datetime
-from hub import feature_store
-from typing import Any, Dict, List, Optional
-import httpx
-import json
-import threading
-import time
-import uuid
+
+logger = logging.getLogger(__name__)
+
+# Event types that can trigger webhooks
+_EVENT_TYPES = {
+    "run.completed", "run.failed", "run.started",
+    "schedule.executed", "schedule.failed",
+    "pipeline.completed", "pipeline.failed",
+    "batch.completed", "batch.failed",
+    "agent.created", "agent.deleted",
+    "session.created", "session.deleted",
+    "approval.pending", "approval.approved", "approval.denied",
+}
 
 
 async def api_create_webhook(body: Dict[str, Any], _auth: None = Depends(_verify_token)):
@@ -160,8 +176,8 @@ async def api_test_webhook(webhook_id: str, _auth: None = Depends(_verify_token)
         async with httpx.AsyncClient(timeout=10.0) as client:
             headers = {"Content-Type": "application/json"}
             if webhook.get("secret"):
-                import hmac
                 import hashlib
+                import hmac
                 body_str = json.dumps(test_payload)
                 sig = hmac.new(
                     webhook["secret"].encode(),

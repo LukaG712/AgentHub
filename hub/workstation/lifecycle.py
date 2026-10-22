@@ -9,15 +9,14 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from hub.workstation import access as access_module
+from hub.workstation import driver, network_policy, storage
 from hub.workstation.models import (
     Workstation,
     WorkstationAccess,
     WorkstationConfig,
     WorkstationStatus,
 )
-from hub.workstation import driver, storage
-from hub.workstation import network_policy
-from hub.workstation import access as access_module
 
 logger = logging.getLogger(__name__)
 

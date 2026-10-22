@@ -30,12 +30,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from hub import agents, coordinator, memory, obsidian, ollama, providers, remote, skills
+from hub import agents, coordinator, feature_store, memory, obsidian, ollama, providers, remote, skills
 from hub import routines as routines_engine
 from hub.config import load_config, save_config, set_primary_bot, validate_name
-from hub.logging_config import setup_structured_logging, get_logger, RequestIDFilter
-from hub import feature_store
 from hub.gobber_client import gobber_client
+from hub.logging_config import RequestIDFilter, get_logger, setup_structured_logging
 from hub.runner import (
     Run,
     agent_status,

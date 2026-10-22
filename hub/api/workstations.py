@@ -8,29 +8,29 @@ Provides the REST API for workstation management:
 - Network policy management
 """
 
-from fastapi import Depends, HTTPException, Query
 from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException, Query
 
 from hub.api.core import _verify_token
 from hub.workstation import (
     Workstation,
     WorkstationConfig,
     WorkstationStatus,
-    storage,
     create_workstation,
+    destroy_workstation,
+    exec_in_workstation,
+    get_workstation,
+    get_workstation_health,
+    get_workstation_logs,
+    get_workstation_stats,
+    list_workstations,
+    network_policy,
     start_workstation,
     stop_workstation,
-    destroy_workstation,
-    get_workstation_health,
-    list_workstations,
-    get_workstation,
-    get_workstation_logs,
-    exec_in_workstation,
-    get_workstation_stats,
+    storage,
 )
-from hub.workstation import network_policy
 from hub.workstation import access as access_module
-
 
 # ─── Workstation CRUD ────────────────────────────────────────────────────────
 

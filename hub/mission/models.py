@@ -9,7 +9,7 @@ Defines the core entities for the Factory-inspired mission system:
 - MissionCheckpoint: Snapshot of mission state for recovery.
 """
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional

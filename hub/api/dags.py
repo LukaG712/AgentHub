@@ -1,15 +1,28 @@
 """Route module: dags."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _tenant_resources, _tenant_resources_lock, _tenants, _tenants_lock, _verify_token
-from datetime import datetime
-from hub import feature_store
-from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
-from typing import Any, Dict, List, Optional
 import asyncio
+import logging
 import threading
 import time
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import feature_store
+from hub.api.core import _tenant_resources, _tenant_resources_lock, _tenants, _tenants_lock, _verify_token
+from hub.runner import Run, agent_status, get_run, list_runs, recover_stale_runs, run_agent, stop_run
+
+logger = logging.getLogger(__name__)
+
+# DAG task store
+_dag_tasks: Dict[str, Dict[str, Any]] = {}
+_dag_tasks_lock = threading.Lock()
+
+# DAG execution history
+_dag_executions: Dict[str, Dict[str, Any]] = {}
+_dag_executions_lock = threading.Lock()
 
 
 async def api_create_dag(body: Dict[str, Any], _auth: None = Depends(_verify_token)):

@@ -19,6 +19,9 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+import httpx
+
+from hub.workflow import storage
 from hub.workflow.models import (
     ApprovalStatus,
     RunStatus,
@@ -30,7 +33,6 @@ from hub.workflow.models import (
     WorkflowStep,
     WorkflowStepRun,
 )
-from hub.workflow import storage
 
 logger = logging.getLogger("hub.workflow.executor")
 
@@ -529,13 +531,25 @@ class WorkflowExecutor:
 
         # Import workstation module
         from hub.workstation import (
-            create_workstation as ws_create,
-            start_workstation as ws_start,
-            stop_workstation as ws_stop,
-            destroy_workstation as ws_destroy,
-            exec_in_workstation as ws_exec,
-            get_workstation as ws_get,
             WorkstationConfig,
+        )
+        from hub.workstation import (
+            create_workstation as ws_create,
+        )
+        from hub.workstation import (
+            destroy_workstation as ws_destroy,
+        )
+        from hub.workstation import (
+            exec_in_workstation as ws_exec,
+        )
+        from hub.workstation import (
+            get_workstation as ws_get,
+        )
+        from hub.workstation import (
+            start_workstation as ws_start,
+        )
+        from hub.workstation import (
+            stop_workstation as ws_stop,
         )
 
         ws_name = config.get("name", step.name or f"workflow-ws-{run.id}")
@@ -724,7 +738,7 @@ class WorkflowExecutor:
                 run.step_runs[idx].completed_at = datetime.now(timezone.utc).isoformat()
                 raise RuntimeError("Approval denied")
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             approval.status = ApprovalStatus.EXPIRED.value
             approval.resolved_at = datetime.now(timezone.utc).isoformat()
             storage.save_workflow_approval(approval)

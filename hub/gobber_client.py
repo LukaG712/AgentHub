@@ -5,8 +5,8 @@ All calls include graceful fallback when Gobber is unavailable, so Greenie
 continues to operate with local in-memory stores as a backup.
 """
 
-import os
 import logging
+import os
 from typing import Any, Optional
 
 import httpx

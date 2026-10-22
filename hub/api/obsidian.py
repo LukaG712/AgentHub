@@ -1,11 +1,13 @@
 """Route module: obsidian."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _verify_token
-from hub import memory, obsidian
-from hub.config import load_config
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import memory, obsidian
+from hub.api.core import _verify_token
+from hub.config import load_config
 
 
 def _get_obsidian_vault() -> Optional[obsidian.ObsidianVault]:

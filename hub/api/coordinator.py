@@ -1,10 +1,12 @@
 """Route module: coordinator."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _verify_token
-from hub import coordinator
-from typing import Any, Dict, List, Optional
 import uuid
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import coordinator
+from hub.api.core import _verify_token
 
 
 async def api_create_coordinator(

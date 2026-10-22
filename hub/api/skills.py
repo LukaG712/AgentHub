@@ -1,9 +1,11 @@
 """Route module: skills."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _verify_token
-from hub import skills
 from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import skills
+from hub.api.core import _verify_token
 
 
 async def api_list_skills(_auth: None = Depends(_verify_token)):

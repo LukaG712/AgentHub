@@ -1,12 +1,12 @@
 """Route module: bots."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _verify_token
-from hub import agents
-from hub import bot_memory
-from hub import memory
-from hub.config import load_config, save_config, set_primary_bot, validate_name
 from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import agents, bot_memory, memory
+from hub.api.core import _verify_token
+from hub.config import load_config, save_config, set_primary_bot, validate_name
 
 
 async def api_pause_bot(bot_id: str, _auth: None = Depends(_verify_token)):

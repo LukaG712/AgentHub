@@ -1,9 +1,11 @@
 """Route module: app."""
 
-from fastapi import Depends, HTTPException
-from hub.api.core import _verify_token
-from hub import app as app_module
 from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException
+
+from hub import app as app_module
+from hub.api.core import _verify_token
 
 
 async def api_list_tasks(_auth: None = Depends(_verify_token)):

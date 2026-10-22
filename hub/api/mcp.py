@@ -1,6 +1,7 @@
 """MCP server API routes for Greenie."""
 
 import logging
+from dataclasses import asdict
 from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException

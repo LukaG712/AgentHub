@@ -20,8 +20,7 @@ Usage:
 
 import os
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Dict, Any, List, Optional
-
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 # ─── Base Interface ──────────────────────────────────────────────────────────
 
@@ -83,8 +82,9 @@ class OllamaProvider(LLMProvider):
             return resp.json().get("message", {}).get("content", "")
 
     async def stream(self, prompt: str, system: Optional[str] = None, **kwargs) -> AsyncIterator[str]:
-        import httpx
         import json as json_mod
+
+        import httpx
         url = os.environ.get("OLLAMA_URL", "http://localhost:11434").rstrip("/")
         model = os.environ.get("OLLAMA_MODEL", "gemma4:12b")
 
@@ -151,8 +151,9 @@ class OpenAIProvider(LLMProvider):
         model = os.environ.get("OPENAI_MODEL", "gpt-4o")
         base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
 
-        import httpx
         import json as json_mod
+
+        import httpx
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -289,8 +290,9 @@ class GoogleAIProvider(LLMProvider):
         model = os.environ.get("GOOGLE_MODEL", "gemini-2.0-flash")
         base_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent?key={api_key}"
 
-        import httpx
         import json as json_mod
+
+        import httpx
         parts = [{"text": prompt}]
         if system:
             parts.insert(0, {"text": f"System: {system}"})

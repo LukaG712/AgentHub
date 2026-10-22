@@ -25,7 +25,6 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
-
 # ─── Singleton Tracer ────────────────────────────────────────────────────────
 
 _tracer: Optional[trace.Tracer] = None
@@ -59,8 +58,8 @@ def setup_tracing(app: Optional[FastAPI] = None) -> trace.TracerProvider:
     })
 
     # ─── Provider ────────────────────────────────────────────────────────
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
     sampler = ParentBasedTraceIdRatio(sample_ratio)
     provider = TracerProvider(resource=resource, sampler=sampler)

@@ -8,22 +8,22 @@ Provides the REST API for the mission control system:
 - Statistics
 """
 
+from typing import Any, Dict, Optional
+
 from fastapi import Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from typing import Any, Dict, Optional
 
 from hub.api.core import _verify_token
 from hub.mission import analytics as mission_analytics
 from hub.mission import controller
 from hub.mission import sse as mission_sse
+from hub.mission import storage as mission_storage
 from hub.mission.models import (
     Mission,
     MissionStatus,
     ValidationResult,
     ValidationSeverity,
 )
-from hub.mission import storage as mission_storage
-
 
 # ─── Mission CRUD ────────────────────────────────────────────────────────────
 

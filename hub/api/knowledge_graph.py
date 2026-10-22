@@ -4,11 +4,13 @@ Provides API endpoints for the Knowledge Graph — vector-based semantic memory.
 Supports semantic search, indexing, graph management, and configuration.
 """
 
-from fastapi import Depends, HTTPException, Query
-from hub.api.core import _verify_token
-from hub import knowledge_graph
-from typing import Any, Dict, List, Optional
 import time
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, HTTPException, Query
+
+from hub import knowledge_graph
+from hub.api.core import _verify_token
 
 
 async def api_kg_search(

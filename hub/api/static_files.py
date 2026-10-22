@@ -1,15 +1,18 @@
 """Route module: static_files."""
 
-from fastapi import HTTPException
-from starlette.responses import FileResponse
-from hub.api.core import _STATIC_DIR, _webhooks, _webhooks_lock
-from datetime import datetime
-from typing import Any, Dict, List, Optional
 import asyncio
-import httpx
 import json
+import logging
 import threading
 import time
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import httpx
+from fastapi import HTTPException
+from starlette.responses import FileResponse
+
+from hub.api.core import _STATIC_DIR, _webhooks, _webhooks_lock
 
 
 async def serve_app():
@@ -82,8 +85,8 @@ def _emit_event(event_type: str, data: Dict[str, Any]) -> None:
                     headers = {"Content-Type": "application/json"}
                     if target.get("secret"):
                         # Simple HMAC signature
-                        import hmac
                         import hashlib
+                        import hmac
                         body = json.dumps(payload)
                         sig = hmac.new(
                             target["secret"].encode(),

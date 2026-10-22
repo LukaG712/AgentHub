@@ -1,9 +1,11 @@
 """Route module: audit."""
 
-from fastapi import Depends
-from hub.api.core import _audit_log, _audit_log_lock, _templates, _templates_lock, _verify_token
-from typing import Any, Dict, List, Optional
 import threading
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends
+
+from hub.api.core import _audit_log, _audit_log_lock, _templates, _templates_lock, _verify_token
 
 
 async def api_list_audit(

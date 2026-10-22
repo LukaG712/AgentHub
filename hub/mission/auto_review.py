@@ -8,11 +8,11 @@ import json
 import logging
 import subprocess
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
-from hub.mission.models import ValidationSeverity, ValidationResult
+from hub.mission.models import ValidationResult, ValidationSeverity
 
 logger = logging.getLogger(__name__)
 
