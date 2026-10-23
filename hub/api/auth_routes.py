@@ -11,7 +11,7 @@ Provides endpoints for:
 import logging
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Body, Cookie, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Body, Cookie, Depends, HTTPException, Query, Request, Response
 
 from hub.api.auth import (
     change_password,
@@ -22,6 +22,7 @@ from hub.api.auth import (
     login,
     logout,
     require_admin,
+    require_auth,
     update_user,
 )
 from hub.logging_config import get_logger

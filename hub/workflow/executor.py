@@ -215,10 +215,9 @@ class WorkflowExecutor:
                         run.error = f"Step {step.name} failed: {last_exception}"
                         break
 
-                finally:
-                    step_duration = time.time() - start_time
-                    run.step_runs[i].duration_seconds = round(step_duration, 2)
-                    storage.save_workflow_run(run)
+                step_duration = time.time() - start_time
+                run.step_runs[i].duration_seconds = round(step_duration, 2)
+                storage.save_workflow_run(run)
 
             # Mark run as completed if not already failed/cancelled
             if run.status == RunStatus.RUNNING.value:
@@ -410,10 +409,9 @@ class WorkflowExecutor:
             run.step_runs[i].error = str(last_exception)[:2000]
             run.step_runs[i].completed_at = datetime.now(timezone.utc).isoformat()
 
-        finally:
-            step_duration = time.time() - (getattr(run, "_start_time", None) or time.time())
-            run.step_runs[i].duration_seconds = round(step_duration, 2)
-            storage.save_workflow_run(run)
+        step_duration = time.time() - (getattr(run, "_start_time", None) or time.time())
+        run.step_runs[i].duration_seconds = round(step_duration, 2)
+        storage.save_workflow_run(run)
 
     async def _execute_agent(self, step: WorkflowStep, context: dict[str, Any]) -> dict[str, Any]:
         """Execute an agent step by running a Greenie agent."""
